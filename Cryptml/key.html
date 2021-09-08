@@ -363,7 +363,6 @@ const skadoosh = () => {
   const input = document.querySelector(".input");
   const inputText = input.value;
   let processed = "";
-  pin = pin.slice(0, 4);
   if(settingEncrypt) {
     processed = encrypt(
       inputText, KEY, pin
