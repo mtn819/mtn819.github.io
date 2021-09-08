@@ -31,6 +31,21 @@ const toCharCode = char => {
   return char.charCodeAt(0);
 }
 
+const fromCharCode = charCode => {
+  const start = 32;
+  const end = 127;
+  const range = end - start;
+  index = charCode;
+  while(index < start){
+    index += range;
+
+  }
+  while(index > end) {
+    index -= range;
+  }
+  return String.fromCharCode(index);
+}
+
 const getCircle = (items, i) => {
   return items[i%items.length];
 }
@@ -110,7 +125,7 @@ const encrypt_const = (str, encryptr) => {
   for(let i = 0; i < str.length; i++){
     const char = str[i];
     const modifier = getCircle(encryptr, i);
-    const char_encrypted = String.fromCharCode(toCharCode(char) + toCharCode(modifier));
+    const char_encrypted = fromCharCode(toCharCode(char) + toCharCode(modifier));
     encrypted += char_encrypted;
   }
   return encrypted;
@@ -121,7 +136,7 @@ const decrypt_const = (str, encryptr) => {
   for(let i = 0; i < str.length; i++){
     const char = str[i];
     const modifier = getCircle(encryptr, i);
-    const char_decrypted = String.fromCharCode(toCharCode(char) - toCharCode(modifier));
+    const char_decrypted = fromCharCode(toCharCode(char) - toCharCode(modifier));
     decrypted += char_decrypted;
   }
   return decrypted;
