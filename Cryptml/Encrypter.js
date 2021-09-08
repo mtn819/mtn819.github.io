@@ -148,7 +148,7 @@ const decrypt_const = (str, encryptr) => {
 
 const genEncryptrs = charset => {
   const encryptrs_const = [];
-  for(let i = 0; i < 9; i++){
+  for(let i = 0; i <= 9; i++){
     encryptrs_const.push(getEncryptr_const(charset));
   }
 
@@ -168,7 +168,7 @@ const encrypt = (str, encryptrs, pin=[]) => {
   // apply const encryption
   const consts = encryptrs.const;
   for(let i = 0; i < pin.length; i++){
-    encryptr = consts[i];
+    encryptr = consts[pin[i]];
     str_copy = encrypt_const(str_copy, encryptr);
   }
 
@@ -185,7 +185,7 @@ const decrypt = (str, encryptrs, pin=[]) => {
   // reverse const encryption
   const consts = encryptrs.const;
   for(let i = pin.length-1; i >= 0; i--){
-    encryptr = consts[i];
+    encryptr = consts[pin[i]];
     str_copy = decrypt_const(str_copy, encryptr);
   }
 

@@ -191,6 +191,7 @@ const toCharCode = char => {
 }
 
 const getCircle = (items, i) => {
+  if(items===undefined) { return ""; } //it was crashing stuff HARDDD
   return items[i%items.length];
 }
 
@@ -293,12 +294,12 @@ const encrypt = (str, encryptrs, pin=[]) => {
   // apply const encryption
   const consts = encryptrs.const;
   for(let i = 0; i < pin.length; i++){
-    encryptr = consts[i];
+    encryptr = consts[pin[i]];
     str_copy = encrypt_const(str_copy, encryptr);
   }
 
   // parenthesis for easy copy paste
-  str_copy = "(" + str_copy + ")";
+  str_copy = "("+str_copy+")";
 
   return str_copy;
 }
@@ -310,7 +311,7 @@ const decrypt = (str, encryptrs, pin=[]) => {
   // reverse const encryption
   const consts = encryptrs.const;
   for(let i = pin.length-1; i >= 0; i--){
-    encryptr = consts[i];
+    encryptr = consts[pin[i]];
     str_copy = decrypt_const(str_copy, encryptr);
   }
 
