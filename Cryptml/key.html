@@ -212,6 +212,23 @@ const fromCharCode = (charCode, start=32, end=127) => {
 //  TABLE
 //
 
+const getEncryptr_table = decryptr => {
+  const keys = Object.keys(decryptr);
+  const encryptr = {};
+
+  for(let i = 0; i < keys.length; i++){
+    const k = keys[i];
+    const v = decryptr[k];
+    if(encryptr.hasOwnProperty(v)){
+      encryptr[v].push(k);
+    } else {
+      encryptr[v] = [k];
+    }
+  }
+
+  return encryptr;
+}
+
 const encrypt_table = (str, decryptr) => {
   const encryptr = getEncryptr_table(decryptr);
   let encryption = "";
@@ -266,23 +283,6 @@ const decrypt_const = (str, encryptr) => {
 //
 //  BOTH
 //
-
-const getEncryptr_table = decryptr => {
-  const keys = Object.keys(decryptr);
-  const encryptr = {};
-
-  for(let i = 0; i < keys.length; i++){
-    const k = keys[i];
-    const v = decryptr[k];
-    if(encryptr.hasOwnProperty(v)){
-      encryptr[v].push(k);
-    } else {
-      encryptr[v] = [k];
-    }
-  }
-
-  return encryptr;
-}
 
 const encrypt = (str, encryptrs, pin=[]) => {
   let str_copy = "" + str;
