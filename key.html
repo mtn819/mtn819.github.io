@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cryptml</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Besley&display=swap');
+
+  :root {
+    font-size: min(calc(100vw/400), 1px);
+    --themeColorDarkPurple: #2E1C2B;
+    --themeColorPlatinum: #EAEAEA;
+    --themeColorLightPurple: #893168;
+    --themeFontGothic: 'Dela Gothic One', cursive;
+    --themeFontBesley: 'Besley', serif;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    font-size: 16rem;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--themeColorPlatinum);
+  }
+
+  .main {
+    width: 400rem;
+    background-color: white;
+    border-radius: 10rem;
+    box-shadow: 0 3rem 10rem rgb(0 0 0 / 0.2);
+  }
+
+  .header {
+    width: 400rem;
+    background-color: var(--themeColorDarkPurple);
+    border-top-left-radius: 10rem;
+    border-top-right-radius: 10rem;
+    height: 69rem;
+    font-family: var(--themeFontGothic);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24rem;
+    font-size: 32rem;
+    color: var(--themeColorPlatinum)
+  }
+
+  .setting {
+    width: 340rem;
+    margin-left: 30rem;
+    margin-bottom: 24rem;
+    height: 32rem;
+    font-family: var(--themeFontBesley);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 4rem;
+    padding-right: 4rem;
+  }
+
+  .input {
+    outline: none;
+    width: 340rem;
+    margin-left: 30rem;
+    height: 170rem;
+    border-radius: 6rem;
+    margin-bottom: 24rem;
+    font-family: var(--themeFontBesley);
+  }
+
+  .input:active, .input:focus {
+    border: 1px solid lightblue;
+  }
+
+  .numpad {
+    display: flex;
+    flex-wrap: wrap;
+    width: 340rem;
+    margin-left: 30rem;
+    justify-content: center;
+    margin-bottom: 24rem;
+  }
+
+  @keyframes buttonpress {
+    0% { background-color: white; }
+    100% { background-color: var(--themeColorPlatinum); }
+  }
+
+  .numpad button {
+    width: 50rem;
+    height: 50rem;
+    margin-right: 10rem;
+    margin-bottom: 10rem;
+    background-color: var(--themeColorPlatinum);
+    border-radius: 10rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--themeFontBesley);
+    font-size: 25rem;
+  }
+
+  .numpad--pressed {
+    animation-name: buttonpress;
+    animation-duration: .5s;
+  }
+
+  .copy {
+    margin-left: 50rem;
+    width: 300rem;
+    background-color: var(--themeColorDarkPurple);
+    height: 64rem;
+    border-radius: 12rem;
+    font-family: var(--themeFontBesley);
+    color: white;
+    display: flex;
+    align-items: center;
+    margin-bottom: 24px;
+    box-shadow: 0 3rem 10rem rgb(0 0 0 / 0.2);
+  }
+
+  .copy_icon {
+    margin-right: 12rem;
+    margin-left: 8rem;
+    border-radius: 999px;
+  }
+
+  .copy_container {
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="main">
+  <div class="header">Cryptml</div>
+  <button type="button" class="setting" onclick=switchSetting()>Setting (click to change):<span class="setting_setting">?</span></button>
+  <textarea class="input" placeholder="Enter Text Here"></textarea>
+  <div class="numpad">
+    <!--TO BE POPULATED-->
+  </div>
+  <button onclick=skadoosh() type="button" class="copy">
+    <div class="copy_icon">🧮✏️</div>
+    <div class="copy_container">
+      <span class="copy_setting">?</span> AND<br>
+      COPY TO CLIPBOARD
+    </div>
+  </button>
+</div>
+
+<script>
+
+//
+//  HELPERS
+//
+
+const copy = items => [...items];
+
+// https://stackoverflow.com/questions/5915096/get-a-random-item-from-a-javascript-array
+const randIndex = items => Math.floor(Math.random()*items.length);
+const randEl = items => items[randIndex(items)];
+
+const swap_inplace = (items, i, j) => {
+  const temp = items[i];
+  items[i] = items[j];
+  items[j] = temp;
+}
+
+const scramble_inplace = items => {
+  for(let i = 0; i < items.length; i++){
+    const j = randIndex(items);
+    swap_inplace(items, i, j);
+  }
+}
+
+const scramble = items => {
+  const items_copy = copy(items);
+  scramble_inplace(items_copy);
+  return items_copy;
+}
+
+const toCharCode = char => {
+  return char.charCodeAt(0);
+}
+
+const getCircle = (items, i) => {
+  return items[i%items.length];
+}
+
+//
+//  TABLE
+//
+
+const encrypt_table = (str, decryptr) => {
+  const encryptr = getEncryptr_table(decryptr);
+  let encryption = "";
+  
+  for(let i = 0; i < str.length; i++){
+    const char = str[i];
+    const char_encrypted = randEl(encryptr[char]);
+    encryption += char_encrypted;
+  }
+
+  // add parenthesis for clear copy&paste
+  return encryption;
+}
+
+const decrypt_table = (str, decryptr) => {
+  let decryption = "";
+
+  for(let i = 0; i < str.length; i+=2){
+    const k = str[i] + "" + str[i+1];
+    decryption += decryptr[k];
+  }
+
+  return decryption;
+}
+
+//
+//  CONST
+//
+
+const encrypt_const = (str, encryptr) => {
+  let encrypted = "";
+  for(let i = 0; i < str.length; i++){
+    const char = str[i];
+    const modifier = getCircle(encryptr, i);
+    const char_encrypted = String.fromCharCode(toCharCode(char) + toCharCode(modifier));
+    encrypted += char_encrypted;
+  }
+  return encrypted;
+}
+
+const decrypt_const = (str, encryptr) => {
+  let decrypted = "";
+  for(let i = 0; i < str.length; i++){
+    const char = str[i];
+    const modifier = getCircle(encryptr, i);
+    const char_decrypted = String.fromCharCode(toCharCode(char) - toCharCode(modifier));
+    decrypted += char_decrypted;
+  }
+  return decrypted;
+}
+
+//
+//  BOTH
+//
+
+const getEncryptr_table = decryptr => {
+  const keys = Object.keys(decryptr);
+  const encryptr = {};
+
+  for(let i = 0; i < keys.length; i++){
+    const k = keys[i];
+    const v = decryptr[k];
+    if(encryptr.hasOwnProperty(v)){
+      encryptr[v].push(k);
+    } else {
+      encryptr[v] = [k];
+    }
+  }
+
+  return encryptr;
+}
+
+const encrypt = (str, encryptrs, pin=[]) => {
+  let str_copy = "" + str;
+  
+  // apply table encryption
+  const table = encryptrs.table;
+  str_copy = encrypt_table(str_copy, table);
+
+  // apply const encryption
+  const consts = encryptrs.const;
+  for(let i = 0; i < pin.length; i++){
+    encryptr = consts[i];
+    str_copy = encrypt_const(str_copy, encryptr);
+  }
+
+  // parenthesis for easy copy paste
+  str_copy = "(" + str_copy + ")";
+
+  return str_copy;
+}
+
+const decrypt = (str, encryptrs, pin=[]) => {
+  // remove parenthesis
+  let str_copy = str.slice(1, str.length-1);
+
+  // reverse const encryption
+  const consts = encryptrs.const;
+  for(let i = pin.length-1; i >= 0; i--){
+    encryptr = consts[i];
+    str_copy = decrypt_const(str_copy, encryptr);
+  }
+
+  // reverse table encryption
+  const table = encryptrs.table;
+  str_copy = decrypt_table(str_copy, table);
+
+  return str_copy;
+}
+
+//
+//  HTML MANAGEMENT
+//
+
+// SETTINGS MANAGEMENT
+let settingEncrypt = false;
+const switchSetting = () => {
+  settingEncrypt = !settingEncrypt;
+  if(settingEncrypt){
+    document.querySelector(".setting_setting").innerHTML = "ENCRYPT";
+    document.querySelector(".copy_setting").innerHTML = "ENCRYPT";
+  } else {
+    document.querySelector(".setting_setting").innerHTML = "DECRYPT";
+    document.querySelector(".copy_setting").innerHTML = "DECRYPT";
+  }
+}
+switchSetting();
+
+// POPULATE NUMPAD
+const numpad = document.querySelector(".numpad");
+let numpadInnerHTML = "";
+for(let i of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]){
+  numpadInnerHTML += '<button class="numpad_'+i+'" type="button" onclick="addToPin('+i+')">'+i+'</button>';
+}
+numpad.innerHTML = numpadInnerHTML;
+
+// PIN MANAGEMENT
+let pin = [];
+const addToPin = i => {
+  pin.push(i);
+  const button = document.querySelector(".numpad_"+i)
+  button.classList.add("numpad--pressed");
+  setTimeout(()=>button.classList.remove("numpad--pressed"), 500);
+}
+
+const KEY = {PUTKEYHERE};
+
+// COPY MANAGEMENT
+const skadoosh = () => {
+  const input = document.querySelector(".input");
+  const inputText = input.value;
+  let processed = "";
+  if(settingEncrypt) {
+    processed = encrypt(
+      inputText, KEY, pin
+    )
+  } else {
+    processed = decrypt(
+      inputText, KEY, pin
+    )
+  }
+  navigator.clipboard.writeText(processed);
+  pin = [];
+  input.value = processed;
+
+  alert("Done.");
+}
+
+</script>
+</body>
+</html>
