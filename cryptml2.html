@@ -154,8 +154,8 @@
             // shift_char :: Int -> Char -> Char
             const shift_char = delta => char =>
             {
-                const min = 0;
-                const max = 128;
+                const min = 32;
+                const max = 127;
                 const range = max - min;
 
                 let r;
@@ -376,6 +376,7 @@
             <p>
                 To go the other way, place the setting on "DECRYPT".
                 Use the same offset.
+                Note: character values below 32 and above 126 will be corrupted.
                 To share messages with a friend, there are two good options.
                 The first is to share the specific key you download.
                 The HTML file itself is the key.
@@ -694,7 +695,7 @@
 
         // shift_char
         assert(() => shift_char(2)("a") === "c")
-        assert(() => shift_char(128)("a") === "a");
+        assert(() => shift_char(32-127)("a") === "a");
 
         // _get_delta
         assert(() =>
