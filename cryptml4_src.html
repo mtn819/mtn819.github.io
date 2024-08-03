@@ -164,7 +164,7 @@
                 </li>
             </ol>
             <ul>
-                <li><small>Note: charCodes below 32 and above 126 are unsupported. Newline characters, for instance, will be corrupted.</small></li>
+                <li><small>Note: charCodes below 32 and above 126 are unsupported. Newline characters, for instance, will be unmodified.</small></li>
             </ul>
         </section>
     </main>
@@ -203,6 +203,12 @@
             let r;
 
             r = char.charCodeAt(0);
+
+            if(r < min || r >= max)
+            {
+                return char;
+            }
+
             r -= min;
             r += delta;
             r = mod_neg(r)(range);
@@ -401,7 +407,15 @@ if (TEST)
     });
 
     // shift_char
-    assert(() => shift_char(1)('a') === 'b');
+    assert(() => 'b' === shift_char(1)('a'));
+    assert(() => 
+    {
+        const min = MIN_CHAR_VALUE;
+        const max = MAX_CHAR_VALUE;
+        const range = max - min;
+
+        return 'a' === shift_char(range)('a');
+    })
 
     // sum
     assert(() => 2 === sum([1, 0, 1]));
