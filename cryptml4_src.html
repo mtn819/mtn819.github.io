@@ -222,7 +222,14 @@
         // sum :: [Int] -> Int
         const sum = xs =>
         {
-            return xs.reduce((total, x) => total + x, 0);
+            let r = 0;
+
+            for(let i; i < xs.length; i++)
+            {
+                r += xs[i];
+            }
+
+            return r;
         };
 
         // get_delta :: [[Int]] -> Int -> Int
