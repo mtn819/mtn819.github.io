@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        /*
+        SETTINGS
+        */
+
+        // TEST :: Bool
+        const TEST = true;
+
+        // MIN_CHAR_VALUE :: Int
+        const MIN_CHAR_VALUE = 32;
+
+        // MAX_CHAR_VALUE :: Int
+        const MAX_CHAR_VALUE = 127; // exclusive
+    </script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptml4</title>
+
+    <style>
+        /*
+        GENERAL
+        */
+
+        :root
+        {
+            --color-primary: #384D48;
+            --color-secondary: #ACAD94;
+
+            font-size: calc(8px + 1vw);
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        *
+        {
+            box-sizing: border-box;
+            margin: 0;
+        }
+        
+        body
+        {
+            padding: 2rem;
+            max-width: 40rem;
+            margin: auto;
+        }
+
+        /*
+        PACIFIC
+        */
+
+        .header
+        {
+            margin-bottom: 1rem;
+        }
+
+        .main
+        {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .setting
+        {
+            padding: 0.5rem;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .setting:hover
+        {
+            cursor: pointer;
+        }
+
+        .password
+        {
+            padding: 0.5rem;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .password:focus
+        {
+            border: none;
+            outline: 1px solid var(--color-secondary);
+        }
+
+        .text
+        {
+            padding: 0.5rem;
+            font-size: 1rem;
+            height: 10rem;
+            margin-bottom: 8px;
+            resize: none;
+        }
+
+        .text:focus
+        {
+            border: none;
+            outline: 1px solid var(--color-secondary);
+        }
+
+        .go
+        {
+            padding: 0.5rem;
+            font-size: 1rem;
+            background-color: var(--color-primary);
+            color: white;
+            margin-bottom: 1rem;
+            border: none;
+        }
+
+        .go:hover
+        {
+            cursor: pointer;
+        }
+
+        .about
+        {
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1 class="header_h1">CRYPTML4</h1>
+        <span class="header_hrs">
+            <hr />
+            <hr />
+        </span>
+    </header>
+
+    <main class="main">
+
+        <select class="setting" onchange="change_state()">
+            <option class="setting_option" value="Encrypt" selected>Encrypt</option>
+            <option class="setting_option" value="Decrypt">Decrypt</option>
+        </select>
+
+        <input class="password" placeholder="password" type="password" />
+        
+        <textarea class="text" placeholder="enter text here"></textarea>
+        
+        <button class="go" onclick="go()" type="button">
+            <span class="go_icons">🧮📋</span>
+            <span class="go_state">Encrypt</span>
+            <span class="go_text">and copy text to clipboard</span>
+        </button>
+
+        <section class="about">
+            <h2>How do you use this?</h2>
+            <ol>
+                <li>Check that the setting is on "Encrypt".</li>
+                <li>Enter a password.</li>
+                <li>Enter the text you wish to encrypt.</li>
+                <li>Click "Encrypt and copy text to clipboard".</li>
+                <li>Send the encrypted message to a friend.</li>
+                <li>
+                    With the same password, and the setting on "Decrypt",
+                    they will be able to decrypt your message on this
+                    very same site.
+                </li>
+            </ol>
+            <ul>
+                <li><small>Note: charCodes below 32 and above 126 are unsupported. Newline characters, for instance, will be corrupted.</small></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <hr />
+        <small>mtneugebauer1998@gmail.com</small>
+    </footer>
+
+    <script>
+        // mod_neg :: Int -> Int -> Int
+        const mod_neg = top => bot =>
+        {
+            let r;
+
+            r = top % bot;
+            r += bot;
+            r %= bot;
+
+            return r;
+        };
+
+        // cycle :: [a] -> Int -> a
+        const cycle = xs => i =>
+        {
+            const new_i = mod_neg(i)(xs.length);
+            return xs[new_i];
+        };
+
+        // shift_char :: Int -> Char -> Char
+        const shift_char = delta => char => {
+            const min = MIN_CHAR_VALUE;
+            const max = MAX_CHAR_VALUE;
+            const range = MAX_CHAR_VALUE - MIN_CHAR_VALUE;
+
+            let r;
+
+            r = char.charCodeAt(0);
+            r -= min;
+            r += delta;
+            r = mod_neg(r)(range);
+            r += min;
+            r = String.fromCharCode(r);
+
+            return r;
+        };
+
+        // sum :: [Int] -> Int
+        const sum = xs =>
+        {
+            return xs.reduce((total, x) => total + x, 0);
+        };
+
+        // get_delta :: [[Int]] -> Int -> Int
+        const get_delta = key => i =>
+        {
+            let r;
+
+            r = key.map(k => cycle(k)(i));
+            r = sum(r);
+
+            return r;
+        };
+
+        // encrypt_offset :: [[Int]] -> Int -> String -> String
+        const encrypt_offset = key => offset => text =>
+        {
+            let r = "";
+
+            for(let i = 0; i < text.length; i++)
+            {
+                let r_i;
+
+                r_i = get_delta(key)(i + offset);
+                r_i = shift_char(r_i)(text[i]);
+
+                r += r_i;
+            }
+
+            return r;
+        };
+
+        // negate_list :: [[Int]] -> [[Int]]
+        const negate_list = xs =>
+        {
+            return xs.map(x => -x);
+        };
+
+        // negate_key :: [[Int]] -> [[Int]]
+        const negate_key = key =>
+        {
+            return key.map(negate_list);
+        };
+
+        // password_to_offsets :: String -> [Int]
+        const password_to_offsets = password =>
+        {
+            const min = MIN_CHAR_VALUE || 127;
+            const max = MAX_CHAR_VALUE || 32;
+            const range = max - min;
+
+            let r = [];
+
+            for(let i = 0; i < password.length; i++)
+            {
+                let r_i;
+
+                r_i = password[i];
+                r_i = r_i.charCodeAt(0);
+                r_i += i * range;
+
+                r.push(r_i);
+            }
+
+            return r;
+        };
+
+        // encrypt :: [[Int]] -> String -> String -> String
+        const encrypt = key => password => text =>
+        {
+            const offsets = password_to_offsets(password);
+
+            let r;
+
+            r = encrypt_offset(key)(0)(text);
+
+            for(let i = 0; i < offsets.length; i++)
+            {
+                r = encrypt_offset(key)(offsets[i])(r);
+            }
+            
+            return r;
+        };
+
+        // decrypt :: [[Int]] -> String -> String -> String
+        const decrypt = key => password => text =>
+        {
+            let r;
+
+            r = negate_key(key);
+            r = encrypt(r)(password)(text);
+
+            return r;
+        }
+
+        /*
+        UI
+        */
+
+        // $ :: String -> HTMLElement
+        const $ = selector =>
+        {
+            return document.querySelector(selector);
+        }
+
+        // KEY :: [[Int]]
+        const KEY = [[1], [2, 3]];
+
+        // change_state :: () -> ()
+        const change_state = () =>
+        {
+            const state = $(".setting").value;
+            $(".go_state").innerHTML = state;
+        }
+
+        // go :: () -> ()
+        const go = () =>
+        {
+            const key = KEY;
+            const state = $(".setting").value;
+            const password = $(".password").value;
+
+            let r = $(".text").value;
+
+            if(state === "Encrypt")
+            {
+                r = encrypt(key)(password)(r);
+            }
+            else // state === "Decrypt"
+            {
+                r = decrypt(key)(password)(r);
+            }
+
+            $(".text").value = r;
+            navigator.clipboard.writeText(r);
+
+            alert("Done!");
+        }
+    </script>
+</body>
+</html>
+
+<script>
+
+// arrays_eq :: [a] -> [b] -> Bool
+const arrays_eq = xs => ys =>
+{
+    return JSON.stringify(xs) === JSON.stringify(ys);
+}
+
+// assert :: (() -> Bool) -> ()
+const assert = f =>
+{
+    const result = f();
+
+    if(result === undefined)
+    {
+        console.log(`ASSERTION UNDEFINED:\n${f}`);
+    }
+
+    if(result === false)
+    {
+        console.log(`ASSERTION FAILED:\n${f}`);
+    }
+}
+
+if (TEST)
+{
+    // assert
+    assert(() => 2 === 1 + 1);
+
+    // arrays_eq
+    assert(() => arrays_eq([1])([1]));
+
+    // mod_neg
+    assert(() => 4 === mod_neg(-1)(5));
+
+    // cycle
+    assert(() =>
+    {
+        const xs = [1, 2];
+
+        return 2 === cycle(xs)(-1);
+    });
+
+    // shift_char
+    assert(() => shift_char(1)('a') === 'b');
+
+    // sum
+    assert(() => 2 === sum([1, 0, 1]));
+
+    // get_delta
+    assert(() =>
+    {
+        const key = [[1, 2], [2, 3, 4]];
+        
+        return 6 === get_delta(key)(-1);
+    });
+
+    // encrypt_offset
+    assert(() =>
+    {
+        const key = [[1], [1, 2]];
+        const text = "AAA";
+        
+        return "CDC" === encrypt_offset(key)(0)(text);
+    });
+
+    // negate_list
+    assert(() => 
+    {
+        const xs = [1, 2];
+
+        const expected = [-1, -2];
+        const observed = negate_list(xs);
+
+        return arrays_eq(expected)(observed);
+    });
+
+    // negate_key
+    assert(() => 
+    {
+        const key = [[1], [1, 2]];
+
+        const expected = [[-1], [-1, -2]];
+        const observed = negate_key(key);
+
+        return arrays_eq(expected)(observed);
+    });
+
+    // password_to_offsets
+    assert(() => 
+    {
+        const password = "ab";
+        const min = MIN_CHAR_VALUE;
+        const max = MAX_CHAR_VALUE;
+        const range = max - min;
+
+        const expected =
+        [
+            "a".charCodeAt(0) + (0 * range),
+            "b".charCodeAt(0) + (1 * range),
+        ];
+        const observed = password_to_offsets(password);
+
+        return arrays_eq(expected)(observed);
+    });
+
+    // encrypt
+    // decrypt
+    assert(() =>
+    {
+        const text = "I love pizza";
+        const key_1 = [[1], [2, 3]];
+        const key_2 = [[4]];
+        const password_1 = "asdf"
+        const password_2 = ""
+
+        let success = true;
+        let r;
+
+        r = encrypt(key_1)(password_1)(text);
+
+        success &&= r != text;
+        success &&= r != encrypt(key_1)(password_2)(text);
+        success &&= r != encrypt(key_2)(password_1)(text);
+
+        r = decrypt(key_1)(password_1)(r);
+
+        success &&= r === text;
+
+        return success;
+    });
+}
+
+</script>
