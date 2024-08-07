@@ -276,8 +276,8 @@
         // password_to_offsets :: String -> [Int]
         const password_to_offsets = password =>
         {
-            const min = MIN_CHAR_VALUE || 127;
-            const max = MAX_CHAR_VALUE || 32;
+            const min = MIN_CHAR_VALUE;
+            const max = MAX_CHAR_VALUE;
             const range = max - min;
 
             let r = [];
