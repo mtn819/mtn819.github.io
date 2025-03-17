@@ -1,0 +1,109 @@
+<textarea id="input" placeholder="input"></textarea>
+<textarea id="output" placeholder="output"></textarea>
+
+<script>
+
+function main() {
+	document.getElementById(CONSTANT.INPUT_ID)
+		.addEventListener("input", () => {
+			let r;
+			
+			r = INPUT.read(CONSTANT.INPUT_ID);
+			r = r.split('')
+				.map(c => PROCESS.convertChar(c))
+				.join('');
+			
+			OUTPUT.set(CONSTANT.OUTPUT_ID)(r);
+		});
+}
+
+// ==== ==== ==== ====
+
+const INPUT = {};
+
+INPUT.read = textAreaId => {
+	let r;
+	r = document.getElementById(textAreaId);
+	r = r.value;
+	
+	return r;
+}
+
+// ==== ==== ==== ====
+
+const PROCESS = {};
+
+PROCESS.convertChar = c => {
+	let r;
+	
+	r = c.toLowerCase();
+	r = CONSTANT.CONVERSION_TABLE[r];
+	
+	if(r === undefined)
+		return c;
+	
+	if(UTIL.isUpperCase(c))
+		return r.toUpperCase();
+	
+	return r;
+}
+
+// ==== ==== ==== ====
+
+const OUTPUT = {};
+
+OUTPUT.set = textAreaId => text => {
+	let r;
+	
+	r = document.getElementById(textAreaId);
+	
+	r.textContent = text;
+}
+
+// ==== ==== ==== ====
+
+const UTIL = {};
+
+UTIL.isUpperCase = c => {
+	return c.toUpperCase() === c;
+}
+
+// ==== ==== ==== ====
+
+const CONSTANT = {};
+
+CONSTANT.CONVERSION_TABLE = {
+	a: "eye",
+	b: "beye",
+	c: "seye",
+	d: "deye",
+	e: "eye",
+	f: "eyef",
+	g: "jeye",
+	h: "eyech",
+	i: "eye",
+	j: "jeye",
+	k: "keye",
+	l: "eyel",
+	m: "eyem",
+	n: "eyen",
+	o: "eye",
+	p: "peye",
+	q: "keye",
+	r: "eyer",
+	s: "eyes",
+	t: "teye",
+	u: "eye",
+	v: "veye",
+	w: "deyebeyeleye",
+	x: "eyeks",
+	y: "eye",
+	z: "zeye",
+};
+
+CONSTANT.INPUT_ID = "input";
+
+CONSTANT.OUTPUT_ID = "output";
+
+main();
+</script>
