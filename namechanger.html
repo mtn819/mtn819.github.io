@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Name Changer</title>
+    <style>
+      :root {
+        font-size: 99px;
+      }
+
+      body {
+        width: 100%;
+        overflow-wrap: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tbr">
+      <textarea placeholder="Enter your name"></textarea>
+      <button>Go!</button>
+    </div>
+
+    <script>
+      function repeat(n, str) {
+        let repeated = "";
+        for (let i = 0; i < n; i++) {
+          repeated += str;
+        }
+        return repeated;
+      }
+
+      let count = 1;
+
+      document.addEventListener("keydown", (e) => {
+        document.querySelectorAll(".tbr").forEach((e) => {
+          e.outerHTML = "";
+        });
+
+        document.querySelector("body").innerHTML += repeat(count, "PIZZA");
+        document.querySelector("body").style.color =
+          "#" + Math.floor(Math.random() * 16777215).toString(16);
+        count++;
+      });
+    </script>
+  </body>
+</html>
