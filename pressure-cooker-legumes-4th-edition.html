@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Dump Pot — 60 Set-and-Forget Pressure Cooker Recipes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#33352a;
+    --bg-deep:#282a21;
+    --card:#faf3e2;
+    --card-soft:#f3ead4;
+    --ink:#2a2416;
+    --ink-soft:#63593f;
+    --mustard:#d6a233;
+    --brick:#a6452c;
+    --sage:#7c8b5b;
+    --line:#d9cfae;
+    --line-dark:#4a4d3c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(250,243,226,0.07) 1px, transparent 1.4px);
+    background-size:22px 22px;
+    color:var(--ink);
+    font-family:'Work Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+
+  header.hero{
+    padding:64px 24px 40px;
+    max-width:920px;
+    margin:0 auto;
+    text-align:left;
+    color:var(--card);
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    font-size:12px;
+    color:var(--mustard);
+    margin:0 0 14px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:clamp(36px, 6vw, 64px);
+    line-height:1.02;
+    margin:0 0 18px;
+    letter-spacing:-0.01em;
+  }
+  h1 em{
+    font-style:italic;
+    color:var(--mustard);
+  }
+  .hero p{
+    font-size:16px;
+    line-height:1.6;
+    max-width:560px;
+    color:#e9e2c9;
+    margin:0 0 8px;
+  }
+  .rule-note{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:#b9c19f;
+    margin-top:22px;
+    line-height:1.7;
+    border-left:2px solid var(--sage);
+    padding-left:14px;
+    max-width:560px;
+  }
+
+  .controls{
+    position:sticky;
+    top:0;
+    z-index:20;
+    background:var(--bg-deep);
+    border-bottom:1px solid var(--line-dark);
+    padding:14px 24px;
+  }
+  .controls-inner{
+    max-width:1180px;
+    margin:0 auto;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+  }
+  input#search{
+    flex:1 1 220px;
+    background:#3d3f31;
+    border:1px solid var(--line-dark);
+    color:var(--card);
+    padding:10px 14px;
+    border-radius:20px;
+    font-family:'Work Sans',sans-serif;
+    font-size:14px;
+    outline:none;
+  }
+  input#search::placeholder{color:#a7ac91;}
+  .chip{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:.03em;
+    background:transparent;
+    border:1px solid var(--line-dark);
+    color:#cfd3bb;
+    padding:8px 14px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+    white-space:nowrap;
+  }
+  .chip:hover{border-color:var(--mustard);color:var(--mustard);}
+  .chip.active{
+    background:var(--mustard);
+    border-color:var(--mustard);
+    color:#2a2416;
+    font-weight:600;
+  }
+
+  main{
+    max-width:1180px;
+    margin:0 auto;
+    padding:36px 24px 90px;
+  }
+  .count-line{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:#c8cdb2;
+    margin:0 0 22px;
+    letter-spacing:.04em;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+    gap:18px;
+  }
+
+  .card{
+    background:var(--card);
+    border-radius:6px;
+    padding:22px 20px 20px;
+    border:1px solid var(--line);
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .card-head{flex:1;}
+  .cat-tag{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--brick);
+    margin:0 0 6px;
+  }
+  .card h3{
+    font-family:'Fraunces', serif;
+    font-size:21px;
+    font-weight:600;
+    margin:0 0 4px;
+    line-height:1.15;
+  }
+  .origin{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-style:italic;
+    margin:0;
+  }
+
+  /* dial */
+  .dial{position:relative;width:58px;height:58px;flex:none;}
+  .dial svg{transform:rotate(-90deg);}
+  .dial-track{fill:none;stroke:var(--line);stroke-width:5;}
+  .dial-fill{fill:none;stroke-width:5;stroke-linecap:round;}
+  .dial-label{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;
+    font-family:'JetBrains Mono', monospace;
+  }
+  .dial-num{font-size:15px;font-weight:600;line-height:1;color:var(--ink);}
+  .dial-unit{font-size:8px;letter-spacing:.05em;color:var(--ink-soft);}
+
+  .badges{display:flex;gap:6px;flex-wrap:wrap;}
+  .badge{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:.03em;
+    padding:3px 8px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    color:var(--ink-soft);
+  }
+  .badge.chop0{border-color:var(--sage);color:#4d5a38;background:#eef1e3;}
+  .badge.chop1{border-color:var(--mustard);color:#8a641f;background:#faf0d9;}
+
+  .ingredients{
+    list-style:none;
+    margin:0;
+    padding:0;
+    font-size:13.5px;
+    line-height:1.55;
+    border-top:1px dashed var(--line);
+    padding-top:10px;
+  }
+  .ingredients li{
+    display:flex;
+    gap:8px;
+  }
+  .ingredients li::before{
+    content:"–";
+    color:var(--brick);
+    flex:none;
+  }
+  .liquid{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-family:'JetBrains Mono', monospace;
+  }
+
+  .method{
+    font-size:13.5px;
+    line-height:1.55;
+    background:var(--card-soft);
+    border-radius:4px;
+    padding:10px 12px;
+    margin:0;
+  }
+  .method b{color:var(--brick);}
+
+  .empty-state{
+    color:#dbd8c5;
+    font-family:'JetBrains Mono', monospace;
+    padding:60px 0;
+    text-align:center;
+  }
+
+  footer{
+    text-align:center;
+    padding:40px 24px 60px;
+    color:#a7ac91;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    letter-spacing:.03em;
+  }
+
+  @media (max-width:520px){
+    header.hero{padding:48px 18px 30px;}
+    .controls{padding:12px 14px;}
+    main{padding:26px 14px 70px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <p class="eyebrow">Fourth Edition · 60 recipes · one pot · walk away</p>
+  <h1>The Dump Pot:<br><em>set-and-forget</em> beans &amp; lentils</h1>
+  <p>No soaking rituals, no babysitting a stove, mostly no cutting board. Dry legumes plus a handful of pantry staples go into the pressure cooker, the lid goes on, and you leave. Five ingredients or fewer per recipe, not counting water, salt, or oil. Rounded out with plain and seasoned grains to serve everything over.</p>
+  <p class="rule-note">HIGH = high pressure · NR = natural release (let it sit before opening) · QR = quick release (vent it immediately)<br>"No Chop" = everything goes in whole, halved, or smashed · "Light Chop" = a little knife work helps</p>
+</header>
+
+<div class="controls">
+  <div class="controls-inner">
+    <input id="search" type="text" placeholder="Search beans, lentils, cuisines…">
+    <button class="chip active" data-filter-type="cat" data-filter="all">All</button>
+    <button class="chip" data-filter-type="cat" data-filter="Dump &amp; Simmer Classics">Classics</button>
+    <button class="chip" data-filter-type="cat" data-filter="Dals &amp; Lentils">Dals &amp; Lentils</button>
+    <button class="chip" data-filter-type="cat" data-filter="World Traditions">World Traditions</button>
+    <button class="chip" data-filter-type="cat" data-filter="Soups &amp; Stews">Soups &amp; Stews</button>
+    <button class="chip" data-filter-type="cat" data-filter="Spreads &amp; Mashes">Spreads &amp; Mashes</button>
+    <button class="chip" data-filter-type="cat" data-filter="Grains">Grains</button>
+    <button class="chip" data-filter-type="chop" data-filter="0">No Chop Only</button>
+  </div>
+</div>
+
+<main>
+  <p class="count-line" id="countLine"></p>
+  <div class="grid" id="grid"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">No recipes match that search.</div>
+</main>
+
+<footer>Always add at least 3–4 cups of liquid above your beans and never exceed your cooker's max-fill line. Dried kidney beans should reach a full boil before pressure comes up — most electric pressure cookers handle this automatically. Grains use the pot's normal rice-to-water ratios.</footer>
+
+<script>
+const RECIPES = [
+// ---------- DUMP & SIMMER CLASSICS ----------
+{cat:"Dump & Simmer Classics", name:"Classic Black Beans", origin:"American pantry staple", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried black beans","1 onion, halved","4 cloves garlic, smashed","2 bay leaves","1 tbsp cumin"],
+ method:"Everything in the pot. <b>High 25 min</b>, natural release 15 min. Discard onion and bay leaves before serving."},
+
+{cat:"Dump & Simmer Classics", name:"Everyday Pinto Beans", origin:"Tex-Mex pantry staple", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried pinto beans","1 onion, halved","4 cloves garlic, smashed","2 bay leaves","1 tsp chili powder"],
+ method:"Combine, seal, <b>High 25 min</b>, natural release 15 min. Great as-is or mashed later."},
+
+{cat:"Dump & Simmer Classics", name:"Great Northern White Beans", origin:"New England pantry staple", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried great northern beans","4 cloves garlic, whole","1 bay leaf","3 sprigs thyme","1 parmesan rind"],
+ method:"Load the pot, <b>High 25 min</b>, natural release 15 min. The rind melts in and adds savoriness — remove what's left."},
+
+{cat:"Dump & Simmer Classics", name:"Navy Bean Pot", origin:"American diner staple", chop:0, time:30, release:"NR15", liquid:"4½ cups water",
+ ing:["1 lb dried navy beans","1 smoked ham hock","1 onion, halved","2 bay leaves","1 tsp black pepper"],
+ method:"Everything in, <b>High 30 min</b>, natural release 15 min. Shred the ham hock meat back into the pot."},
+
+{cat:"Dump & Simmer Classics", name:"Red Kidney Beans", origin:"American pantry staple", chop:0, time:30, release:"NR15", liquid:"4½ cups water",
+ ing:["1 lb dried kidney beans","1 onion, halved","4 cloves garlic, smashed","2 bay leaves","1 tsp smoked paprika"],
+ method:"Combine and seal. <b>High 30 min</b>, natural release 15 min — the long cook fully neutralizes raw kidney beans."},
+
+{cat:"Dump & Simmer Classics", name:"Cannellini with Rosemary", origin:"Italian pantry staple", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried cannellini beans","5 cloves garlic, whole","2 sprigs rosemary","3 tbsp olive oil","1 lemon, halved"],
+ method:"Add all, squeeze the lemon halves in and drop them in too. <b>High 25 min</b>, natural release 15 min."},
+
+{cat:"Dump & Simmer Classics", name:"Plain Chickpeas", origin:"Mediterranean pantry staple", chop:0, time:35, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried chickpeas","2 bay leaves","4 cloves garlic, whole","1 tsp cumin seed","1 tsp salt"],
+ method:"Dump and seal. <b>High 35 min</b>, natural release 15 min. Base for hummus, salads, or curries."},
+
+{cat:"Dump & Simmer Classics", name:"Buttery Lima Beans", origin:"Southern U.S. pantry staple", chop:0, time:20, release:"NR10", liquid:"3½ cups water",
+ ing:["1 lb dried lima beans","1 onion, halved","3 cloves garlic, smashed","1 tsp smoked paprika","2 tbsp olive oil"],
+ method:"Everything in the pot, <b>High 20 min</b>, natural release 10 min."},
+
+{cat:"Dump & Simmer Classics", name:"Black-Eyed Peas", origin:"Southern U.S. pantry staple", chop:0, time:20, release:"NR10", liquid:"3½ cups water",
+ ing:["1 lb dried black-eyed peas","1 onion, halved","3 cloves garlic, smashed","1 bay leaf","dash hot sauce"],
+ method:"Combine, seal, <b>High 20 min</b>, natural release 10 min."},
+
+{cat:"Dump & Simmer Classics", name:"Cranberry (Borlotti) Beans", origin:"Northern Italian pantry staple", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried borlotti beans","5 cloves garlic, whole","6 sage leaves","3 tbsp olive oil","1 bay leaf"],
+ method:"Load the pot and seal. <b>High 25 min</b>, natural release 15 min. Lovely warm with just olive oil and salt."},
+
+// ---------- DALS & LENTILS ----------
+{cat:"Dals & Lentils", name:"Simple Masoor Dal", origin:"North Indian everyday dal", chop:0, time:10, release:"NR10", liquid:"3 cups water",
+ ing:["1 cup dried red lentils","½ tsp turmeric","4 cloves garlic, smashed","1 knob ginger, whole","2 tbsp ghee"],
+ method:"No presoak needed. Everything in, <b>High 10 min</b>, natural release 10 min. Stir — it turns creamy on its own."},
+
+{cat:"Dals & Lentils", name:"Yellow Moong Dal", origin:"North Indian everyday dal", chop:0, time:8, release:"NR10", liquid:"3 cups water",
+ ing:["1 cup split yellow mung dal","½ tsp turmeric","1 tsp cumin seed","2 tbsp ghee","4 cloves garlic, smashed"],
+ method:"Dump and seal. <b>High 8 min</b>, natural release 10 min. This dal is naturally soft and mild."},
+
+{cat:"Dals & Lentils", name:"French Green Lentils", origin:"Lentilles du Puy, France", chop:0, time:12, release:"QR", liquid:"3 cups water",
+ ing:["1 cup French green lentils","4 cloves garlic, whole","3 sprigs thyme","1 bay leaf","3 tbsp olive oil"],
+ method:"Combine, seal, <b>High 12 min</b>, quick release. These hold their shape — good in salads."},
+
+{cat:"Dals & Lentils", name:"Black Beluga Lentils", origin:"Modern pantry staple", chop:0, time:10, release:"QR", liquid:"2¾ cups water",
+ ing:["1 cup black beluga lentils","4 cloves garlic, whole","1 bay leaf","2 tbsp red wine vinegar","3 tbsp olive oil"],
+ method:"Everything in the pot, <b>High 10 min</b>, quick release. Serve warm or chilled as a salad base."},
+
+{cat:"Dals & Lentils", name:"Brown Lentil Soup Base", origin:"American pantry staple", chop:0, time:12, release:"NR10", liquid:"4 cups water",
+ ing:["1 cup brown lentils","1 onion, halved","4 cloves garlic, smashed","1 tsp cumin","1 bay leaf"],
+ method:"Dump and seal. <b>High 12 min</b>, natural release 10 min. Blend part of it for a thicker soup if you like."},
+
+{cat:"Dals & Lentils", name:"Dal Tadka", origin:"North Indian restaurant-style dal", chop:0, time:12, release:"NR10", liquid:"3 cups water",
+ ing:["1 cup split pigeon peas (toor dal)","½ tsp turmeric","4 cloves garlic, smashed","1 tomato, halved","3 tbsp ghee"],
+ method:"Combine, seal, <b>High 12 min</b>, natural release 10 min. Stir well — the tomato breaks down into the dal."},
+
+{cat:"Dals & Lentils", name:"Dal Makhani-Style", origin:"Punjabi restaurant-style dal", chop:0, time:30, release:"NR15", liquid:"4 cups water",
+ ing:["½ cup whole black urad dal","½ cup dried kidney beans","4 tbsp butter","4 cloves garlic, smashed","1 tomato, halved"],
+ method:"Everything in the pot, <b>High 30 min</b>, natural release 15 min. Mash slightly and stir in extra butter to finish."},
+
+{cat:"Dals & Lentils", name:"Curried Split Pea Dal", origin:"Indo-Caribbean inspired", chop:0, time:15, release:"NR10", liquid:"3 cups water + 1 cup coconut milk",
+ ing:["1 cup yellow split peas","2 tsp curry powder","4 cloves garlic, smashed","1 can coconut milk","1 knob ginger, whole"],
+ method:"Dump and seal. <b>High 15 min</b>, natural release 10 min."},
+
+{cat:"Dals & Lentils", name:"Egyptian-Style Lentil Soup", origin:"Shorbat 'Adas, Egypt", chop:0, time:10, release:"NR10", liquid:"4 cups water",
+ ing:["1 cup red lentils","1 tsp cumin","4 cloves garlic, smashed","1 lemon, halved","3 tbsp olive oil"],
+ method:"Everything in the pot except the lemon juice. <b>High 10 min</b>, natural release 10 min, then squeeze the lemon in."},
+
+{cat:"Dals & Lentils", name:"Ethiopian-Inspired Misir Wot", origin:"Ethiopian red lentil stew", chop:0, time:12, release:"NR10", liquid:"3 cups water",
+ ing:["1 cup red lentils","2 tbsp berbere spice","1 onion, halved","4 cloves garlic, smashed","2 tbsp tomato paste"],
+ method:"Combine, seal, <b>High 12 min</b>, natural release 10 min. Stir well — it becomes a thick, deep-red stew."},
+
+// ---------- WORLD TRADITIONS ----------
+{cat:"World Traditions", name:"Rajma (Punjabi Kidney Beans)", origin:"Punjab, India", chop:0, time:30, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried kidney beans","1 onion, halved","1 knob ginger, whole","4 cloves garlic, smashed","1 tomato, halved"],
+ method:"Dump and seal. <b>High 30 min</b>, natural release 15 min. Mash a few beans against the pot to thicken the gravy."},
+
+{cat:"World Traditions", name:"Cuban-Style Black Beans", origin:"Cuba", chop:0, time:25, release:"NR15", liquid:"4½ cups water",
+ ing:["1 lb dried black beans","1 green bell pepper, halved","1 onion, halved","4 cloves garlic, smashed","1 tsp cumin"],
+ method:"Everything in the pot. <b>High 25 min</b>, natural release 15 min. Remove the pepper halves before serving over rice."},
+
+{cat:"World Traditions", name:"Feijoada-Style Black Beans", origin:"Brazil", chop:0, time:30, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried black beans","8 oz smoked sausage","1 onion, halved","4 cloves garlic, smashed","2 bay leaves"],
+ method:"Combine, seal, <b>High 30 min</b>, natural release 15 min. Slice the sausage first if you'd like it in rounds."},
+
+{cat:"World Traditions", name:"Harira-Style Lentils", origin:"Morocco", chop:0, time:15, release:"NR10", liquid:"4 cups water",
+ ing:["½ cup brown lentils","½ cup dried chickpeas","1 tomato, halved","1 cinnamon stick","1 knob ginger, whole"],
+ method:"Dump and seal. <b>High 15 min</b>, natural release 10 min. Remove the cinnamon stick before serving."},
+
+{cat:"World Traditions", name:"Ful Medames", origin:"Egypt", chop:0, time:30, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried fava beans","5 cloves garlic, whole","1 tsp cumin","1 lemon, halved","3 tbsp olive oil"],
+ method:"Everything in the pot except lemon juice. <b>High 30 min</b>, natural release 15 min, then mash lightly and squeeze in lemon."},
+
+{cat:"World Traditions", name:"Greek Fasolada", origin:"Greece", chop:0, time:25, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried white beans","2 carrots, whole","2 celery stalks, whole","1 can crushed tomatoes","3 tbsp olive oil"],
+ method:"Dump and seal. <b>High 25 min</b>, natural release 15 min. Pull out the carrots and celery, slice, and stir back in."},
+
+{cat:"World Traditions", name:"Hoppin' John", origin:"Southern U.S. / Lowcountry", chop:0, time:20, release:"NR10", liquid:"4 cups water",
+ ing:["1 lb dried black-eyed peas","4 strips bacon","1 onion, halved","2 sprigs thyme","1 bay leaf"],
+ method:"Everything in the pot, <b>High 20 min</b>, natural release 10 min. Serve spooned over rice."},
+
+{cat:"World Traditions", name:"Refried Pinto Beans", origin:"Mexico", chop:0, time:30, release:"NR15", liquid:"4½ cups water",
+ ing:["1 lb dried pinto beans","1 onion, halved","4 cloves garlic, smashed","3 tbsp lard or oil","1 tsp cumin"],
+ method:"Combine, seal, <b>High 30 min</b>, natural release 15 min. Drain partially and mash right in the pot."},
+
+{cat:"World Traditions", name:"Chana Masala", origin:"North India", chop:0, time:35, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried chickpeas","1 tomato, halved","1 knob ginger, whole","4 cloves garlic, smashed","2 tsp garam masala"],
+ method:"Everything in the pot. <b>High 35 min</b>, natural release 15 min. Mash a few chickpeas to thicken the sauce."},
+
+{cat:"World Traditions", name:"Persian-Style Cinnamon Lentils", origin:"Iran (Adas Polo style)", chop:0, time:12, release:"NR10", liquid:"3 cups water",
+ ing:["1 cup green lentils","1 cinnamon stick","¼ cup raisins","1 onion, halved","3 tbsp olive oil"],
+ method:"Dump and seal. <b>High 12 min</b>, natural release 10 min. Remove the cinnamon stick before serving."},
+
+{cat:"World Traditions", name:"Colombian-Style Frijoles", origin:"Colombia", chop:0, time:28, release:"NR15", liquid:"4½ cups water",
+ ing:["1 lb dried pinto beans","3 tbsp sofrito (jarred)","1 onion, halved","1 tsp cumin","2 bay leaves"],
+ method:"Everything in the pot, <b>High 28 min</b>, natural release 15 min."},
+
+{cat:"World Traditions", name:"Jamaican-Style Rice & Peas Beans", origin:"Jamaica", chop:0, time:25, release:"NR15", liquid:"3 cups water + 1 can coconut milk",
+ ing:["1 lb dried kidney beans","1 can coconut milk","3 sprigs thyme","4 cloves garlic, smashed","1 whole scotch bonnet pepper"],
+ method:"Dump and seal — keep the scotch bonnet whole and uncut for gentle heat. <b>High 25 min</b>, natural release 15 min. Discard the pepper."},
+
+{cat:"World Traditions", name:"Kuru Fasulye (Turkish White Beans)", origin:"Turkey", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried white beans","2 tbsp tomato paste","1 onion, halved","4 cloves garlic, smashed","1 tsp red pepper flakes"],
+ method:"Everything in the pot, <b>High 25 min</b>, natural release 15 min."},
+
+{cat:"World Traditions", name:"Fabada-Style White Beans", origin:"Asturias, Spain", chop:0, time:30, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried white beans","6 oz chorizo","1 tsp smoked paprika","4 cloves garlic, smashed","2 bay leaves"],
+ method:"Combine, seal, <b>High 30 min</b>, natural release 15 min. Slice the chorizo first if you prefer rounds."},
+
+{cat:"World Traditions", name:"Sri Lankan-Style Coconut Dal", origin:"Sri Lanka", chop:0, time:10, release:"NR10", liquid:"2½ cups water + 1 cup coconut milk",
+ ing:["1 cup red lentils","1 can coconut milk","½ tsp turmeric","1 tsp mustard seed","8 curry leaves"],
+ method:"Dump and seal. <b>High 10 min</b>, natural release 10 min. Stir well before serving."},
+
+// ---------- SOUPS & STEWS ----------
+{cat:"Soups & Stews", name:"Split Pea Soup with Ham", origin:"American pantry staple", chop:0, time:20, release:"NR10", liquid:"5 cups water",
+ ing:["1 lb dried split peas","1 ham hock","1 onion, halved","2 carrots, whole","1 bay leaf"],
+ method:"Everything in the pot, <b>High 20 min</b>, natural release 10 min. Shred the ham and blend for a smoother soup if desired."},
+
+{cat:"Soups & Stews", name:"Lentil Vegetable Soup", origin:"American pantry staple", chop:1, time:12, release:"NR10", liquid:"5 cups water",
+ ing:["1 cup brown lentils","1 can diced tomatoes","4 cloves garlic, minced","1 tsp cumin","1 bay leaf"],
+ method:"Dump and seal. <b>High 12 min</b>, natural release 10 min."},
+
+{cat:"Soups & Stews", name:"White Bean & Kale Soup", origin:"Tuscan-inspired", chop:1, time:25, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried white beans","2 cups kale, torn","4 cloves garlic, smashed","1 parmesan rind","3 tbsp olive oil"],
+ method:"Add everything except kale. <b>High 25 min</b>, natural release 15 min, then stir in torn kale — it wilts in the residual heat."},
+
+{cat:"Soups & Stews", name:"Ham and Bean Soup", origin:"American pantry staple", chop:0, time:30, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried navy beans","1 leftover ham bone","1 onion, halved","2 bay leaves","1 tsp black pepper"],
+ method:"Everything in the pot, <b>High 30 min</b>, natural release 15 min. Pull the ham off the bone and stir back in."},
+
+{cat:"Soups & Stews", name:"Smoky Black Bean Soup", origin:"American pantry staple", chop:0, time:25, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried black beans","1 onion, halved","4 cloves garlic, smashed","1 tsp cumin","2 chipotles in adobo"],
+ method:"Dump and seal. <b>High 25 min</b>, natural release 15 min. Blend part of the soup for a creamier texture."},
+
+{cat:"Soups & Stews", name:"15-Bean Soup Mix", origin:"American pantry staple", chop:0, time:35, release:"NR15", liquid:"6 cups water",
+ ing:["1 bag dried 15-bean soup mix","1 ham hock","1 onion, halved","2 bay leaves","4 cloves garlic, smashed"],
+ method:"Everything in the pot (skip the seasoning packet if included). <b>High 35 min</b>, natural release 15 min."},
+
+{cat:"Soups & Stews", name:"Minestrone Bean Base", origin:"Italian-inspired", chop:0, time:25, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried cannellini beans","1 can crushed tomatoes","4 cloves garlic, smashed","2 tsp Italian herbs","3 tbsp olive oil"],
+ method:"Dump and seal. <b>High 25 min</b>, natural release 15 min. Stir in leftover pasta or greens after opening."},
+
+{cat:"Soups & Stews", name:"Smoky Lentil Soup", origin:"American pantry staple", chop:0, time:12, release:"NR10", liquid:"5 cups water",
+ ing:["1 cup brown lentils","1 tsp smoked paprika","4 cloves garlic, smashed","2 tbsp tomato paste","3 tbsp olive oil"],
+ method:"Everything in the pot, <b>High 12 min</b>, natural release 10 min."},
+
+{cat:"Soups & Stews", name:"Tuscan White Bean & Rosemary Soup", origin:"Tuscany, Italy", chop:0, time:25, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried cannellini beans","2 sprigs rosemary","4 cloves garlic, smashed","3 tbsp olive oil","1 tsp red pepper flakes"],
+ method:"Combine, seal, <b>High 25 min</b>, natural release 15 min. Mash part of it right in the pot for body."},
+
+{cat:"Soups & Stews", name:"Curried Chickpea Soup", origin:"Indian-inspired", chop:0, time:35, release:"NR15", liquid:"4 cups water + 1 can coconut milk",
+ ing:["1 lb dried chickpeas","2 tsp curry powder","1 can coconut milk","4 cloves garlic, smashed","1 knob ginger, whole"],
+ method:"Dump and seal. <b>High 35 min</b>, natural release 15 min."},
+
+// ---------- SPREADS & MASHES ----------
+{cat:"Spreads & Mashes", name:"Pressure Cooker Hummus Base", origin:"Levantine-inspired", chop:0, time:35, release:"NR15", liquid:"5 cups water",
+ ing:["1 lb dried chickpeas","½ tsp baking soda","2 bay leaves","4 cloves garlic, whole","1 tsp salt"],
+ method:"Dump and seal. <b>High 35 min</b>, natural release 15 min — the baking soda makes them extra creamy. Blend with tahini and lemon after."},
+
+{cat:"Spreads & Mashes", name:"White Bean Mash", origin:"Modern pantry staple", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried cannellini beans","5 cloves garlic, whole","3 tbsp olive oil","1 sprig rosemary","1 lemon, halved"],
+ method:"Everything in the pot. <b>High 25 min</b>, natural release 15 min, then mash with a fork right in the pot."},
+
+{cat:"Spreads & Mashes", name:"Smashed Pinto Beans", origin:"Mexican-inspired", chop:0, time:28, release:"NR15", liquid:"4½ cups water",
+ ing:["1 lb dried pinto beans","1 onion, halved","4 cloves garlic, smashed","1 tsp cumin","1 lime, halved"],
+ method:"Dump and seal. <b>High 28 min</b>, natural release 15 min, then mash and squeeze the lime in."},
+
+{cat:"Spreads & Mashes", name:"Sweet Adzuki Beans", origin:"East Asian-inspired", chop:0, time:25, release:"NR15", liquid:"4 cups water",
+ ing:["1 lb dried adzuki beans","¼ cup sugar","½ tsp salt","1 cinnamon stick (optional)"],
+ method:"Everything in the pot, <b>High 25 min</b>, natural release 15 min. Mash for a sweet paste, or leave whole."},
+
+{cat:"Spreads & Mashes", name:"Mung Bean Porridge", origin:"South &amp; East Asian-inspired", chop:0, time:20, release:"NR10", liquid:"4 cups water",
+ ing:["1 cup whole mung beans","1 knob ginger, whole","½ tsp turmeric","2 tbsp ghee","1 tsp salt"],
+ method:"Dump and seal. <b>High 20 min</b>, natural release 10 min. Stir into a soft, spoonable porridge."},
+
+// ---------- GRAINS ----------
+{cat:"Grains", name:"Plain White Rice", origin:"Everyday side", chop:0, time:4, release:"NR10", liquid:"1½ cups water per cup of rice",
+ ing:["2 cups long-grain white rice, rinsed","2¼ cups water","½ tsp salt"],
+ method:"Rinse rice, add with water and salt. <b>High 4 min</b>, natural release 10 min, then fluff."},
+
+{cat:"Grains", name:"Fluffy Basmati Rice", origin:"South Asian everyday side", chop:0, time:5, release:"NR10", liquid:"1¾ cups water",
+ ing:["1 cup basmati rice, rinsed","1¾ cups water","1 bay leaf","1 tbsp ghee","½ tsp salt"],
+ method:"Combine, seal, <b>High 5 min</b>, natural release 10 min, then fluff with a fork."},
+
+{cat:"Grains", name:"Simple Brown Rice", origin:"Everyday side", chop:0, time:22, release:"NR10", liquid:"2 cups water",
+ ing:["1 cup brown rice, rinsed","2 cups water","½ tsp salt"],
+ method:"Combine, seal, <b>High 22 min</b>, natural release 10 min, then fluff."},
+
+{cat:"Grains", name:"Coconut Rice", origin:"Southeast Asian-inspired side", chop:0, time:4, release:"NR10", liquid:"1 cup water + 1 cup coconut milk",
+ ing:["1 cup jasmine rice, rinsed","1 cup coconut milk","1 cup water","½ tsp salt"],
+ method:"Combine, seal, <b>High 4 min</b>, natural release 10 min, then fluff."},
+
+{cat:"Grains", name:"Turmeric Rice", origin:"South Asian-inspired side", chop:0, time:5, release:"NR10", liquid:"1¾ cups water",
+ ing:["1 cup basmati rice, rinsed","½ tsp turmeric","1 tsp cumin seed","2 tbsp ghee","1¾ cups water"],
+ method:"Combine, seal, <b>High 5 min</b>, natural release 10 min, then fluff — the color comes through on its own."},
+
+{cat:"Grains", name:"Mexican-Style Red Rice", origin:"Mexican-inspired side", chop:0, time:4, release:"NR10", liquid:"1¾ cups water",
+ ing:["1 cup long-grain rice, rinsed","3 tbsp tomato paste","4 cloves garlic, smashed","1 tsp cumin","1¾ cups water"],
+ method:"Whisk tomato paste into the water first, then add everything else. <b>High 4 min</b>, natural release 10 min, then fluff."},
+
+{cat:"Grains", name:"Buttered Cardamom Rice", origin:"South Asian-inspired side", chop:0, time:5, release:"NR10", liquid:"1¾ cups water",
+ ing:["1 cup basmati rice, rinsed","4 tbsp butter","6 cardamom pods, whole","1 bay leaf","1¾ cups water"],
+ method:"Combine, seal, <b>High 5 min</b>, natural release 10 min. Pick out the cardamom pods before serving."},
+
+{cat:"Grains", name:"Simple Quinoa", origin:"Everyday side", chop:0, time:1, release:"NR10", liquid:"1¼ cups water",
+ ing:["1 cup quinoa, rinsed","1¼ cups water","¼ tsp salt"],
+ method:"Combine, seal, <b>High 1 min</b>, natural release 10 min, then fluff."},
+
+{cat:"Grains", name:"Lemon Herb Quinoa", origin:"Mediterranean-inspired side", chop:0, time:1, release:"NR10", liquid:"1¼ cups water",
+ ing:["1 cup quinoa, rinsed","1 lemon, halved","4 cloves garlic, whole","2 tbsp olive oil","1¼ cups water"],
+ method:"Combine, seal, <b>High 1 min</b>, natural release 10 min. Squeeze the cooked lemon halves in before fluffing."},
+
+{cat:"Grains", name:"Pearled Farro", origin:"Italian-inspired side", chop:0, time:10, release:"NR10", liquid:"2½ cups water",
+ ing:["1 cup pearled farro","2½ cups water","1 bay leaf","2 tbsp olive oil","½ tsp salt"],
+ method:"Combine, seal, <b>High 10 min</b>, natural release 10 min, then drain any extra liquid."}
+];
+
+const grid = document.getElementById('grid');
+const countLine = document.getElementById('countLine');
+const emptyState = document.getElementById('emptyState');
+const searchInput = document.getElementById('search');
+const chips = document.querySelectorAll('.chip');
+
+let state = { cat: 'all', chop: null, q: '' };
+
+function dialColor(cat){
+  switch(cat){
+    case "Dals & Lentils": return "#7c8b5b";
+    case "World Traditions": return "#a6452c";
+    case "Soups & Stews": return "#8a6a2f";
+    case "Spreads & Mashes": return "#6b5b8a";
+    case "Grains": return "#c98a3a";
+    default: return "#d6a233";
+  }
+}
+
+function dialSVG(minutes, cat){
+  const max = 40;
+  const r = 24, c = 2*Math.PI*r;
+  const pct = Math.min(minutes/max, 1);
+  const offset = c * (1 - pct);
+  const color = dialColor(cat);
+  return `<div class="dial">
+    <svg width="58" height="58" viewBox="0 0 58 58">
+      <circle class="dial-track" cx="29" cy="29" r="${r}"></circle>
+      <circle class="dial-fill" cx="29" cy="29" r="${r}" stroke="${color}"
+        stroke-dasharray="${c}" stroke-dashoffset="${offset}"></circle>
+    </svg>
+    <div class="dial-label"><span class="dial-num">${minutes}</span><span class="dial-unit">MIN</span></div>
+  </div>`;
+}
+
+function card(r){
+  const chopBadge = r.chop === 0
+    ? `<span class="badge chop0">No Chop</span>`
+    : `<span class="badge chop1">Light Chop</span>`;
+  return `<div class="card" data-cat="${r.cat}" data-chop="${r.chop}" data-search="${(r.name+' '+r.origin+' '+r.ing.join(' ')).toLowerCase()}">
+    <div class="card-top">
+      <div class="card-head">
+        <p class="cat-tag">${r.cat}</p>
+        <h3>${r.name}</h3>
+        <p class="origin">${r.origin}</p>
+      </div>
+      ${dialSVG(r.time, r.cat)}
+    </div>
+    <div class="badges">
+      ${chopBadge}
+      <span class="badge">${r.release}</span>
+    </div>
+    <ul class="ingredients">
+      ${r.ing.map(i => `<li>${i}</li>`).join('')}
+    </ul>
+    <p class="liquid">${r.liquid}</p>
+    <p class="method">${r.method}</p>
+  </div>`;
+}
+
+function render(){
+  const filtered = RECIPES.filter(r => {
+    const matchCat = state.cat === 'all' || r.cat === state.cat;
+    const matchChop = state.chop === null || String(r.chop) === state.chop;
+    const matchSearch = !state.q || (r.name+' '+r.origin+' '+r.ing.join(' ')).toLowerCase().includes(state.q);
+    return matchCat && matchChop && matchSearch;
+  });
+  grid.innerHTML = filtered.map(card).join('');
+  countLine.textContent = `Showing ${filtered.length} of ${RECIPES.length} recipes`;
+  emptyState.style.display = filtered.length ? 'none' : 'block';
+}
+
+chips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    const type = chip.dataset.filterType;
+    if(type === 'cat'){
+      document.querySelectorAll('[data-filter-type="cat"]').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      state.cat = chip.dataset.filter;
+    } else if(type === 'chop'){
+      const isActive = chip.classList.toggle('active');
+      state.chop = isActive ? chip.dataset.filter : null;
+    }
+    render();
+  });
+});
+
+searchInput.addEventListener('input', (e) => {
+  state.q = e.target.value.trim().toLowerCase();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
