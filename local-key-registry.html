@@ -55,11 +55,14 @@
   }
   .reveal-box.show{display:block;}
   .reveal-text{
-    font-family:"Wingdings","Wingdings 3","Webdings", monospace;
-    font-size:22px; letter-spacing:1px; word-break:break-all; color:var(--good);
-    user-select:none; -webkit-user-select:none;
+    font-family:"SFMono-Regular", Consolas, Menlo, monospace;
+    font-size:18px; letter-spacing:2px; word-break:break-all; color:var(--good);
   }
-  .reveal-meta{font-size:12px; color:var(--muted); margin-top:8px; display:flex; justify-content:space-between; align-items:center;}
+  .reveal-text.masked{
+    user-select:none; -webkit-user-select:none; color:var(--muted); letter-spacing:3px;
+  }
+  .reveal-meta{font-size:12px; color:var(--muted); margin-top:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
+  .reveal-meta-actions{display:flex; gap:6px;}
   .toast{
     position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
     background:#20262f; border:1px solid var(--border); color:var(--text);
@@ -118,7 +121,7 @@
   <p class="footer-note">
     AES-256-GCM, keys derived with PBKDF2 (150,000 iterations, SHA-256). Each row uses its own random salt/IV.
     Forgetting a password means that value is unrecoverable — there is no backdoor.
-    Revealed text is rendered in a symbol font as a visual shoulder-surfing deterrent; the real value is copied to your clipboard.
+    Revealed values are masked by default (like a password field) as a shoulder-surfing deterrent — use "Show text" to reveal, or "Copy" to grab it without displaying it at all.
   </p>
 </div>
 
@@ -308,33 +311,52 @@
       const plaintext = await decryptValue(password, rec);
       backdrop.classList.remove('show');
       showRevealed(rec.key, plaintext);
-      try{
-        await navigator.clipboard.writeText(plaintext);
-        toast('Unlocked — copied to clipboard.');
-      }catch(e){
-        toast('Unlocked. (Clipboard copy blocked — copy manually if needed.)');
-      }
+      toast('Unlocked.');
     }catch(e){
       toast('Wrong password, or corrupted entry.', true);
     }
   };
 
+  let currentPlaintext = '';
+  let isMasked = true;
+
+  function renderRevealText(){
+    const el = document.getElementById('revealTextEl');
+    if (!el) return;
+    el.classList.toggle('masked', isMasked);
+    el.textContent = isMasked ? '•'.repeat(Math.max(currentPlaintext.length, 8)) : currentPlaintext;
+    const toggleBtn = document.getElementById('toggleShowBtn');
+    if (toggleBtn) toggleBtn.textContent = isMasked ? 'Show text' : 'Hide text';
+  }
+
   function showRevealed(key, plaintext){
+    currentPlaintext = plaintext;
+    isMasked = true;
     let box = document.getElementById('revealResult');
     if (!box){
       box = document.createElement('div');
       box.id = 'revealResult';
       box.className = 'panel';
-      box.innerHTML = '<h2>Unlocked</h2><div class="reveal-box show"><div class="reveal-text" id="revealTextEl"></div><div class="reveal-meta"><span id="revealKeyLabel"></span><button class="icon secondary" id="hideNowBtn">Hide now</button></div></div>';
+      box.innerHTML = '<h2>Unlocked</h2><div class="reveal-box show"><div class="reveal-text masked" id="revealTextEl"></div><div class="reveal-meta"><span id="revealKeyLabel"></span><div class="reveal-meta-actions"><button class="icon secondary" id="toggleShowBtn">Show text</button><button class="icon secondary" id="copyNowBtn">Copy</button><button class="icon secondary" id="hideNowBtn">Hide now</button></div></div></div>';
       document.querySelector('.wrap').insertBefore(box, document.querySelector('.wrap').children[1]);
       document.getElementById('hideNowBtn').onclick = () => hideRevealed();
+      document.getElementById('toggleShowBtn').onclick = () => { isMasked = !isMasked; renderRevealText(); };
+      document.getElementById('copyNowBtn').onclick = async () => {
+        try{
+          await navigator.clipboard.writeText(currentPlaintext);
+          toast('Copied to clipboard.');
+        }catch(e){
+          toast('Clipboard copy blocked — copy manually.', true);
+        }
+      };
     }
-    document.getElementById('revealKeyLabel').textContent = key + ' — auto-hides in 15s';
-    document.getElementById('revealTextEl').textContent = plaintext;
+    document.getElementById('revealKeyLabel').textContent = key + ' — auto-hides in 30s';
+    renderRevealText();
     clearTimeout(revealBoxTimer);
-    revealBoxTimer = setTimeout(hideRevealed, 15000);
+    revealBoxTimer = setTimeout(hideRevealed, 30000);
   }
   function hideRevealed(){
+    currentPlaintext = '';
     const box = document.getElementById('revealResult');
     if (box) box.remove();
   }
