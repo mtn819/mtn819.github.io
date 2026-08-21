@@ -329,11 +329,26 @@
   // Icons / type helpers
   // ---------------------------------------------------------------
   var ICONS = { folder: "📁", image: "🖼️", text: "📄", code: "🧩", pdf: "📕", audio: "🎵", video: "🎬", archive: "🗜️", default: "📄" };
+  var IMAGE_EXTS = ['png','jpg','jpeg','gif','webp','avif','bmp','ico','tiff','tif','heic','heif','svg','apng'];
+  var EXT_MIME_FALLBACK = {
+    webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
+    tiff: 'image/tiff', tif: 'image/tiff', heic: 'image/heic', heif: 'image/heif',
+    svg: 'image/svg+xml', gif: 'image/gif', apng: 'image/apng', png: 'image/png',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    webm: 'video/webm', mkv: 'video/x-matroska', mov: 'video/quicktime', avi: 'video/x-msvideo',
+    m4a: 'audio/mp4', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg', opus: 'audio/opus'
+  };
+  function guessMime(fileType, fileName){
+    if (fileType && fileType !== 'application/octet-stream') return fileType;
+    var ext = (fileName.split('.').pop() || '').toLowerCase();
+    return EXT_MIME_FALLBACK[ext] || fileType || 'application/octet-stream';
+  }
   function iconForFile(name, mime){
     var ext = (name.split('.').pop() || "").toLowerCase();
     if (mime && mime.indexOf('image/') === 0) return ICONS.image;
     if (mime && mime.indexOf('audio/') === 0) return ICONS.audio;
     if (mime && mime.indexOf('video/') === 0) return ICONS.video;
+    if (IMAGE_EXTS.indexOf(ext) > -1) return ICONS.image;
     if (ext === 'pdf') return ICONS.pdf;
     if (['zip','rar','7z','tar','gz'].indexOf(ext) > -1) return ICONS.archive;
     if (['js','ts','py','java','c','cpp','html','css','json','sh','rb','go','rs','jsx','tsx'].indexOf(ext) > -1) return ICONS.code;
@@ -620,6 +635,7 @@
     var wrap = document.createElement('div');
     wrap.className = 'preview-wrap';
     var textEditable = isTextPreviewable(node.name, node.mime);
+    var effMime = guessMime(node.mime, node.name);
 
     if (textEditable && editingId === node.id){
       var textarea = document.createElement('textarea');
@@ -653,19 +669,19 @@
       return wrap;
     }
 
-    if (node.mime && node.mime.indexOf('image/') === 0){
+    if (effMime.indexOf('image/') === 0){
       var img = document.createElement('img');
-      img.src = 'data:' + node.mime + ';base64,' + node.data;
+      img.src = 'data:' + effMime + ';base64,' + node.data;
       wrap.appendChild(img);
-    } else if (node.mime && node.mime.indexOf('audio/') === 0){
+    } else if (effMime.indexOf('audio/') === 0){
       var audio = document.createElement('audio');
       audio.controls = true;
-      audio.src = 'data:' + node.mime + ';base64,' + node.data;
+      audio.src = 'data:' + effMime + ';base64,' + node.data;
       wrap.appendChild(audio);
-    } else if (node.mime && node.mime.indexOf('video/') === 0){
+    } else if (effMime.indexOf('video/') === 0){
       var video = document.createElement('video');
       video.controls = true;
-      video.src = 'data:' + node.mime + ';base64,' + node.data;
+      video.src = 'data:' + effMime + ';base64,' + node.data;
       wrap.appendChild(video);
     } else if (textEditable){
       var pre = document.createElement('pre');
@@ -776,7 +792,7 @@
       var reader = new FileReader();
       reader.onload = function(){
         var base64 = (reader.result || '').split(',')[1] || '';
-        target.children.push({ id: uid(), type: 'file', name: file.name, mime: file.type || 'application/octet-stream', size: file.size, data: base64 });
+        target.children.push({ id: uid(), type: 'file', name: file.name, mime: guessMime(file.type, file.name), size: file.size, data: base64 });
         remaining--;
         if (remaining === 0){ fileInput.value = ''; render(); }
       };
