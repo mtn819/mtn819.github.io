@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>One-Page File System</title>
+<style>
+  :root{
+    --bg: #14171c;
+    --panel: #1a1e25;
+    --panel-2: #20252d;
+    --panel-3: #262c36;
+    --border: #2a2f3a;
+    --text: #d8dee9;
+    --text-dim: #8891a3;
+    --accent: #e2a33d;
+    --accent-dim: #8a6a2c;
+    --danger: #d16a6a;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body{
+    margin:0; padding:0; height:100%;
+    background: #0c0e11; color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+  }
+  #app{
+    max-width: 560px;
+    margin: 0 auto;
+    height: 100%;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,0,0,.5);
+  }
+  button{
+    font-family: var(--sans);
+    cursor: pointer;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    -webkit-appearance: none;
+  }
+  button:active{ transform: scale(.97); }
+  button.primary{ background: var(--accent); color: #1a1400; border-color: var(--accent); font-weight: 700; }
+  button.danger-text{ color: var(--danger); }
+  input[type=text], input[type=password]{
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--sans);
+    font-size: 15px;
+    width: 100%;
+  }
+  input[type=text]:focus, input[type=password]:focus{ outline: none; border-color: var(--accent-dim); }
+  .hidden{ display:none !important; }
+
+  /* ---- Header ---- */
+  #header{
+    padding-top: calc(10px + var(--safe-t));
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #headerTop{
+    display:flex; align-items:center; gap:8px;
+    padding: 4px 10px 10px 10px;
+  }
+  #backBtn{
+    width: 36px; height: 36px; border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 18px; flex-shrink:0; border: none; background: transparent; color: var(--text);
+  }
+  #backBtn.hidden-invisible{ visibility: hidden; }
+  #breadcrumbStrip{
+    flex:1; display:flex; align-items:center; gap:4px;
+    overflow-x:auto; white-space:nowrap; scrollbar-width:none;
+    font-family: var(--mono); font-size: 13px;
+  }
+  #breadcrumbStrip::-webkit-scrollbar{ display:none; }
+  .crumb{ color: var(--text-dim); padding:4px 6px; border-radius:6px; cursor:pointer; flex-shrink:0; }
+  .crumb:last-child{ color:#fff; font-weight:700; }
+  .crumb-sep{ color: var(--border); flex-shrink:0; }
+  .icon-btn{
+    width: 36px; height: 36px; border-radius: 50%; border:none; background: transparent;
+    display:flex; align-items:center; justify-content:center; font-size: 17px; flex-shrink:0; color: var(--text);
+  }
+  #searchBar{ padding: 0 10px 10px 10px; }
+  #searchResultsLabel{
+    padding: 0 10px 8px 10px; color: var(--text-dim); font-size: 12.5px; font-family: var(--mono);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+
+  /* ---- List ---- */
+  #listArea{ flex:1; overflow-y:auto; padding: 10px 10px 6px 10px; }
+  ul.item-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .item-card{ background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; overflow:hidden; }
+  .item-row{
+    display:flex; align-items:center; gap:10px;
+    padding: 12px 12px;
+  }
+  .item-row .icon{ font-size: 20px; width:26px; text-align:center; flex-shrink:0; }
+  .item-main{ flex:1; min-width:0; }
+  .item-name{ font-size: 15px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item-meta{ font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); margin-top: 2px; }
+  .item-meta .match-path{ color: var(--accent-dim); }
+  .kebab{
+    width: 34px; height: 34px; border-radius:50%; border:none; background:transparent;
+    color: var(--text-dim); font-size: 19px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  }
+  .kebab:active{ background: var(--panel-3); }
+  .empty-list{ color: var(--text-dim); font-size: 13.5px; text-align:center; padding: 60px 20px; font-family: var(--mono); line-height:1.7; }
+  .empty-list .big{ font-size: 40px; display:block; margin-bottom: 10px; opacity:.6; }
+
+  /* ---- Inline preview ---- */
+  .preview-wrap{ border-top: 1px solid var(--border); padding: 12px; background: var(--panel); }
+  .preview-wrap img{ max-width:100%; border-radius:8px; display:block; }
+  .preview-wrap audio, .preview-wrap video{ width:100%; border-radius:8px; }
+  .preview-wrap pre{
+    margin:0; background: var(--bg); border:1px solid var(--border); border-radius:8px;
+    padding: 12px; max-height: 40vh; overflow:auto; font-family: var(--mono); font-size: 12px; line-height:1.6;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .preview-wrap .no-preview{ color: var(--text-dim); font-size: 13px; font-family: var(--mono); text-align:center; padding: 14px; }
+  .preview-actions{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .preview-actions button{ flex:1; min-width: 100px; padding: 9px; }
+  .preview-wrap textarea{
+    width:100%; box-sizing:border-box; min-height: 220px; resize: vertical;
+    background: var(--bg); border:1px solid var(--border); border-radius:8px;
+    padding: 12px; font-family: var(--mono); font-size: 13px; line-height:1.6;
+    color: var(--text);
+  }
+
+  /* ---- Bottom toolbar ---- */
+  #bottomBar{
+    flex-shrink:0; display:flex; gap:8px; padding: 10px; padding-bottom: calc(10px + var(--safe-b));
+    background: var(--panel); border-top: 1px solid var(--border);
+  }
+  #bottomBar button{ flex:1; padding: 12px 6px; font-weight:600; font-size:13px; }
+
+  /* ---- Overlays / sheets ---- */
+  .overlay{ position: fixed; inset:0; background: rgba(6,7,9,.66); display:flex; align-items:flex-end; justify-content:center; z-index: 200; }
+  .overlay.center{ align-items:center; }
+  .sheet{
+    width:100%; max-width: 560px; background: var(--panel); border-radius: 16px 16px 0 0;
+    padding: 18px 18px calc(18px + var(--safe-b)) 18px; box-shadow: 0 -10px 40px rgba(0,0,0,.5);
+  }
+  .sheet.center-box{ border-radius: 16px; }
+  .sheet-handle{ width:36px; height:4px; background: var(--border); border-radius:3px; margin: 0 auto 14px auto; }
+  .sheet h3{ margin: 0 0 4px 0; font-family: var(--mono); color:#fff; font-size:16px; }
+  .sheet p{ margin: 0 0 14px 0; color: var(--text-dim); font-size: 13px; }
+  .sheet-actions{ display:flex; flex-direction:column; gap:8px; }
+  .sheet-actions button{ width:100%; text-align:left; padding: 13px 14px; font-size:15px; }
+  .sheet-actions button.cancel{ text-align:center; margin-top:6px; color: var(--text-dim); }
+  .sheet label{ display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--text-dim); margin: 10px 0; }
+  .sheet input[type=password], .sheet input[type=text]{ margin-bottom: 8px; }
+  .sheet .err{ color: var(--danger); font-size: 12.5px; min-height: 14px; margin: 2px 0 4px 0; }
+  .sheet .row2{ display:flex; gap:8px; margin-top: 12px; }
+  .sheet .row2 button{ flex:1; padding: 11px; text-align:center; }
+
+  /* Full-screen move picker */
+  #moveOverlay{ z-index: 210; align-items:stretch; }
+  #movePanel{
+    width:100%; max-width:560px; margin:0 auto; background: var(--bg);
+    display:flex; flex-direction:column; height:100%;
+  }
+  #moveHeader{
+    padding-top: calc(10px + var(--safe-t));
+    background: var(--panel); border-bottom: 1px solid var(--border); flex-shrink:0;
+  }
+  #moveHeaderTop{ display:flex; align-items:center; gap:8px; padding: 4px 10px 10px 10px; }
+  #moveTitle{ flex:1; font-family: var(--mono); font-size:14px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #moveBreadcrumb{ padding: 0 10px 10px 10px; font-family: var(--mono); font-size:12.5px; color: var(--text-dim); overflow-x:auto; white-space:nowrap; }
+  #moveBreadcrumb .crumb{ color: var(--text-dim); }
+  #moveBreadcrumb .crumb:last-child{ color: var(--accent); font-weight:700; }
+  #moveList{ flex:1; overflow-y:auto; padding: 10px; }
+  #moveFooter{ flex-shrink:0; display:flex; gap:8px; padding:10px; padding-bottom: calc(10px + var(--safe-b)); background: var(--panel); border-top:1px solid var(--border); }
+  #moveFooter button{ flex:1; padding: 13px; font-weight:700; }
+
+  ::-webkit-scrollbar{ width: 6px; height:6px; }
+  ::-webkit-scrollbar-thumb{ background: var(--border); border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="header">
+    <div id="headerTop">
+      <button id="backBtn" aria-label="Back">←</button>
+      <div id="breadcrumbStrip"></div>
+      <button id="searchToggleBtn" class="icon-btn" aria-label="Search">🔍</button>
+      <button id="saveBtn" class="icon-btn" aria-label="Save page">💾</button>
+    </div>
+    <div id="searchBar" class="hidden">
+      <input type="text" id="searchInput" placeholder="Search files &amp; folders…">
+    </div>
+    <div id="searchResultsLabel" class="hidden">
+      <span id="searchCountText"></span>
+      <button id="searchCloseBtn" class="icon-btn" style="width:auto;height:auto;font-size:13px;">✕ Clear</button>
+    </div>
+  </div>
+
+  <div id="listArea"><ul class="item-list" id="mainList"></ul></div>
+
+  <div id="bottomBar">
+    <button id="btnNewFolder">＋ Folder</button>
+    <button id="btnNewFile">＋ Text File</button>
+    <button id="btnUpload">↑ Upload</button>
+    <input type="file" id="fileInput" multiple class="hidden">
+  </div>
+</div>
+
+<!-- Kebab action sheet -->
+<div id="actionSheetOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="actionSheetTitle">Item</h3>
+    <div class="sheet-actions">
+      <button id="asRename">✏️ Rename</button>
+      <button id="asMove">📂 Move</button>
+      <button id="asDownload">📥 Download</button>
+      <button id="asDelete" class="danger-text">🗑️ Delete</button>
+      <button id="asCancel" class="cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save modal -->
+<div id="saveOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3>Save Page</h3>
+    <p>Bundles every file, folder, and this app into one downloadable HTML file.</p>
+    <label><input type="checkbox" id="encryptCheck"> Encrypt with a password</label>
+    <input type="password" id="savePassword" class="hidden" placeholder="Password">
+    <input type="password" id="savePasswordConfirm" class="hidden" placeholder="Confirm password">
+    <div class="err" id="saveError"></div>
+    <div class="row2">
+      <button id="btnCancelSave">Cancel</button>
+      <button id="btnConfirmSave" class="primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Unlock overlay -->
+<div id="unlockOverlay" class="overlay center hidden">
+  <div class="sheet center-box">
+    <h3>🔒 Locked</h3>
+    <p>This file system was saved with a password. Enter it to unlock.</p>
+    <input type="password" id="unlockPassword" placeholder="Password" autofocus>
+    <div class="err" id="unlockError"></div>
+    <div class="row2">
+      <button id="btnUnlock" class="primary">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move picker (full screen) -->
+<div id="moveOverlay" class="overlay hidden">
+  <div id="movePanel">
+    <div id="moveHeader">
+      <div id="moveHeaderTop">
+        <button id="moveBackBtn" class="icon-btn">←</button>
+        <div id="moveTitle">Move item</div>
+        <button id="moveCancelBtn" class="icon-btn">✕</button>
+      </div>
+      <div id="moveBreadcrumb"></div>
+    </div>
+    <div id="moveList"></div>
+    <div id="moveFooter">
+      <button id="moveConfirmBtn" class="primary">Move Here</button>
+    </div>
+  </div>
+</div>
+
+<!-- Embedded filesystem data. Overwritten each time the page is saved. -->
+<script id="fs-data" type="application/json">{"encrypted":false,"tree":{"type":"folder","name":"root","children":[]}}</script>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  var fsRoot = null;
+  var currentPath = [];        // array of folder node refs, [0] === fsRoot
+  var expandedId = null;       // id of file whose preview is expanded
+  var editingId = null;        // id of file currently open in the text editor
+  var searchTerm = "";
+  var pendingEncryptedPayload = null;
+  var actionTarget = null;     // node targeted by the kebab menu
+  var moveState = null;        // { node, path:[folder...] }
+
+  function uid(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Math.random().toString(36).slice(2) + Date.now();
+  }
+
+  // ---------------------------------------------------------------
+  // Base64 helpers
+  // ---------------------------------------------------------------
+  function bufToB64(buf){
+    var bytes = new Uint8Array(buf);
+    var chunk = 0x8000, str = "";
+    for (var i = 0; i < bytes.length; i += chunk){
+      str += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(str);
+  }
+  function b64ToBuf(b64){
+    var str = atob(b64);
+    var bytes = new Uint8Array(str.length);
+    for (var i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
+    return bytes;
+  }
+  function strToBase64(str){ return bufToB64(new TextEncoder().encode(str)); }
+
+  // ---------------------------------------------------------------
+  // Icons / type helpers
+  // ---------------------------------------------------------------
+  var ICONS = { folder: "📁", image: "🖼️", text: "📄", code: "🧩", pdf: "📕", audio: "🎵", video: "🎬", archive: "🗜️", default: "📄" };
+  function iconForFile(name, mime){
+    var ext = (name.split('.').pop() || "").toLowerCase();
+    if (mime && mime.indexOf('image/') === 0) return ICONS.image;
+    if (mime && mime.indexOf('audio/') === 0) return ICONS.audio;
+    if (mime && mime.indexOf('video/') === 0) return ICONS.video;
+    if (ext === 'pdf') return ICONS.pdf;
+    if (['zip','rar','7z','tar','gz'].indexOf(ext) > -1) return ICONS.archive;
+    if (['js','ts','py','java','c','cpp','html','css','json','sh','rb','go','rs','jsx','tsx'].indexOf(ext) > -1) return ICONS.code;
+    if (['txt','md','csv','log','yml','yaml','xml'].indexOf(ext) > -1) return ICONS.text;
+    return ICONS.default;
+  }
+  function isTextPreviewable(name, mime){
+    var ext = (name.split('.').pop() || "").toLowerCase();
+    if (mime && mime.indexOf('text/') === 0) return true;
+    if (mime === 'application/json') return true;
+    var textExts = ['txt','md','csv','log','yml','yaml','xml','js','ts','py','java','c','cpp','h','html','css','json','sh','rb','go','rs','jsx','tsx','ini','conf'];
+    return textExts.indexOf(ext) > -1;
+  }
+  function isDisplayable(node){
+    if (!node.mime) return isTextPreviewable(node.name, node.mime);
+    if (node.mime.indexOf('image/') === 0) return true;
+    if (node.mime.indexOf('audio/') === 0) return true;
+    if (node.mime.indexOf('video/') === 0) return true;
+    return isTextPreviewable(node.name, node.mime);
+  }
+  function humanSize(bytes){
+    bytes = bytes || 0;
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/(1024*1024)).toFixed(1) + ' MB';
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+  }
+
+  // ---------------------------------------------------------------
+  // Tree helpers
+  // ---------------------------------------------------------------
+  function newFolder(name){ return { id: uid(), type: 'folder', name: name, children: [] }; }
+  function findParent(node, root){
+    if (root.type !== 'folder') return null;
+    for (var i = 0; i < root.children.length; i++){
+      if (root.children[i] === node) return root;
+      var deeper = findParent(node, root.children[i]);
+      if (deeper) return deeper;
+    }
+    return null;
+  }
+  function removeNode(node){
+    var parent = findParent(node, fsRoot);
+    if (!parent) return;
+    var idx = parent.children.indexOf(node);
+    if (idx > -1) parent.children.splice(idx, 1);
+  }
+  function isInSubtree(root, x){
+    if (root === x) return true;
+    if (root.type === 'folder'){
+      for (var i = 0; i < root.children.length; i++){ if (isInSubtree(root.children[i], x)) return true; }
+    }
+    return false;
+  }
+  function buildPathTo(node){
+    // returns array of folder ancestors from root to (but not including) node's own entry if node is folder it's included
+    var chain = [];
+    function walk(current, trail){
+      if (current === node){ chain = trail.concat([current]); return true; }
+      if (current.type === 'folder'){
+        for (var i = 0; i < current.children.length; i++){
+          if (walk(current.children[i], trail.concat([current]))) return true;
+        }
+      }
+      return false;
+    }
+    walk(fsRoot, []);
+    return chain;
+  }
+  function sanitizePath(){
+    var valid = [fsRoot];
+    for (var i = 1; i < currentPath.length; i++){
+      var parent = valid[valid.length - 1];
+      var node = currentPath[i];
+      if (parent.children && parent.children.indexOf(node) > -1) valid.push(node); else break;
+    }
+    currentPath = valid;
+  }
+  function currentFolder(){ return currentPath[currentPath.length - 1]; }
+
+  function collectMatches(root, term, trailNames, out){
+    if (root !== fsRoot && root.name.toLowerCase().indexOf(term) > -1){
+      out.push({ node: root, pathLabel: trailNames.join(' / ') || 'root' });
+    }
+    if (root.type === 'folder'){
+      var label = root === fsRoot ? 'root' : root.name;
+      for (var i = 0; i < root.children.length; i++){
+        collectMatches(root.children[i], term, trailNames.concat([label === 'root' && trailNames.length===0 ? 'root' : root.name]), out);
+      }
+    }
+  }
+  // simpler + correct path-label collector
+  function searchMatches(term){
+    var results = [];
+    function walk(node, ancestors){
+      var label = ancestors.map(function(a){ return a.name; }).join(' / ') || 'root';
+      if (node !== fsRoot && node.name.toLowerCase().indexOf(term) > -1){
+        results.push({ node: node, pathLabel: label });
+      }
+      if (node.type === 'folder'){
+        node.children.forEach(function(c){ walk(c, ancestors.concat([node])); });
+      }
+    }
+    walk(fsRoot, []);
+    return results;
+  }
+
+  // ---------------------------------------------------------------
+  // DOM refs
+  // ---------------------------------------------------------------
+  var backBtn = document.getElementById('backBtn');
+  var breadcrumbStrip = document.getElementById('breadcrumbStrip');
+  var mainList = document.getElementById('mainList');
+  var searchToggleBtn = document.getElementById('searchToggleBtn');
+  var searchBar = document.getElementById('searchBar');
+  var searchInput = document.getElementById('searchInput');
+  var searchResultsLabel = document.getElementById('searchResultsLabel');
+  var searchCountText = document.getElementById('searchCountText');
+  var searchCloseBtn = document.getElementById('searchCloseBtn');
+
+  // ---------------------------------------------------------------
+  // Rendering: breadcrumb
+  // ---------------------------------------------------------------
+  function renderBreadcrumb(){
+    breadcrumbStrip.innerHTML = '';
+    if (searchTerm) {
+      var span = document.createElement('span');
+      span.className = 'crumb';
+      span.style.color = '#fff';
+      span.style.fontWeight = '700';
+      span.textContent = 'Search results';
+      breadcrumbStrip.appendChild(span);
+      backBtn.classList.add('hidden-invisible');
+      return;
+    }
+    currentPath.forEach(function(node, i){
+      var chip = document.createElement('span');
+      chip.className = 'crumb';
+      chip.textContent = (node === fsRoot) ? '🏠 root' : node.name;
+      if (i < currentPath.length - 1){
+        chip.addEventListener('click', function(){
+          currentPath = currentPath.slice(0, i + 1);
+          expandedId = null; editingId = null;
+          render();
+        });
+      }
+      breadcrumbStrip.appendChild(chip);
+      if (i < currentPath.length - 1){
+        var sep = document.createElement('span');
+        sep.className = 'crumb-sep';
+        sep.textContent = '›';
+        breadcrumbStrip.appendChild(sep);
+      }
+    });
+    breadcrumbStrip.scrollLeft = breadcrumbStrip.scrollWidth;
+    backBtn.classList.toggle('hidden-invisible', currentPath.length <= 1);
+  }
+
+  // ---------------------------------------------------------------
+  // Rendering: main list
+  // ---------------------------------------------------------------
+  function render(){
+    renderBreadcrumb();
+    mainList.innerHTML = '';
+
+    var items;
+    var showPathLabel = false;
+    if (searchTerm){
+      var term = searchTerm.toLowerCase();
+      var matches = searchMatches(term);
+      items = matches.map(function(m){ return m.node; });
+      showPathLabel = true;
+      var pathLabelMap = {};
+      matches.forEach(function(m){ pathLabelMap[m.node.id] = m.pathLabel; });
+      searchResultsLabel.classList.remove('hidden');
+      searchCountText.textContent = matches.length + ' result' + (matches.length===1?'':'s') + ' for "' + searchTerm + '"';
+      if (!items.length){
+        var e = document.createElement('div');
+        e.className = 'empty-list';
+        e.innerHTML = '<span class="big">🔍</span>No files or folders match.';
+        mainList.appendChild(e);
+        return;
+      }
+      buildRows(items, pathLabelMap);
+      return;
+    }
+
+    searchResultsLabel.classList.add('hidden');
+    var folder = currentFolder();
+    items = folder.children.slice().sort(function(a,b){
+      if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    if (!items.length){
+      var empty = document.createElement('div');
+      empty.className = 'empty-list';
+      empty.innerHTML = '<span class="big">🗂️</span>This folder is empty.<br>Upload a file or create a folder below.';
+      mainList.appendChild(empty);
+      return;
+    }
+    buildRows(items, null);
+  }
+
+  function buildRows(items, pathLabelMap){
+    items.forEach(function(node){
+      var li = document.createElement('li');
+      li.className = 'item-card';
+
+      var row = document.createElement('div');
+      row.className = 'item-row';
+
+      var icon = document.createElement('span');
+      icon.className = 'icon';
+      icon.textContent = node.type === 'folder' ? ICONS.folder : iconForFile(node.name, node.mime);
+
+      var main = document.createElement('div');
+      main.className = 'item-main';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'item-name';
+      nameEl.textContent = node.name;
+      var metaEl = document.createElement('div');
+      metaEl.className = 'item-meta';
+      if (node.type === 'folder'){
+        metaEl.textContent = node.children.length + ' item' + (node.children.length===1?'':'s');
+      } else {
+        metaEl.textContent = humanSize(node.size);
+      }
+      if (pathLabelMap){
+        var pathSpan = document.createElement('span');
+        pathSpan.className = 'match-path';
+        pathSpan.textContent = '  ·  ' + pathLabelMap[node.id];
+        metaEl.appendChild(pathSpan);
+      }
+      main.appendChild(nameEl); main.appendChild(metaEl);
+
+      var kebab = document.createElement('button');
+      kebab.className = 'kebab';
+      kebab.textContent = '⋮';
+      kebab.addEventListener('click', function(e){
+        e.stopPropagation();
+        openActionSheet(node);
+      });
+
+      row.appendChild(icon); row.appendChild(main); row.appendChild(kebab);
+      row.addEventListener('click', function(){
+        if (node.type === 'folder'){
+          if (searchTerm){
+            currentPath = buildPathTo(node);
+            searchTerm = '';
+            searchInput.value = '';
+            searchBar.classList.add('hidden');
+          } else {
+            currentPath = currentPath.concat([node]);
+          }
+          expandedId = null; editingId = null;
+          render();
+        } else {
+          if (searchTerm){
+            var chain = buildPathTo(node);
+            currentPath = chain.slice(0, chain.length - 1);
+            searchTerm = '';
+            searchInput.value = '';
+            searchBar.classList.add('hidden');
+          }
+          if (expandedId === node.id){ expandedId = null; if (editingId === node.id) editingId = null; }
+          else { expandedId = node.id; }
+          render();
+        }
+      });
+
+      li.appendChild(row);
+
+      if (node.type === 'file' && expandedId === node.id){
+        li.appendChild(buildPreview(node));
+      }
+
+      mainList.appendChild(li);
+    });
+  }
+
+  function buildPreview(node){
+    var wrap = document.createElement('div');
+    wrap.className = 'preview-wrap';
+    var textEditable = isTextPreviewable(node.name, node.mime);
+
+    if (textEditable && editingId === node.id){
+      var textarea = document.createElement('textarea');
+      try {
+        textarea.value = new TextDecoder('utf-8').decode(b64ToBuf(node.data));
+      } catch(e){ textarea.value = ''; }
+      textarea.addEventListener('click', function(e){ e.stopPropagation(); });
+      wrap.appendChild(textarea);
+
+      var editActions = document.createElement('div');
+      editActions.className = 'preview-actions';
+      var saveBtn = document.createElement('button');
+      saveBtn.className = 'primary';
+      saveBtn.textContent = 'Save';
+      saveBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        node.data = strToBase64(textarea.value);
+        node.size = new TextEncoder().encode(textarea.value).length;
+        editingId = null;
+        render();
+      });
+      var cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        editingId = null;
+        render();
+      });
+      editActions.appendChild(saveBtn); editActions.appendChild(cancelBtn);
+      wrap.appendChild(editActions);
+      return wrap;
+    }
+
+    if (node.mime && node.mime.indexOf('image/') === 0){
+      var img = document.createElement('img');
+      img.src = 'data:' + node.mime + ';base64,' + node.data;
+      wrap.appendChild(img);
+    } else if (node.mime && node.mime.indexOf('audio/') === 0){
+      var audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = 'data:' + node.mime + ';base64,' + node.data;
+      wrap.appendChild(audio);
+    } else if (node.mime && node.mime.indexOf('video/') === 0){
+      var video = document.createElement('video');
+      video.controls = true;
+      video.src = 'data:' + node.mime + ';base64,' + node.data;
+      wrap.appendChild(video);
+    } else if (textEditable){
+      var pre = document.createElement('pre');
+      try {
+        var bytes = b64ToBuf(node.data);
+        pre.textContent = new TextDecoder('utf-8').decode(bytes);
+      } catch(e){ pre.textContent = '[Could not decode as text]'; }
+      wrap.appendChild(pre);
+    } else {
+      var note = document.createElement('div');
+      note.className = 'no-preview';
+      note.textContent = 'No inline preview for this file type — use ⋮ → Download.';
+      wrap.appendChild(note);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'preview-actions';
+    if (textEditable){
+      var editBtn = document.createElement('button');
+      editBtn.textContent = '✏️ Edit';
+      editBtn.addEventListener('click', function(e){ e.stopPropagation(); editingId = node.id; render(); });
+      actions.appendChild(editBtn);
+    }
+    var openBtn = document.createElement('button');
+    openBtn.textContent = 'Open in new tab';
+    openBtn.addEventListener('click', function(e){ e.stopPropagation(); openInNewTab(node); });
+    var dlBtn = document.createElement('button');
+    dlBtn.textContent = 'Download';
+    dlBtn.addEventListener('click', function(e){ e.stopPropagation(); downloadFile(node); });
+    actions.appendChild(openBtn); actions.appendChild(dlBtn);
+    wrap.appendChild(actions);
+
+    return wrap;
+  }
+
+  function fileToBlobUrl(node){
+    var bytes = b64ToBuf(node.data);
+    var blob = new Blob([bytes], { type: node.mime || 'application/octet-stream' });
+    return URL.createObjectURL(blob);
+  }
+  function openInNewTab(node){ window.open(fileToBlobUrl(node), '_blank'); }
+  function downloadFile(node){
+    var url = fileToBlobUrl(node);
+    var a = document.createElement('a');
+    a.href = url; a.download = node.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+
+  // ---------------------------------------------------------------
+  // Back navigation
+  // ---------------------------------------------------------------
+  backBtn.addEventListener('click', function(){
+    if (currentPath.length > 1){
+      currentPath = currentPath.slice(0, currentPath.length - 1);
+      expandedId = null; editingId = null;
+      render();
+    }
+  });
+
+  // ---------------------------------------------------------------
+  // Search
+  // ---------------------------------------------------------------
+  searchToggleBtn.addEventListener('click', function(){
+    searchBar.classList.toggle('hidden');
+    if (!searchBar.classList.contains('hidden')) searchInput.focus();
+  });
+  searchInput.addEventListener('input', function(e){
+    searchTerm = e.target.value.trim();
+    render();
+  });
+  searchCloseBtn.addEventListener('click', function(){
+    searchTerm = ''; searchInput.value = '';
+    searchBar.classList.add('hidden');
+    render();
+  });
+
+  // ---------------------------------------------------------------
+  // New folder / upload (act on currentFolder())
+  // ---------------------------------------------------------------
+  document.getElementById('btnNewFolder').addEventListener('click', function(){
+    var name = prompt('Folder name');
+    if (!name || !name.trim()) return;
+    currentFolder().children.push(newFolder(name.trim()));
+    render();
+  });
+
+  document.getElementById('btnNewFile').addEventListener('click', function(){
+    var name = prompt('File name', 'untitled.txt');
+    if (!name || !name.trim()) return;
+    name = name.trim();
+    if (name.indexOf('.') === -1) name += '.txt';
+    var node = { id: uid(), type: 'file', name: name, mime: 'text/plain', size: 0, data: strToBase64('') };
+    currentFolder().children.push(node);
+    expandedId = node.id;
+    editingId = node.id;
+    render();
+  });
+
+  var fileInput = document.getElementById('fileInput');
+  document.getElementById('btnUpload').addEventListener('click', function(){ fileInput.click(); });
+  fileInput.addEventListener('change', function(){
+    var files = Array.prototype.slice.call(fileInput.files);
+    if (!files.length) return;
+    var target = currentFolder();
+    var remaining = files.length;
+    files.forEach(function(file){
+      var reader = new FileReader();
+      reader.onload = function(){
+        var base64 = (reader.result || '').split(',')[1] || '';
+        target.children.push({ id: uid(), type: 'file', name: file.name, mime: file.type || 'application/octet-stream', size: file.size, data: base64 });
+        remaining--;
+        if (remaining === 0){ fileInput.value = ''; render(); }
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  // ---------------------------------------------------------------
+  // Kebab action sheet
+  // ---------------------------------------------------------------
+  var actionSheetOverlay = document.getElementById('actionSheetOverlay');
+  var actionSheetTitle = document.getElementById('actionSheetTitle');
+  var asDownload = document.getElementById('asDownload');
+
+  function openActionSheet(node){
+    actionTarget = node;
+    actionSheetTitle.textContent = (node.type==='folder'?ICONS.folder:iconForFile(node.name,node.mime)) + '  ' + node.name;
+    asDownload.classList.toggle('hidden', node.type === 'folder');
+    actionSheetOverlay.classList.remove('hidden');
+  }
+  function closeActionSheet(){ actionSheetOverlay.classList.add('hidden'); actionTarget = null; }
+  actionSheetOverlay.addEventListener('click', function(e){ if (e.target === actionSheetOverlay) closeActionSheet(); });
+  document.getElementById('asCancel').addEventListener('click', closeActionSheet);
+
+  document.getElementById('asRename').addEventListener('click', function(){
+    var node = actionTarget; closeActionSheet();
+    if (!node) return;
+    var name = prompt('Rename to:', node.name);
+    if (name && name.trim()){ node.name = name.trim(); render(); }
+  });
+  document.getElementById('asDelete').addEventListener('click', function(){
+    var node = actionTarget; closeActionSheet();
+    if (!node) return;
+    if (!confirm('Delete "' + node.name + '"? This cannot be undone.')) return;
+    if (expandedId === node.id){ expandedId = null; editingId = null; }
+    removeNode(node);
+    sanitizePath();
+    render();
+  });
+  asDownload.addEventListener('click', function(){
+    var node = actionTarget; closeActionSheet();
+    if (!node || node.type !== 'file') return;
+    downloadFile(node);
+  });
+  document.getElementById('asMove').addEventListener('click', function(){
+    var node = actionTarget; closeActionSheet();
+    if (!node) return;
+    openMoveModal(node);
+  });
+
+  // ---------------------------------------------------------------
+  // Move picker
+  // ---------------------------------------------------------------
+  var moveOverlay = document.getElementById('moveOverlay');
+  var moveTitle = document.getElementById('moveTitle');
+  var moveBreadcrumb = document.getElementById('moveBreadcrumb');
+  var moveList = document.getElementById('moveList');
+  var moveBackBtn = document.getElementById('moveBackBtn');
+  var moveCancelBtn = document.getElementById('moveCancelBtn');
+  var moveConfirmBtn = document.getElementById('moveConfirmBtn');
+
+  function openMoveModal(node){
+    moveState = { node: node, path: [fsRoot] };
+    moveTitle.textContent = 'Move "' + node.name + '"';
+    moveOverlay.classList.remove('hidden');
+    renderMoveModal();
+  }
+  function closeMoveModal(){ moveOverlay.classList.add('hidden'); moveState = null; }
+  moveCancelBtn.addEventListener('click', closeMoveModal);
+  moveBackBtn.addEventListener('click', function(){
+    if (moveState.path.length > 1){ moveState.path.pop(); renderMoveModal(); }
+  });
+  moveConfirmBtn.addEventListener('click', function(){
+    var node = moveState.node;
+    var dest = moveState.path[moveState.path.length - 1];
+    var currentParent = findParent(node, fsRoot);
+    if (dest === currentParent){ closeMoveModal(); return; }
+    removeNode(node);
+    dest.children.push(node);
+    sanitizePath();
+    closeMoveModal();
+    render();
+  });
+
+  function renderMoveModal(){
+    var folder = moveState.path[moveState.path.length - 1];
+    moveBreadcrumb.innerHTML = '';
+    moveState.path.forEach(function(f, i){
+      var c = document.createElement('span');
+      c.className = 'crumb';
+      c.textContent = (f === fsRoot ? '🏠 root' : f.name) + (i < moveState.path.length - 1 ? '  ›  ' : '');
+      moveBreadcrumb.appendChild(c);
+    });
+    moveBackBtn.style.visibility = moveState.path.length > 1 ? 'visible' : 'hidden';
+
+    moveList.innerHTML = '';
+    var folders = folder.children.filter(function(c){ return c.type === 'folder' && !isInSubtree(moveState.node, c); })
+      .sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+    if (!folders.length){
+      var e = document.createElement('div');
+      e.className = 'empty-list';
+      e.innerHTML = '<span class="big">📂</span>No subfolders here.';
+      moveList.appendChild(e);
+    } else {
+      var ul = document.createElement('ul');
+      ul.className = 'item-list';
+      folders.forEach(function(f){
+        var li = document.createElement('li');
+        li.className = 'item-card';
+        var row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML = '<span class="icon">' + ICONS.folder + '</span>';
+        var main = document.createElement('div');
+        main.className = 'item-main';
+        var nameEl = document.createElement('div');
+        nameEl.className = 'item-name'; nameEl.textContent = f.name;
+        var metaEl = document.createElement('div');
+        metaEl.className = 'item-meta'; metaEl.textContent = f.children.length + ' item' + (f.children.length===1?'':'s');
+        main.appendChild(nameEl); main.appendChild(metaEl);
+        row.appendChild(main);
+        var chevron = document.createElement('span');
+        chevron.style.color = 'var(--text-dim)'; chevron.style.padding = '0 4px'; chevron.textContent = '›';
+        row.appendChild(chevron);
+        row.addEventListener('click', function(){ moveState.path = moveState.path.concat([f]); renderMoveModal(); });
+        li.appendChild(row);
+        ul.appendChild(li);
+      });
+      moveList.appendChild(ul);
+    }
+
+    var destName = folder === fsRoot ? 'root' : folder.name;
+    moveConfirmBtn.textContent = 'Move Here (' + destName + ')';
+  }
+
+  // ---------------------------------------------------------------
+  // Encryption helpers
+  // ---------------------------------------------------------------
+  async function encryptJSON(jsonStr, password){
+    var enc = new TextEncoder();
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+    var key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: salt, iterations: 150000, hash: 'SHA-256' },
+      keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt']
+    );
+    var cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, enc.encode(jsonStr));
+    return { salt: bufToB64(salt), iv: bufToB64(iv), cipher: bufToB64(cipherBuf) };
+  }
+  async function decryptJSON(payload, password){
+    var dec = new TextDecoder();
+    var salt = b64ToBuf(payload.salt);
+    var iv = b64ToBuf(payload.iv);
+    var cipher = b64ToBuf(payload.cipher);
+    var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+    var key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: salt, iterations: 150000, hash: 'SHA-256' },
+      keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+    );
+    var plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cipher);
+    return dec.decode(plainBuf);
+  }
+
+  // ---------------------------------------------------------------
+  // Save Page flow
+  // ---------------------------------------------------------------
+  var saveOverlay = document.getElementById('saveOverlay');
+  var encryptCheck = document.getElementById('encryptCheck');
+  var savePassword = document.getElementById('savePassword');
+  var savePasswordConfirm = document.getElementById('savePasswordConfirm');
+  var saveError = document.getElementById('saveError');
+
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    encryptCheck.checked = false;
+    savePassword.value = ''; savePasswordConfirm.value = '';
+    savePassword.classList.add('hidden'); savePasswordConfirm.classList.add('hidden');
+    saveError.textContent = '';
+    saveOverlay.classList.remove('hidden');
+  });
+  document.getElementById('btnCancelSave').addEventListener('click', function(){ saveOverlay.classList.add('hidden'); });
+  encryptCheck.addEventListener('change', function(){
+    savePassword.classList.toggle('hidden', !encryptCheck.checked);
+    savePasswordConfirm.classList.toggle('hidden', !encryptCheck.checked);
+  });
+
+  document.getElementById('btnConfirmSave').addEventListener('click', async function(){
+    saveError.textContent = '';
+    var dataObj;
+    if (encryptCheck.checked){
+      var p1 = savePassword.value, p2 = savePasswordConfirm.value;
+      if (!p1){ saveError.textContent = 'Enter a password.'; return; }
+      if (p1 !== p2){ saveError.textContent = 'Passwords do not match.'; return; }
+      var payload = await encryptJSON(JSON.stringify(fsRoot), p1);
+      dataObj = { encrypted: true, payload: payload };
+    } else {
+      dataObj = { encrypted: false, tree: fsRoot };
+    }
+    downloadPage(dataObj);
+    saveOverlay.classList.add('hidden');
+  });
+
+  function downloadPage(dataObj){
+    var clone = document.documentElement.cloneNode(true);
+
+    clone.querySelector('#mainList').innerHTML = '';
+    clone.querySelector('#actionSheetOverlay').classList.add('hidden');
+    clone.querySelector('#saveOverlay').classList.add('hidden');
+    clone.querySelector('#unlockOverlay').classList.add('hidden');
+    clone.querySelector('#moveOverlay').classList.add('hidden');
+    clone.querySelector('#searchBar').classList.add('hidden');
+    clone.querySelector('#searchResultsLabel').classList.add('hidden');
+    var si = clone.querySelector('#searchInput'); if (si) si.value = '';
+    var ep = clone.querySelector('#encryptCheck'); if (ep) ep.checked = false;
+    var sp1 = clone.querySelector('#savePassword'); if (sp1){ sp1.value=''; sp1.classList.add('hidden'); }
+    var sp2 = clone.querySelector('#savePasswordConfirm'); if (sp2){ sp2.value=''; sp2.classList.add('hidden'); }
+    var up = clone.querySelector('#unlockPassword'); if (up) up.value = '';
+
+    var dataScript = clone.querySelector('#fs-data');
+    dataScript.textContent = JSON.stringify(dataObj);
+
+    var html = '<!DOCTYPE html>\n' + clone.outerHTML;
+    var blob = new Blob([html], { type: 'text/html' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'spfs.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+
+  // ---------------------------------------------------------------
+  // Unlock flow
+  // ---------------------------------------------------------------
+  var unlockOverlay = document.getElementById('unlockOverlay');
+  var unlockError = document.getElementById('unlockError');
+
+  document.getElementById('btnUnlock').addEventListener('click', attemptUnlock);
+  document.getElementById('unlockPassword').addEventListener('keydown', function(e){ if (e.key === 'Enter') attemptUnlock(); });
+
+  async function attemptUnlock(){
+    unlockError.textContent = '';
+    var pw = document.getElementById('unlockPassword').value;
+    if (!pw){ unlockError.textContent = 'Enter a password.'; return; }
+    try {
+      var plain = await decryptJSON(pendingEncryptedPayload, pw);
+      fsRoot = JSON.parse(plain);
+      if (!fsRoot.name) fsRoot.name = 'root';
+      unlockOverlay.classList.add('hidden');
+      currentPath = [fsRoot];
+      render();
+    } catch(e){
+      unlockError.textContent = 'Wrong password, or the data is corrupted.';
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------
+  function boot(){
+    var raw = document.getElementById('fs-data').textContent;
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch(e){ parsed = { encrypted:false, tree: newFolder('root') }; }
+
+    if (parsed.encrypted){
+      pendingEncryptedPayload = parsed.payload;
+      fsRoot = newFolder('root');
+      unlockOverlay.classList.remove('hidden');
+    } else {
+      fsRoot = (parsed.tree && parsed.tree.type) ? parsed.tree : newFolder('root');
+      if (!fsRoot.name) fsRoot.name = 'root';
+    }
+    currentPath = [fsRoot];
+    render();
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
