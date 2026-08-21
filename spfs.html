@@ -1018,9 +1018,16 @@
     var blob = new Blob([html], { type: 'text/html' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = 'spfs.html';
+    a.href = url; a.download = 'spfs-' + timestampForFilename() + '.html';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+
+  function timestampForFilename(){
+    var d = new Date();
+    function pad(n){ return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '' + pad(d.getMonth()+1) + pad(d.getDate())
+      + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
   }
 
   // ---------------------------------------------------------------
