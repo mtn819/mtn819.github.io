@@ -325,7 +325,6 @@
   #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
-  #drive-hud.state-boat{ background:rgba(62,156,220,0.85); border-color:#2d78ad; }
 
   /* ---------- Nearby photos: toggle buttons + panel ---------- */
   .photo-toggle-btn{
@@ -925,7 +924,6 @@ drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
 let currentMode = 'explore';
 let exploreCameraState = null;
 let carMarker = null;
-let carMarkerEl = null;
 let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
 const keys = {};
 let driveRAF = null;
@@ -944,12 +942,11 @@ function switchMode(next){
     stopDrive();
     document.getElementById('dock-wrap').style.display = '';
     driveHud.style.display = 'none';
-    driveHud.classList.remove('state-boost', 'state-boat');
+    driveHud.classList.remove('state-boost');
     drivePad.style.display = 'none';
     drivePhotoBtn.style.display = 'none';
     photoPanel.classList.remove('show');
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
-    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'none');
     map.dragRotate.enable();
     // Fly back to wherever the globe was left, rather than staying
     // zoomed into whatever street the car was just driving on — that's
@@ -984,7 +981,7 @@ function switchMode(next){
       driveHud.style.display = 'flex';
       drivePad.style.display = 'block';
       drivePhotoBtn.style.display = 'block';
-      ensureRoadWaterLayers();
+      ensureRoadLayer();
       resumeDrive();
     } else {
       locateCard.classList.add('show');
@@ -1019,7 +1016,6 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
 
 function beginDriveAt(lng, lat){
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
-  isOnWater = false;
 
   const el = document.createElement('div');
   el.textContent = '🚗';
@@ -1027,23 +1023,22 @@ function beginDriveAt(lng, lat){
   el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))';
   carMarker = new maplibregl.Marker({ element:el })
     .setLngLat([carLng, carLat]).addTo(map);
-  carMarkerEl = el;
 
   driveHud.style.display = 'flex';
   drivePad.style.display = 'block';
   drivePhotoBtn.style.display = 'block';
   map.dragRotate.disable();
   map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
-  ensureRoadWaterLayers();
+  ensureRoadLayer();
   resumeDrive();
 }
 
-// Free, keyless vector road/water data from OpenFreeMap (OpenStreetMap-based,
-// no API key, no limits) so the car can tell whether it's near a road or
-// over water. Added once, only used while driving — see switchMode() for
-// how visibility is toggled off in Explore mode so it doesn't cost tile
+// Free, keyless vector road data from OpenFreeMap (OpenStreetMap-based,
+// no API key, no limits) so the car can tell whether it's near a road.
+// Added once, only used while driving — see switchMode() for how
+// visibility is toggled off in Explore mode so it doesn't cost tile
 // requests while spinning the globe.
-function ensureRoadWaterLayers(){
+function ensureRoadLayer(){
   if(!map.getSource('openmaptiles')){
     map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
   }
@@ -1054,15 +1049,7 @@ function ensureRoadWaterLayers(){
       paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
     });
   }
-  if(!map.getLayer('drive-water')){
-    map.addLayer({
-      id:'drive-water', type:'fill', source:'openmaptiles', 'source-layer':'water',
-      minzoom:10,
-      paint:{ 'fill-color':'#3E9CDC', 'fill-opacity':0.3 }
-    });
-  }
   map.setLayoutProperty('drive-roads', 'visibility', 'visible');
-  map.setLayoutProperty('drive-water', 'visibility', 'visible');
 }
 
 function resumeDrive(){
@@ -1107,21 +1094,20 @@ bindPadButton('pad-right', 'arrowright');
 // straight north/south/east/west (map-relative, not car-relative) —
 // no turning or heading to manage. Holding two directions at once
 // (e.g. up + right) drives diagonally. Speed gets a boost while
-// hugging a road, and the car becomes a boat over water.
+// hugging a road.
 const BASE_MAX_SPEED = 10;   // m/s off-road
 const ROAD_BOOST = 1.7;      // multiplier while near a road
 const ACCEL = 10;
 const FRICTION = 7;
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
 
-let isOnWater = false;
 let isNearRoad = false;
 let lastTerrainCheck = 0;
 
 function checkTerrain(t){
   if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
   lastTerrainCheck = t;
-  let nearRoad = false, onWater = false;
+  let nearRoad = false;
   try{
     const pt = map.project([carLng, carLat]);
     if(map.getLayer('drive-roads')){
@@ -1131,17 +1117,9 @@ function checkTerrain(t){
       );
       nearRoad = roadHits.length > 0;
     }
-    if(map.getLayer('drive-water')){
-      const waterHits = map.queryRenderedFeatures([pt.x, pt.y], { layers:['drive-water'] });
-      onWater = waterHits.length > 0;
-    }
   } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
 
   isNearRoad = nearRoad;
-  if(onWater !== isOnWater){
-    isOnWater = onWater;
-    if(carMarkerEl) carMarkerEl.textContent = isOnWater ? '⛴️' : '🚗';
-  }
 }
 
 function driveLoop(t){
@@ -1185,7 +1163,6 @@ function driveLoop(t){
   const kmh = Math.round(speed * 3.6);
   driveSpeedo.textContent = kmh;
   driveHud.classList.toggle('state-boost', isNearRoad && kmh > 0);
-  driveHud.classList.toggle('state-boat', isOnWater);
 
   driveRAF = requestAnimationFrame(driveLoop);
 }
