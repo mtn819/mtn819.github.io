@@ -851,6 +851,8 @@ function flyToDestination(d){
   if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
   activeDest = d;
   transitionGuard.classList.add('show');
+  factCard.classList.remove('show');
+  photoPanel.classList.remove('show');
   map.flyTo({
     center:d.center,
     zoom:d.zoom,
