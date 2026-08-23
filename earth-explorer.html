@@ -45,6 +45,7 @@
 
   #map{
     position:absolute; inset:0; width:100%; height:100%;
+    touch-action:none;
   }
 
   /* subtle vignette so the globe feels like it's floating in a scope */
@@ -1213,6 +1214,7 @@ function stopDrive(){
   if(driveRAF) cancelAnimationFrame(driveRAF);
   driveRAF = null;
   pointerActive = false;
+  activePointerId = null;
 }
 function onDriveKeyDown(e){
   keys[e.key.toLowerCase()] = true;
@@ -1226,27 +1228,51 @@ function onDriveKeyUp(e){ keys[e.key.toLowerCase()] = false; }
 // the direction from the middle of the screen to wherever the pointer
 // is. Only active in Drive mode, and ignores presses that start on a
 // map control (like the zoom buttons) so those still work normally.
+//
+// Uses pointer capture + a tracked pointerId so the hold survives the
+// finger sliding near screen edges, a second stray touch landing
+// elsewhere, or the browser trying to treat it as a scroll/pan
+// gesture — all things that were making the hold drop out randomly.
 let pointerActive = false, pointerDX = 0, pointerDY = 0;
+let activePointerId = null;
 const POINTER_DEADZONE = 12; // px — avoids jitter right at screen center
 
 function onMapPointerDown(e){
   if(currentMode !== 'drive') return;
+  if(activePointerId !== null) return; // already tracking a hold — ignore extra touches
   if(e.target.closest && e.target.closest('.maplibregl-ctrl')) return;
+  e.preventDefault();
+  activePointerId = e.pointerId;
   pointerActive = true;
   updatePointerDelta(e);
+  if(mapContainerEl.setPointerCapture){
+    try{ mapContainerEl.setPointerCapture(e.pointerId); }catch(err){ /* not critical if unsupported */ }
+  }
 }
 function updatePointerDelta(e){
   pointerDX = e.clientX - window.innerWidth / 2;
   pointerDY = e.clientY - window.innerHeight / 2;
 }
-function onMapPointerMove(e){ if(pointerActive) updatePointerDelta(e); }
-function onMapPointerUp(){ pointerActive = false; }
+function onMapPointerMove(e){
+  if(!pointerActive || e.pointerId !== activePointerId) return;
+  e.preventDefault();
+  updatePointerDelta(e);
+}
+function onMapPointerUp(e){
+  if(e.pointerId !== undefined && e.pointerId !== activePointerId) return;
+  pointerActive = false;
+  activePointerId = null;
+}
 
 const mapContainerEl = map.getContainer();
 mapContainerEl.addEventListener('pointerdown', onMapPointerDown);
 mapContainerEl.addEventListener('pointermove', onMapPointerMove);
+mapContainerEl.addEventListener('pointerup', onMapPointerUp);
+mapContainerEl.addEventListener('pointercancel', onMapPointerUp);
 window.addEventListener('pointerup', onMapPointerUp);
 window.addEventListener('pointercancel', onMapPointerUp);
+window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; });
+
 
 // Combines keyboard and pointer-hold input into one direction, so the
 // physics below doesn't need to know which one is active. Pointer
