@@ -597,14 +597,11 @@ const DESTINATIONS = [
   { id:'tromso-auroras', name:'Auroras Boreales, Tromsø', country:'NORUEGA', emoji:'🌌', center:[18.9553, 69.6492], zoom:10, pitch:10, fact:"¡Esta ciudad está tan al norte que unas auroras de colores — cortinas brillantes de luz verde y morada — suelen bailar en el cielo nocturno, causadas por partículas del sol chocando con nuestra atmósfera!" },
 ];
 
-const STORAGE_KEY = 'ranger-expedition-stamps';
-function loadStamps(){
-  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ return []; }
-}
-function saveStamps(arr){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }catch(e){}
-}
-let collected = new Set(loadStamps());
+// Stamps are kept in memory only, for this session — no localStorage.
+// That keeps updates to the app simple: everyone always gets a clean
+// slate instead of carrying over a stale set of collected ids across
+// versions of the game.
+let collected = new Set();
 let activeDest = null;
 
 // ---------------------------------------------------------------
@@ -752,7 +749,6 @@ document.querySelector('#fact-card .fclose').addEventListener('click', ()=>{
 stampBtn.addEventListener('click', ()=>{
   if(!activeDest || collected.has(activeDest.id)) return;
   collected.add(activeDest.id);
-  saveStamps([...collected]);
   updateStampBtn(activeDest);
   renderDock();
   updatePassportCount();
