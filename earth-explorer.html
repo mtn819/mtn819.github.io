@@ -9,16 +9,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
-/*NO HIGHLIGHTING. TEMPORARY.*/
-  *,
-*::before,
-*::after {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-}
-  
   :root{
     --parchment:#FBF3DE;
     --parchment-deep:#F2E4BE;
@@ -33,9 +23,14 @@
     --radius:18px;
   }
   *{box-sizing:border-box;}
-  button, .dest-card, .stamp-slot{
-    -webkit-tap-highlight-color:transparent;
-    -webkit-user-select:none; user-select:none;
+  *,
+  *::before,
+  *::after {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -webkit-tap-highlight-color: transparent;
   }
   html,body{
     margin:0;padding:0;width:100%;height:100%;
@@ -511,35 +506,15 @@
   }
   #milestone-close:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
 
-  /* ---------- Touch d-pad (for tablets/phones — no arrow keys) ---------- */
-  #drive-pad{
-    position:absolute; left:14px; bottom:16px;
-    z-index:12; display:none;
-    width:150px; height:150px;
+  /* ---------- Transition guard: blocks all UI during camera flights ---------- */
+  #transition-guard{
+    position:absolute; inset:0; z-index:25;
+    display:none;
     pointer-events:auto;
+    background:transparent;
+    cursor:wait;
   }
-  #drive-pad button{
-    position:absolute;
-    width:52px; height:52px;
-    border-radius:14px;
-    background:var(--parchment);
-    border:3px solid var(--forest-deep);
-    box-shadow:0 4px 0 rgba(0,0,0,0.3);
-    font-size:22px;
-    color:var(--forest-deep);
-    cursor:pointer;
-    -webkit-user-select:none; user-select:none;
-    touch-action:none;
-  }
-  #drive-pad button:active,
-  #drive-pad button.pressed{
-    background:var(--sunset); border-color:var(--sunset-deep); color:white;
-    transform:translateY(3px); box-shadow:0 1px 0 var(--sunset-deep);
-  }
-  #pad-up{ top:0; left:49px; }
-  #pad-left{ top:49px; left:0; }
-  #pad-right{ top:49px; left:98px; }
-  #pad-down{ top:98px; left:49px; }
+  #transition-guard.show{ display:block; }
 </style>
 </head>
 <body>
@@ -561,12 +536,7 @@
 
 <button id="drive-photo-btn">📸 Fotos</button>
 
-<div id="drive-pad">
-  <button id="pad-up" aria-label="Mover al norte">⬆️</button>
-  <button id="pad-left" aria-label="Mover al oeste">⬅️</button>
-  <button id="pad-right" aria-label="Mover al este">➡️</button>
-  <button id="pad-down" aria-label="Mover al sur">⬇️</button>
-</div>
+<div id="transition-guard"></div>
 
 <div id="locate-card">
   <div id="locate-inner">
@@ -876,8 +846,11 @@ DESTINATIONS.forEach(d=>{
   new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
 });
 
+const transitionGuard = document.getElementById('transition-guard');
 function flyToDestination(d){
+  if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
   activeDest = d;
+  transitionGuard.classList.add('show');
   map.flyTo({
     center:d.center,
     zoom:d.zoom,
@@ -888,7 +861,10 @@ function flyToDestination(d){
     essential:true
   });
   hideHint();
-  map.once('moveend', ()=> showFactCard(d));
+  map.once('moveend', ()=>{
+    transitionGuard.classList.remove('show');
+    showFactCard(d);
+  });
 }
 
 // ---------------------------------------------------------------
@@ -1076,12 +1052,15 @@ const modeDriveBtn = document.getElementById('mode-drive-btn');
 const driveHud = document.getElementById('drive-hud');
 const driveSpeedo = document.getElementById('drive-speedo');
 const locateCard = document.getElementById('locate-card');
-const drivePad = document.getElementById('drive-pad');
 const drivePhotoBtn = document.getElementById('drive-photo-btn');
 drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
 
+// The exact camera the map opens with — Explore mode always returns to
+// precisely this, every time, so switching modes can never leave the
+// globe in some in-between state.
+const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
+
 let currentMode = 'explore';
-let exploreCameraState = null;
 let carMarker = null;
 let carFlipEl = null;
 const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
@@ -1095,6 +1074,13 @@ let lastFrameTime = null;
 function metersPerDegLng(lat){ return 111320 * Math.cos(lat * Math.PI / 180); }
 const METERS_PER_DEG_LAT = 111320;
 
+// Removes the car marker from the map entirely, if one exists. Called
+// whenever leaving Drive mode AND right before creating a new one, so
+// there is never a moment where two car markers can both exist.
+function removeCarMarker(){
+  if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; }
+}
+
 function switchMode(next){
   if(next === currentMode) return;
   currentMode = next;
@@ -1103,53 +1089,30 @@ function switchMode(next){
 
   if(next === 'explore'){
     stopDrive();
+    removeCarMarker();
     document.getElementById('dock-wrap').style.display = '';
     driveHud.style.display = 'none';
     driveHud.classList.remove('state-boost');
-    drivePad.style.display = 'none';
     drivePhotoBtn.style.display = 'none';
     photoPanel.classList.remove('show');
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
     map.dragRotate.enable();
-    // Fly back to wherever the globe was left, rather than staying
-    // zoomed into whatever street the car was just driving on — that's
-    // what made switching back to Explore feel broken.
-    if(exploreCameraState){
-      map.flyTo({
-        center:exploreCameraState.center,
-        zoom:exploreCameraState.zoom,
-        pitch:exploreCameraState.pitch,
-        bearing:exploreCameraState.bearing,
-        speed:0.9,
-        curve:1.3,
-        essential:true
-      });
-    } else {
-      map.setPitch(0);
-    }
+    map.dragPan.enable();
+    // Always reset to the exact same zoomed-out globe view the app
+    // opens with — never resume wherever driving last left the camera.
+    transitionGuard.classList.add('show');
+    map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
+    map.once('moveend', ()=> transitionGuard.classList.remove('show'));
   } else {
-    // Leaving Explore for Drive — remember exactly where the globe was
-    // so switching back restores it instead of leaving the camera
-    // wherever driving last left it.
-    exploreCameraState = {
-      center: map.getCenter(),
-      zoom: map.getZoom(),
-      pitch: map.getPitch(),
-      bearing: map.getBearing()
-    };
+    // Entering Drive mode is always treated like the very first time:
+    // drop any old marker and re-ask for the current location, rather
+    // than trying to "resume" a previous session. That's what was
+    // causing a second, stale car to appear at the old spot.
+    removeCarMarker();
     document.getElementById('dock-wrap').style.display = 'none';
     factCard.classList.remove('show');
     photoPanel.classList.remove('show');
-    if(carMarker){
-      driveHud.style.display = 'flex';
-      drivePad.style.display = 'block';
-      drivePhotoBtn.style.display = 'block';
-      map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
-      ensureRoadLayer();
-      resumeDrive();
-    } else {
-      locateCard.classList.add('show');
-    }
+    locateCard.classList.add('show');
   }
 }
 modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
@@ -1179,6 +1142,7 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
 });
 
 function beginDriveAt(lng, lat){
+  removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
 
@@ -1210,9 +1174,9 @@ function beginDriveAt(lng, lat){
   carFlipEl = flip;
 
   driveHud.style.display = 'flex';
-  drivePad.style.display = 'block';
   drivePhotoBtn.style.display = 'block';
   map.dragRotate.disable();
+  map.dragPan.disable(); // so a held drag steers the car instead of panning the map
   map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
   ensureRoadLayer();
   resumeDrive();
@@ -1248,6 +1212,7 @@ function stopDrive(){
   window.removeEventListener('keyup', onDriveKeyUp);
   if(driveRAF) cancelAnimationFrame(driveRAF);
   driveRAF = null;
+  pointerActive = false;
 }
 function onDriveKeyDown(e){
   keys[e.key.toLowerCase()] = true;
@@ -1255,25 +1220,52 @@ function onDriveKeyDown(e){
 }
 function onDriveKeyUp(e){ keys[e.key.toLowerCase()] = false; }
 
-// Touch d-pad — sets the same keys[] flags the keyboard handlers use,
-// so the driving physics loop below doesn't need to know which input
-// method is active. Works with a finger held down (pointerdown/up) or
-// released off the edge of the button (pointerleave/cancel).
-function bindPadButton(id, key){
-  const btn = document.getElementById(id);
-  const press = (e)=>{ e.preventDefault(); keys[key] = true; btn.classList.add('pressed'); };
-  const release = (e)=>{ if(e) e.preventDefault(); keys[key] = false; btn.classList.remove('pressed'); };
-  btn.addEventListener('pointerdown', press);
-  btn.addEventListener('pointerup', release);
-  btn.addEventListener('pointerleave', release);
-  btn.addEventListener('pointercancel', release);
-  // Keep normal click/touch semantics from also firing a page scroll etc.
-  btn.addEventListener('contextmenu', (e)=> e.preventDefault());
+// Hold-to-drive: press and hold (finger or mouse) anywhere on the map
+// and the car heads toward that point on the screen. Since the camera
+// always stays centered on the car, "toward the touch point" is just
+// the direction from the middle of the screen to wherever the pointer
+// is. Only active in Drive mode, and ignores presses that start on a
+// map control (like the zoom buttons) so those still work normally.
+let pointerActive = false, pointerDX = 0, pointerDY = 0;
+const POINTER_DEADZONE = 12; // px — avoids jitter right at screen center
+
+function onMapPointerDown(e){
+  if(currentMode !== 'drive') return;
+  if(e.target.closest && e.target.closest('.maplibregl-ctrl')) return;
+  pointerActive = true;
+  updatePointerDelta(e);
 }
-bindPadButton('pad-up', 'arrowup');
-bindPadButton('pad-down', 'arrowdown');
-bindPadButton('pad-left', 'arrowleft');
-bindPadButton('pad-right', 'arrowright');
+function updatePointerDelta(e){
+  pointerDX = e.clientX - window.innerWidth / 2;
+  pointerDY = e.clientY - window.innerHeight / 2;
+}
+function onMapPointerMove(e){ if(pointerActive) updatePointerDelta(e); }
+function onMapPointerUp(){ pointerActive = false; }
+
+const mapContainerEl = map.getContainer();
+mapContainerEl.addEventListener('pointerdown', onMapPointerDown);
+mapContainerEl.addEventListener('pointermove', onMapPointerMove);
+window.addEventListener('pointerup', onMapPointerUp);
+window.addEventListener('pointercancel', onMapPointerUp);
+
+// Combines keyboard and pointer-hold input into one direction, so the
+// physics below doesn't need to know which one is active. Pointer
+// takes priority whenever it's active.
+function getInputDirection(){
+  if(pointerActive){
+    const mag = Math.hypot(pointerDX, pointerDY);
+    if(mag < POINTER_DEADZONE) return { x:0, y:0 };
+    return { x: pointerDX / mag, y: -pointerDY / mag };
+  }
+  const north = (keys['arrowup'] || keys['w']) ? 1 : 0;
+  const south = (keys['arrowdown'] || keys['s']) ? 1 : 0;
+  const west = (keys['arrowleft'] || keys['a']) ? 1 : 0;
+  const east = (keys['arrowright'] || keys['d']) ? 1 : 0;
+  let x = east - west, y = north - south;
+  const mag = Math.hypot(x, y);
+  if(mag > 1){ x /= mag; y /= mag; }
+  return { x, y };
+}
 
 // Translation-only driving: each arrow/WASD direction pushes the car
 // straight north/south/east/west (map-relative, not car-relative) —
@@ -1317,29 +1309,20 @@ function driveLoop(t){
   const maxSpeed = isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED;
   const accel = isNearRoad ? ACCEL_ROAD : ACCEL_OFFROAD;
 
-  const north = (keys['arrowup'] || keys['w']) ? 1 : 0;
-  const south = (keys['arrowdown'] || keys['s']) ? 1 : 0;
-  const west = (keys['arrowleft'] || keys['a']) ? 1 : 0;
-  const east = (keys['arrowright'] || keys['d']) ? 1 : 0;
+  const dir = getInputDirection();
 
-  if(east && !facingRight){
+  if(dir.x > 0.15 && !facingRight){
     facingRight = true;
     if(carFlipEl) carFlipEl.style.transform = 'scaleX(-1)';
-  } else if(west && facingRight){
+  } else if(dir.x < -0.15 && facingRight){
     facingRight = false;
     if(carFlipEl) carFlipEl.style.transform = 'scaleX(1)';
   }
 
-  let targetVN = (north - south) * maxSpeed;
-  let targetVE = (east - west) * maxSpeed;
-  // Normalize diagonal speed so it isn't faster than a straight line.
-  const mag = Math.hypot(targetVN, targetVE);
-  if(mag > maxSpeed){
-    targetVN = targetVN / mag * maxSpeed;
-    targetVE = targetVE / mag * maxSpeed;
-  }
+  const targetVN = dir.y * maxSpeed;
+  const targetVE = dir.x * maxSpeed;
 
-  const anyInput = north || south || west || east;
+  const anyInput = dir.x !== 0 || dir.y !== 0;
   if(anyInput){
     carVelN += Math.sign(targetVN - carVelN) * Math.min(Math.abs(targetVN - carVelN), accel * dt);
     carVelE += Math.sign(targetVE - carVelE) * Math.min(Math.abs(targetVE - carVelE), accel * dt);
