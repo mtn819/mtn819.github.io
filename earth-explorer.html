@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ranger's Earth Expedition</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#FBF3DE;
+    --parchment-deep:#F2E4BE;
+    --forest:#1F5C4C;
+    --forest-deep:#123B30;
+    --sunset:#F4802E;
+    --sunset-deep:#D8631A;
+    --sky:#3E9CDC;
+    --ink:#20362F;
+    --stamp-red:#C1443A;
+    --gold:#D9A441;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;
+    font-family:'Nunito',sans-serif;
+    background:var(--forest-deep);
+    color:var(--ink);
+    overflow:hidden;
+  }
+  h1,h2,h3,.display{
+    font-family:'Baloo 2',cursive;
+  }
+
+  #map{
+    position:absolute; inset:0; width:100%; height:100%;
+  }
+
+  /* subtle vignette so the globe feels like it's floating in a scope */
+  #vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(9,26,21,0.55) 100%);
+    z-index:2;
+  }
+
+  /* ---------- Top bar ---------- */
+  #topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px;
+    z-index:10;
+    pointer-events:none;
+  }
+  #brand{
+    display:flex; align-items:center; gap:10px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:999px;
+    padding:8px 18px 8px 10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.25);
+    pointer-events:auto;
+  }
+  #brand .compass{
+    width:34px;height:34px;flex-shrink:0;
+    animation: spin-slow 18s linear infinite;
+  }
+  @keyframes spin-slow{ to{ transform:rotate(360deg); } }
+  #brand span{
+    font-family:'Baloo 2',cursive;
+    font-weight:800;
+    font-size:18px;
+    color:var(--forest-deep);
+    white-space:nowrap;
+  }
+
+  #passport-btn{
+    pointer-events:auto;
+    display:flex; align-items:center; gap:8px;
+    background:var(--sunset);
+    border:3px solid var(--sunset-deep);
+    color:white;
+    font-family:'Baloo 2',cursive;
+    font-weight:700;
+    font-size:16px;
+    border-radius:999px;
+    padding:10px 18px;
+    cursor:pointer;
+    box-shadow:0 4px 0 var(--sunset-deep);
+    transition:transform .12s ease;
+  }
+  #passport-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--sunset-deep); }
+  #passport-count{
+    background:white; color:var(--sunset-deep);
+    border-radius:999px; font-size:13px; font-weight:800;
+    padding:2px 9px;
+  }
+
+  /* ---------- Destination dock (bottom) ---------- */
+  #dock-wrap{
+    position:absolute; bottom:0; left:0; right:0;
+    z-index:10;
+    padding:14px 14px 16px;
+    pointer-events:none;
+  }
+  #dock-label{
+    font-family:'Baloo 2',cursive;
+    color:var(--parchment);
+    font-size:14px;
+    font-weight:700;
+    margin:0 4px 8px;
+    text-shadow:0 2px 4px rgba(0,0,0,0.5);
+    pointer-events:none;
+  }
+  #dock{
+    display:flex; gap:10px; overflow-x:auto;
+    padding:4px 4px 8px;
+    pointer-events:auto;
+    scrollbar-width:thin;
+  }
+  #dock::-webkit-scrollbar{ height:6px; }
+  #dock::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.3); border-radius:4px; }
+
+  .dest-card{
+    flex:0 0 auto;
+    width:120px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:var(--radius);
+    padding:10px 8px 12px;
+    cursor:pointer;
+    text-align:center;
+    box-shadow:0 4px 0 rgba(0,0,0,0.3);
+    transition:transform .12s ease;
+    position:relative;
+    user-select:none;
+  }
+  .dest-card:hover{ transform:translateY(-3px); }
+  .dest-card:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+  .dest-card .emoji{ font-size:30px; display:block; margin-bottom:4px; }
+  .dest-card .name{ font-family:'Baloo 2',cursive; font-weight:700; font-size:13px; color:var(--forest-deep); line-height:1.15; }
+  .dest-card.visited{ background:var(--forest); }
+  .dest-card.visited .name{ color:var(--parchment); }
+  .dest-card .check{
+    position:absolute; top:-8px; right:-8px;
+    width:24px;height:24px; border-radius:50%;
+    background:var(--gold); border:2px solid var(--forest-deep);
+    display:none; align-items:center; justify-content:center;
+    font-size:13px;
+  }
+  .dest-card.visited .check{ display:flex; }
+
+  /* ---------- Fact card (appears after fly-to) ---------- */
+  #fact-card{
+    position:absolute;
+    left:50%; top:14%;
+    transform:translate(-50%,-20px);
+    width:min(360px, 86vw);
+    background:var(--parchment);
+    border:4px solid var(--forest-deep);
+    border-radius:22px;
+    padding:18px 20px 20px;
+    box-shadow:0 10px 0 rgba(0,0,0,0.28);
+    z-index:20;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  #fact-card.show{
+    opacity:1; transform:translate(-50%,0);
+    pointer-events:auto;
+  }
+  #fact-card .fclose{
+    position:absolute; top:10px; right:12px;
+    background:none;border:none;font-size:20px;
+    cursor:pointer; color:var(--forest-deep); font-weight:800;
+    line-height:1;
+  }
+  #fact-card .femoji{ font-size:40px; display:block; margin-bottom:2px;}
+  #fact-card h2{ margin:0 0 6px; color:var(--forest-deep); font-size:22px; }
+  #fact-card .fcountry{ font-size:13px; font-weight:800; color:var(--sunset-deep); margin-bottom:10px; }
+  #fact-card p{ margin:0 0 14px; font-size:15px; line-height:1.45; color:var(--ink); }
+  #fact-card .stamp-btn{
+    display:block; width:100%;
+    background:var(--forest); color:var(--parchment);
+    border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:15px;
+    border-radius:999px; padding:10px; cursor:pointer;
+    box-shadow:0 4px 0 var(--forest-deep);
+  }
+  #fact-card .stamp-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
+  #fact-card .stamp-btn.already{ background:var(--parchment-deep); color:var(--forest-deep); cursor:default; box-shadow:0 4px 0 rgba(0,0,0,0.15); }
+
+  /* ---------- Welcome overlay ---------- */
+  #welcome{
+    position:absolute; inset:0; z-index:50;
+    background:radial-gradient(circle at 50% 40%, var(--forest) 0%, var(--forest-deep) 70%);
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    padding:24px;
+  }
+  #welcome-card{
+    max-width:420px;
+  }
+  #welcome .globe-emoji{ font-size:64px; display:block; margin-bottom:6px; animation:bob 2.4s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  #welcome h1{ color:var(--parchment); font-size:34px; margin:0 0 8px; }
+  #welcome p{ color:var(--parchment-deep); font-size:16px; line-height:1.5; margin:0 0 24px; }
+  #start-btn{
+    background:var(--sunset); color:white;
+    border:3px solid var(--sunset-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:19px;
+    border-radius:999px; padding:14px 36px; cursor:pointer;
+    box-shadow:0 5px 0 var(--sunset-deep);
+  }
+  #start-btn:active{ transform:translateY(4px); box-shadow:0 1px 0 var(--sunset-deep); }
+
+  /* ---------- Passport modal ---------- */
+  #passport-modal{
+    position:absolute; inset:0; z-index:60;
+    background:rgba(9,26,21,0.72);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #passport-modal.show{ display:flex; }
+  #passport-book{
+    width:min(420px,92vw);
+    max-height:82vh;
+    overflow-y:auto;
+    background:var(--parchment);
+    border:5px solid var(--forest-deep);
+    border-radius:24px;
+    padding:22px 20px 26px;
+    position:relative;
+  }
+  #passport-book h2{ color:var(--forest-deep); margin:0 0 4px; font-size:24px; }
+  #passport-book .sub{ font-size:13px; color:var(--sunset-deep); font-weight:800; margin-bottom:16px; }
+  .pclose{
+    position:absolute; top:14px; right:16px;
+    background:none;border:none;font-size:24px;cursor:pointer;
+    color:var(--forest-deep); font-weight:800;
+  }
+  #stamp-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+  }
+  .stamp-slot{
+    aspect-ratio:1;
+    border:3px dashed var(--forest);
+    border-radius:14px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    opacity:0.35;
+    text-align:center;
+    padding:4px;
+  }
+  .stamp-slot.filled{
+    opacity:1;
+    border-style:solid;
+    border-color:var(--stamp-red);
+    background:#fff8e8;
+    transform:rotate(var(--tilt,-2deg));
+  }
+  .stamp-slot .semoji{ font-size:22px; }
+  .stamp-slot .sname{ font-family:'Baloo 2',cursive; font-size:10px; font-weight:700; margin-top:2px; color:var(--forest-deep); }
+  #passport-empty{ text-align:center; color:var(--forest); font-size:14px; margin-top:10px; }
+
+  /* ---------- Hint toast ---------- */
+  #hint{
+    position:absolute; left:50%; bottom:96px; transform:translateX(-50%);
+    background:var(--forest-deep); color:var(--parchment);
+    font-size:13px; font-weight:700;
+    padding:8px 16px; border-radius:999px;
+    opacity:0; transition:opacity .4s ease;
+    z-index:15; pointer-events:none;
+    white-space:nowrap;
+  }
+  #hint.show{ opacity:1; }
+
+  /* maplibre attribution styling to stay legible on dark globe */
+  .maplibregl-ctrl-attrib{
+    background:rgba(251,243,222,0.85) !important;
+    border-radius:8px 0 0 0 !important;
+  }
+  .maplibregl-ctrl-bottom-right{ z-index:5; }
+
+  @media (max-width:480px){
+    #brand span{ display:none; }
+    .dest-card{ width:100px; }
+  }
+
+  /* ---------- Mode toggle ---------- */
+  #mode-toggle{
+    display:flex; gap:4px;
+    background:rgba(18,59,48,0.55);
+    border:2px solid var(--forest-deep);
+    border-radius:999px;
+    padding:3px;
+    pointer-events:auto;
+  }
+  #mode-toggle button{
+    border:none; background:transparent;
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    padding:7px 14px; border-radius:999px; cursor:pointer;
+    color:var(--parchment);
+  }
+  #mode-toggle button.active{
+    background:var(--sunset); color:white;
+    box-shadow:0 2px 0 var(--sunset-deep);
+  }
+
+  /* ---------- Drive HUD ---------- */
+  #drive-hud{
+    position:absolute; top:72px; left:14px;
+    z-index:12; display:none;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:14px;
+    padding:10px 14px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+    font-family:'Baloo 2',cursive;
+    font-weight:700; font-size:13px;
+    color:var(--forest-deep);
+    max-width:220px;
+  }
+  #drive-hud .speedo{ font-size:20px; margin-bottom:2px; }
+  #drive-hud .controls-line{ font-size:11px; font-weight:600; opacity:0.8; }
+
+  /* ---------- Nearby photos panel ---------- */
+  #photo-panel{
+    position:absolute; top:64px; right:14px;
+    z-index:12; display:none;
+    width:150px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:14px;
+    padding:10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+  }
+  #photo-panel h3{
+    margin:0 0 6px; font-size:12px; color:var(--forest-deep);
+    display:flex; align-items:center; gap:4px;
+  }
+  #photo-panel .pshots{ display:flex; flex-direction:column; gap:6px; }
+  #photo-panel img{
+    width:100%; height:72px; object-fit:cover;
+    border-radius:8px; border:2px solid var(--forest-deep);
+    display:block;
+  }
+  #photo-panel .ploading{ font-size:11px; color:var(--forest); text-align:center; padding:8px 0; }
+  #photo-panel .pcaption{ font-size:9px; color:var(--forest); margin-top:2px; line-height:1.2; }
+
+  /* ---------- Location permission card ---------- */
+  #locate-card{
+    position:absolute; inset:0; z-index:40;
+    background:rgba(9,26,21,0.72);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #locate-card.show{ display:flex; }
+  #locate-inner{
+    max-width:340px; text-align:center;
+    background:var(--parchment);
+    border:4px solid var(--forest-deep);
+    border-radius:22px;
+    padding:22px 22px 24px;
+  }
+  #locate-inner .lemoji{ font-size:44px; display:block; margin-bottom:6px; }
+  #locate-inner h2{ color:var(--forest-deep); margin:0 0 8px; font-size:20px; }
+  #locate-inner p{ margin:0 0 18px; font-size:14px; color:var(--ink); line-height:1.4; }
+  #locate-go{
+    background:var(--sunset); color:white; border:3px solid var(--sunset-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:15px;
+    border-radius:999px; padding:11px 26px; cursor:pointer;
+    box-shadow:0 4px 0 var(--sunset-deep);
+  }
+  #locate-cancel{
+    display:block; margin:10px auto 0; background:none; border:none;
+    color:var(--forest); font-size:12px; text-decoration:underline; cursor:pointer;
+  }
+
+  /* ---------- Touch d-pad (for tablets/phones — no arrow keys) ---------- */
+  #drive-pad{
+    position:absolute; left:14px; bottom:16px;
+    z-index:12; display:none;
+    width:150px; height:150px;
+    pointer-events:auto;
+  }
+  #drive-pad button{
+    position:absolute;
+    width:52px; height:52px;
+    border-radius:14px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    box-shadow:0 4px 0 rgba(0,0,0,0.3);
+    font-size:22px;
+    color:var(--forest-deep);
+    cursor:pointer;
+    -webkit-user-select:none; user-select:none;
+    touch-action:none;
+  }
+  #drive-pad button:active,
+  #drive-pad button.pressed{
+    background:var(--sunset); border-color:var(--sunset-deep); color:white;
+    transform:translateY(3px); box-shadow:0 1px 0 var(--sunset-deep);
+  }
+  #pad-up{ top:0; left:49px; }
+  #pad-left{ top:49px; left:0; }
+  #pad-right{ top:49px; left:98px; }
+  #pad-down{ top:98px; left:49px; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="vignette"></div>
+
+<div id="topbar">
+  <div id="brand">
+    <svg class="compass" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#F4802E" stroke="#123B30" stroke-width="3"/><polygon points="20,7 24,20 20,33 16,20" fill="#FBF3DE"/><polygon points="20,7 24,20 20,20" fill="#D8631A"/><circle cx="20" cy="20" r="3" fill="#123B30"/></svg>
+    <span>Ranger's Expedition</span>
+  </div>
+  <div id="mode-toggle">
+    <button id="mode-explore-btn" class="active">🌍 Explore</button>
+    <button id="mode-drive-btn">🚗 Drive</button>
+  </div>
+  <button id="passport-btn">🪪 Passport <span id="passport-count">0/8</span></button>
+</div>
+
+<div id="drive-hud">
+  <div class="speedo" id="drive-speedo">🚗 Parked</div>
+  <div class="controls-line">Arrow keys, WASD, or the pad below</div>
+</div>
+
+<div id="drive-pad">
+  <button id="pad-up" aria-label="Drive forward">⬆️</button>
+  <button id="pad-left" aria-label="Turn left">⬅️</button>
+  <button id="pad-right" aria-label="Turn right">➡️</button>
+  <button id="pad-down" aria-label="Reverse">⬇️</button>
+</div>
+
+<div id="photo-panel">
+  <h3>📸 Near you</h3>
+  <div class="pshots" id="photo-shots"><div class="ploading">Looking around…</div></div>
+</div>
+
+<div id="locate-card">
+  <div id="locate-inner">
+    <span class="lemoji">📍</span>
+    <h2>Drive near you!</h2>
+    <p>This uses your device's location to drop your car on a real map of your neighborhood, so you can drive around and see photos taken nearby.</p>
+    <button id="locate-go">Share my location</button>
+    <button id="locate-cancel">Not now</button>
+  </div>
+</div>
+
+<div id="hint">🧭 Drag to spin the globe • pinch or scroll to zoom</div>
+
+<div id="fact-card">
+  <button class="fclose" aria-label="Close">✕</button>
+  <span class="femoji">🌍</span>
+  <h2 id="fact-title">Place name</h2>
+  <div class="fcountry" id="fact-country">COUNTRY</div>
+  <p id="fact-text">Fun fact goes here.</p>
+  <button class="stamp-btn" id="stamp-btn">🎟️ Collect stamp!</button>
+</div>
+
+<div id="dock-wrap">
+  <p id="dock-label">✨ Pick a place to fly to!</p>
+  <div id="dock"></div>
+</div>
+
+<div id="welcome">
+  <div id="welcome-card">
+    <span class="globe-emoji">🌎</span>
+    <h1>Ranger's Earth Expedition</h1>
+    <p>Spin the whole world, zoom into mountains and cities, and collect stamps from every continent. Ready to explore?</p>
+    <button id="start-btn">Start exploring →</button>
+  </div>
+</div>
+
+<div id="passport-modal">
+  <div id="passport-book">
+    <button class="pclose" aria-label="Close">✕</button>
+    <h2>🪪 My Passport</h2>
+    <div class="sub" id="passport-sub">0 of 8 stamps collected</div>
+    <div id="stamp-grid"></div>
+    <p id="passport-empty">Fly to places and tap "Collect stamp!" to fill your passport.</p>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------
+// Attach the welcome/start button FIRST, before anything that
+// touches the map library. If the map fails to load for any
+// reason (slow network, blocked CDN, etc.) the rest of this
+// script may throw — but this listener is already wired up, so
+// "Start exploring" always works and the overlay always dismisses.
+// ---------------------------------------------------------------
+document.getElementById('start-btn').addEventListener('click', ()=>{
+  document.getElementById('welcome').style.display = 'none';
+  if(typeof showHint === 'function') showHint();
+});
+
+// ---------------------------------------------------------------
+// Destinations: each has coords, a kid-friendly fact, and an emoji
+// ---------------------------------------------------------------
+const DESTINATIONS = [
+  {
+    id:'everest', name:'Mount Everest', country:'NEPAL / CHINA', emoji:'🏔️',
+    center:[86.9250, 27.9881], zoom:9.5, pitch:60,
+    fact:"This is the tallest mountain on Earth! Its peak is so high that airplanes used to fly close to it, and climbers need to bring their own oxygen to breathe up there."
+  },
+  {
+    id:'amazon', name:'Amazon Rainforest', country:'BRAZIL', emoji:'🌳',
+    center:[-62.2159, -3.4653], zoom:6.2, pitch:30,
+    fact:"The Amazon makes so much oxygen that people call it the 'lungs of the Earth.' It's home to millions of kinds of plants, bugs, and animals — more than anywhere else on the planet!"
+  },
+  {
+    id:'sahara', name:'Sahara Desert', country:'NORTH AFRICA', emoji:'🏜️',
+    center:[10.0, 23.0], zoom:5, pitch:20,
+    fact:"The Sahara is almost as big as the whole United States! During the day it can get super hot, but at night the sand cools off so fast it can actually feel chilly."
+  },
+  {
+    id:'pyramids', name:'Great Pyramids', country:'EGYPT', emoji:'🔺',
+    center:[31.1342, 29.9792], zoom:15.5, pitch:55,
+    fact:"These pyramids are over 4,500 years old and were built as giant tombs for Egyptian pharaohs. The biggest one was the tallest structure on Earth for almost 4,000 years!"
+  },
+  {
+    id:'reef', name:'Great Barrier Reef', country:'AUSTRALIA', emoji:'🐠',
+    center:[147.6992, -18.2871], zoom:9, pitch:0,
+    fact:"This is the biggest living structure on Earth, made entirely by tiny animals called coral! It's so huge you can actually see it from space."
+  },
+  {
+    id:'everglades', name:'Grand Canyon', country:'UNITED STATES', emoji:'🏞️',
+    center:[-112.1401, 36.0544], zoom:10.5, pitch:65,
+    fact:"The Grand Canyon was carved by the Colorado River over millions and millions of years. It's so wide that it can take two hours to drive from one side to the other!"
+  },
+  {
+    id:'antarctica', name:'Antarctica', country:'SOUTH POLE', emoji:'🐧',
+    center:[0.0, -80.0], zoom:4.5, pitch:0,
+    fact:"Antarctica is the coldest place on Earth, and almost the whole continent is covered in thick ice. Penguins live here — but polar bears don't, they only live way up at the North Pole!"
+  },
+  {
+    id:'fuji', name:'Mount Fuji', country:'JAPAN', emoji:'🗻',
+    center:[138.7274, 35.3606], zoom:11, pitch:60,
+    fact:"Mount Fuji is a volcano, and its snowy, perfectly-shaped peak is one of the most famous mountain views in the world. Thousands of people hike to the top every summer!"
+  }
+];
+
+const STORAGE_KEY = 'ranger-expedition-stamps';
+function loadStamps(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ return []; }
+}
+function saveStamps(arr){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }catch(e){}
+}
+let collected = new Set(loadStamps());
+let activeDest = null;
+
+// ---------------------------------------------------------------
+// Map setup — free raster tiles, no API key required.
+// OSM for the base globe; MapLibre's built-in globe projection
+// gives the "spin the whole Earth" feeling.
+// Everything below is wrapped in try/catch so that if the map
+// library or a tile source fails to load, the welcome screen,
+// start button, and passport still work — the app degrades
+// instead of breaking outright.
+// ---------------------------------------------------------------
+try{
+
+const map = new maplibregl.Map({
+  container:'map',
+  style:{
+    version:8,
+    sources:{
+      'osm':{
+        type:'raster',
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize:256,
+        attribution:'© OpenStreetMap contributors'
+      },
+      'satellite':{
+        type:'raster',
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize:256,
+        attribution:'Esri World Imagery'
+      }
+    },
+    layers:[
+      { id:'osm-layer', type:'raster', source:'osm' }
+    ]
+  },
+  center:[0, 20],
+  zoom:1.6,
+  pitch:0,
+  attributionControl:{ compact:true }
+});
+
+map.on('load', ()=>{
+  try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
+  map.setFog({});
+});
+
+map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
+map.dragRotate.enable();
+map.touchZoomRotate.enable();
+map.touchPitch.enable();
+
+// Swap to satellite imagery automatically once zoomed in close,
+// so kids see real photo detail on landmarks, and OSM lines/labels
+// when zoomed out for a friendly, readable globe.
+let usingSatellite = false;
+map.on('zoom', ()=>{
+  const z = map.getZoom();
+  if(z > 7.5 && !usingSatellite){
+    if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
+    map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
+    usingSatellite = true;
+  } else if(z <= 7.5 && usingSatellite){
+    if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
+    map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
+    usingSatellite = false;
+  }
+});
+
+// ---------------------------------------------------------------
+// Landmark markers
+// ---------------------------------------------------------------
+DESTINATIONS.forEach(d=>{
+  const el = document.createElement('div');
+  el.textContent = d.emoji;
+  el.style.fontSize = '26px';
+  el.style.cursor = 'pointer';
+  el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
+  el.title = d.name;
+  el.addEventListener('click', ()=> flyToDestination(d));
+  new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
+});
+
+function flyToDestination(d){
+  activeDest = d;
+  map.flyTo({
+    center:d.center,
+    zoom:d.zoom,
+    pitch:d.pitch,
+    bearing: Math.random()*40-20,
+    speed:0.7,
+    curve:1.4,
+    essential:true
+  });
+  hideHint();
+  map.once('moveend', ()=> showFactCard(d));
+}
+
+// ---------------------------------------------------------------
+// Destination dock (bottom scroller)
+// ---------------------------------------------------------------
+const dock = document.getElementById('dock');
+function renderDock(){
+  dock.innerHTML = '';
+  DESTINATIONS.forEach(d=>{
+    const card = document.createElement('div');
+    card.className = 'dest-card' + (collected.has(d.id) ? ' visited' : '');
+    card.innerHTML = `<span class="check">✓</span><span class="emoji">${d.emoji}</span><span class="name">${d.name}</span>`;
+    card.addEventListener('click', ()=> flyToDestination(d));
+    dock.appendChild(card);
+  });
+}
+renderDock();
+
+// ---------------------------------------------------------------
+// Fact card
+// ---------------------------------------------------------------
+const factCard = document.getElementById('fact-card');
+const factTitle = document.getElementById('fact-title');
+const factCountry = document.getElementById('fact-country');
+const factText = document.getElementById('fact-text');
+const stampBtn = document.getElementById('stamp-btn');
+const femoji = document.querySelector('#fact-card .femoji');
+
+function showFactCard(d){
+  femoji.textContent = d.emoji;
+  factTitle.textContent = d.name;
+  factCountry.textContent = d.country;
+  factText.textContent = d.fact;
+  updateStampBtn(d);
+  factCard.classList.add('show');
+}
+function updateStampBtn(d){
+  if(collected.has(d.id)){
+    stampBtn.textContent = '✓ Stamp collected!';
+    stampBtn.classList.add('already');
+  } else {
+    stampBtn.textContent = '🎟️ Collect stamp!';
+    stampBtn.classList.remove('already');
+  }
+}
+document.querySelector('#fact-card .fclose').addEventListener('click', ()=>{
+  factCard.classList.remove('show');
+});
+stampBtn.addEventListener('click', ()=>{
+  if(!activeDest || collected.has(activeDest.id)) return;
+  collected.add(activeDest.id);
+  saveStamps([...collected]);
+  updateStampBtn(activeDest);
+  renderDock();
+  updatePassportCount();
+  celebrateStamp();
+});
+
+function celebrateStamp(){
+  stampBtn.style.transform = 'scale(1.08)';
+  setTimeout(()=> stampBtn.style.transform = '', 180);
+}
+
+// =================================================================
+// DRIVE MODE
+// Uses the browser's built-in geolocation (device location, granted
+// by the user) to drop a car on a real map near them, driven with
+// arrow keys / WASD. "Nearby photos" come from Wikimedia Commons'
+// free, keyless geosearch API — real geotagged photos near wherever
+// the car currently is.
+// =================================================================
+const modeExploreBtn = document.getElementById('mode-explore-btn');
+const modeDriveBtn = document.getElementById('mode-drive-btn');
+const driveHud = document.getElementById('drive-hud');
+const driveSpeedo = document.getElementById('drive-speedo');
+const photoPanel = document.getElementById('photo-panel');
+const photoShots = document.getElementById('photo-shots');
+const locateCard = document.getElementById('locate-card');
+const drivePad = document.getElementById('drive-pad');
+
+let currentMode = 'explore';
+let carMarker = null;
+let carLng = 0, carLat = 0, carHeading = 0, carSpeed = 0;
+const keys = {};
+let driveRAF = null;
+let lastFrameTime = null;
+let lastPhotoFetchLng = null, lastPhotoFetchLat = null, lastPhotoFetchTime = 0;
+
+function metersPerDegLng(lat){ return 111320 * Math.cos(lat * Math.PI / 180); }
+const METERS_PER_DEG_LAT = 111320;
+
+function switchMode(next){
+  if(next === currentMode) return;
+  currentMode = next;
+  modeExploreBtn.classList.toggle('active', next === 'explore');
+  modeDriveBtn.classList.toggle('active', next === 'drive');
+
+  if(next === 'explore'){
+    stopDrive();
+    document.getElementById('dock-wrap').style.display = '';
+    driveHud.style.display = 'none';
+    photoPanel.style.display = 'none';
+    drivePad.style.display = 'none';
+    map.dragRotate.enable();
+    map.setPitch(0);
+  } else {
+    document.getElementById('dock-wrap').style.display = 'none';
+    factCard.classList.remove('show');
+    if(carMarker){
+      resumeDrive();
+    } else {
+      locateCard.classList.add('show');
+    }
+  }
+}
+modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
+modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
+
+document.getElementById('locate-cancel').addEventListener('click', ()=>{
+  locateCard.classList.remove('show');
+  switchMode('explore');
+});
+document.getElementById('locate-go').addEventListener('click', ()=>{
+  if(!navigator.geolocation){
+    alert("This browser can't share location — try driving from a phone or a modern browser.");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      locateCard.classList.remove('show');
+      beginDriveAt(pos.coords.longitude, pos.coords.latitude);
+    },
+    ()=>{
+      locateCard.classList.remove('show');
+      alert("Couldn't get your location — you may need to allow location access in your browser settings.");
+      switchMode('explore');
+    },
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+});
+
+function beginDriveAt(lng, lat){
+  carLng = lng; carLat = lat; carHeading = 0; carSpeed = 0;
+
+  const el = document.createElement('div');
+  el.textContent = '🚗';
+  el.style.fontSize = '30px';
+  el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))';
+  el.style.transformOrigin = '50% 50%';
+  carMarker = new maplibregl.Marker({ element:el, rotationAlignment:'map' })
+    .setLngLat([carLng, carLat]).addTo(map);
+
+  driveHud.style.display = 'block';
+  photoPanel.style.display = 'block';
+  drivePad.style.display = 'block';
+  map.dragRotate.disable();
+  map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:60, bearing:0 });
+  fetchNearbyPhotos(carLat, carLng);
+  resumeDrive();
+}
+
+function resumeDrive(){
+  window.addEventListener('keydown', onDriveKeyDown);
+  window.addEventListener('keyup', onDriveKeyUp);
+  lastFrameTime = null;
+  driveRAF = requestAnimationFrame(driveLoop);
+}
+function stopDrive(){
+  window.removeEventListener('keydown', onDriveKeyDown);
+  window.removeEventListener('keyup', onDriveKeyUp);
+  if(driveRAF) cancelAnimationFrame(driveRAF);
+  driveRAF = null;
+}
+function onDriveKeyDown(e){
+  keys[e.key.toLowerCase()] = true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+}
+function onDriveKeyUp(e){ keys[e.key.toLowerCase()] = false; }
+
+// Touch d-pad — sets the same keys[] flags the keyboard handlers use,
+// so the driving physics loop below doesn't need to know which input
+// method is active. Works with a finger held down (pointerdown/up) or
+// released off the edge of the button (pointerleave/cancel).
+function bindPadButton(id, key){
+  const btn = document.getElementById(id);
+  const press = (e)=>{ e.preventDefault(); keys[key] = true; btn.classList.add('pressed'); };
+  const release = (e)=>{ if(e) e.preventDefault(); keys[key] = false; btn.classList.remove('pressed'); };
+  btn.addEventListener('pointerdown', press);
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointerleave', release);
+  btn.addEventListener('pointercancel', release);
+  // Keep normal click/touch semantics from also firing a page scroll etc.
+  btn.addEventListener('contextmenu', (e)=> e.preventDefault());
+}
+bindPadButton('pad-up', 'arrowup');
+bindPadButton('pad-down', 'arrowdown');
+bindPadButton('pad-left', 'arrowleft');
+bindPadButton('pad-right', 'arrowright');
+
+const MAX_SPEED = 13;      // m/s, ~29 mph — plenty fast for a kid's drive
+const ACCEL = 9;
+const BRAKE = 16;
+const FRICTION = 5;
+const TURN_RATE = 55;      // degrees/sec at full speed
+
+function driveLoop(t){
+  if(lastFrameTime === null) lastFrameTime = t;
+  const dt = Math.min((t - lastFrameTime) / 1000, 0.1);
+  lastFrameTime = t;
+
+  const forward = keys['arrowup'] || keys['w'];
+  const backward = keys['arrowdown'] || keys['s'];
+  const left = keys['arrowleft'] || keys['a'];
+  const right = keys['arrowright'] || keys['d'];
+
+  if(forward) carSpeed = Math.min(MAX_SPEED, carSpeed + ACCEL * dt);
+  else if(backward) carSpeed = Math.max(-MAX_SPEED * 0.5, carSpeed - BRAKE * dt);
+  else carSpeed -= Math.sign(carSpeed) * Math.min(Math.abs(carSpeed), FRICTION * dt);
+
+  const turnFactor = Math.max(0.25, Math.min(1, Math.abs(carSpeed) / (MAX_SPEED * 0.4)));
+  if(left) carHeading -= TURN_RATE * turnFactor * dt * Math.sign(carSpeed || 1);
+  if(right) carHeading += TURN_RATE * turnFactor * dt * Math.sign(carSpeed || 1);
+  carHeading = ((carHeading % 360) + 360) % 360;
+
+  const dist = carSpeed * dt;
+  const headRad = carHeading * Math.PI / 180;
+  carLat += (dist * Math.cos(headRad)) / METERS_PER_DEG_LAT;
+  carLng += (dist * Math.sin(headRad)) / metersPerDegLng(carLat);
+
+  if(carMarker){
+    carMarker.setLngLat([carLng, carLat]);
+    carMarker.setRotation(carHeading);
+  }
+  map.jumpTo({ center:[carLng, carLat], bearing:carHeading, pitch:60, zoom:map.getZoom() });
+
+  const kmh = Math.round(Math.abs(carSpeed) * 3.6);
+  driveSpeedo.textContent = kmh === 0 ? '🚗 Parked' : (carSpeed < 0 ? `⬅️ Reversing ${kmh} km/h` : kmh < 20 ? `🚗 Cruising ${kmh} km/h` : `🏎️ Zooming ${kmh} km/h`);
+
+  const movedFar = lastPhotoFetchLng === null ||
+    Math.hypot((carLng - lastPhotoFetchLng) * metersPerDegLng(carLat), (carLat - lastPhotoFetchLat) * METERS_PER_DEG_LAT) > 250;
+  if(movedFar && (t - lastPhotoFetchTime) > 6000){
+    fetchNearbyPhotos(carLat, carLng);
+  }
+
+  driveRAF = requestAnimationFrame(driveLoop);
+}
+
+async function fetchNearbyPhotos(lat, lng){
+  lastPhotoFetchLng = lng; lastPhotoFetchLat = lat; lastPhotoFetchTime = performance.now();
+  photoShots.innerHTML = '<div class="ploading">Looking around…</div>';
+  try{
+    const geoUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=4000&gsnamespace=6&gslimit=8&format=json&origin=*`;
+    const geoRes = await fetch(geoUrl);
+    const geoData = await geoRes.json();
+    const results = (geoData.query && geoData.query.geosearch) || [];
+    if(results.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No photos found near here yet — keep driving!</div>';
+      return;
+    }
+    const titles = results.slice(0, 4).map(r => r.title).join('|');
+    const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url&iiurlwidth=300&format=json&origin=*`;
+    const infoRes = await fetch(infoUrl);
+    const infoData = await infoRes.json();
+    const pages = (infoData.query && infoData.query.pages) || {};
+    const shots = Object.values(pages)
+      .filter(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl)
+      .slice(0, 3);
+    if(shots.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No photos found near here yet — keep driving!</div>';
+      return;
+    }
+    photoShots.innerHTML = '';
+    shots.forEach(p=>{
+      const caption = p.title.replace(/^File:/, '').replace(/\.[a-zA-Z]+$/, '').replace(/_/g, ' ').slice(0, 40);
+      const wrap = document.createElement('div');
+      const img = document.createElement('img');
+      img.src = p.imageinfo[0].thumburl;
+      img.alt = caption;
+      img.loading = 'lazy';
+      const cap = document.createElement('div');
+      cap.className = 'pcaption';
+      cap.textContent = caption;
+      wrap.appendChild(img);
+      wrap.appendChild(cap);
+      photoShots.appendChild(wrap);
+    });
+  } catch(err){
+    console.error('Nearby photos fetch failed', err);
+    photoShots.innerHTML = '<div class="ploading">Couldn\'t load photos right now.</div>';
+  }
+}
+
+} catch(mapError){
+  // Map failed to initialize (blocked CDN, offline, etc.) — log it,
+  // but let the rest of the page (welcome screen, passport) keep working.
+  console.error('Earth Expedition: map failed to load —', mapError);
+  const dockLabel = document.getElementById('dock-label');
+  if(dockLabel) dockLabel.textContent = "⚠️ The map couldn't load — check your internet connection and refresh.";
+  const hintElFallback = document.getElementById('hint');
+  if(hintElFallback) hintElFallback.style.display = 'none';
+}
+
+// ---------------------------------------------------------------
+// Passport modal
+// ---------------------------------------------------------------
+const passportModal = document.getElementById('passport-modal');
+const passportBtn = document.getElementById('passport-btn');
+const passportCountEl = document.getElementById('passport-count');
+const passportSub = document.getElementById('passport-sub');
+const stampGrid = document.getElementById('stamp-grid');
+const passportEmpty = document.getElementById('passport-empty');
+
+function updatePassportCount(){
+  passportCountEl.textContent = `${collected.size}/${DESTINATIONS.length}`;
+}
+function renderPassport(){
+  stampGrid.innerHTML = '';
+  DESTINATIONS.forEach((d,i)=>{
+    const slot = document.createElement('div');
+    slot.className = 'stamp-slot' + (collected.has(d.id) ? ' filled' : '');
+    slot.style.setProperty('--tilt', `${(i%2===0?-1:1) * (2+ (i%3))}deg`);
+    slot.innerHTML = collected.has(d.id)
+      ? `<span class="semoji">${d.emoji}</span><span class="sname">${d.name}</span>`
+      : `<span class="semoji" style="opacity:.4">${d.emoji}</span><span class="sname">?</span>`;
+    stampGrid.appendChild(slot);
+  });
+  passportSub.textContent = `${collected.size} of ${DESTINATIONS.length} stamps collected`;
+  passportEmpty.style.display = collected.size === 0 ? 'block' : 'none';
+}
+passportBtn.addEventListener('click', ()=>{
+  renderPassport();
+  passportModal.classList.add('show');
+});
+document.querySelector('.pclose').addEventListener('click', ()=> passportModal.classList.remove('show'));
+passportModal.addEventListener('click', (e)=>{ if(e.target === passportModal) passportModal.classList.remove('show'); });
+
+updatePassportCount();
+
+// ---------------------------------------------------------------
+// Hint toast
+// ---------------------------------------------------------------
+const hintEl = document.getElementById('hint');
+function showHint(){
+  hintEl.classList.add('show');
+  setTimeout(hideHint, 5000);
+}
+function hideHint(){ hintEl.classList.remove('show'); }
+</script>
+</body>
+</html>
