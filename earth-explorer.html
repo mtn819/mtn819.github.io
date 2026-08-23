@@ -303,6 +303,17 @@
   .maplibregl-ctrl-attrib{
     background:rgba(251,243,222,0.85) !important;
     border-radius:8px 0 0 0 !important;
+    font-size:9px !important;
+    max-width:150px;
+  }
+  /* Attribution text stays visible (required by the map data licenses),
+     but is fully inert — no tapping through to an outside site from
+     inside the game. */
+  .maplibregl-ctrl-attrib a,
+  .maplibregl-ctrl-attrib-button{
+    pointer-events:none !important;
+    cursor:default !important;
+    text-decoration:none !important;
   }
   .maplibregl-ctrl-bottom-right{ z-index:5; }
 
@@ -631,18 +642,11 @@ let exploreMap = null;
 document.getElementById('start-btn').addEventListener('click', ()=>{
   document.getElementById('welcome').style.display = 'none';
   if(typeof showHint === 'function') showHint();
-
-  // Open zoomed in on Times Square, NYC instead of the flat world view,
-  // so the very first jump out to a far-off landmark actually feels like
-  // traveling somewhere.
-  if(exploreMap){
-    exploreMap.jumpTo({
-      center:[-73.9855, 40.7580],
-      zoom:15.5,
-      pitch:55,
-      bearing:-15
-    });
-  }
+  // Deliberately leave the camera on the map's default zoomed-out globe
+  // view here — no jump-in. That way the very first flyTo, whenever the
+  // player taps their first destination card, is the moment the journey
+  // actually starts, and it reads as a real "travel somewhere" moment
+  // instead of the opening view already being zoomed in.
 });
 
 // ---------------------------------------------------------------
@@ -822,7 +826,7 @@ const map = new maplibregl.Map({
   center:[0, 20],
   zoom:1.6,
   pitch:0,
-  attributionControl:{ compact:true }
+  attributionControl:{ compact:false }
 });
 exploreMap = map;
 
