@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Ranger's Earth Expedition</title>
+<title>La Expedición del Explorador</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -309,46 +309,23 @@
     box-shadow:0 2px 0 var(--sunset-deep);
   }
 
-  /* ---------- Drive HUD ---------- */
+  /* ---------- Speedometer (small, bottom-right) ---------- */
   #drive-hud{
-    position:absolute; top:72px; left:14px;
+    position:absolute; bottom:16px; right:14px;
     z-index:12; display:none;
-    background:var(--parchment);
-    border:3px solid var(--forest-deep);
-    border-radius:14px;
-    padding:10px 14px;
-    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+    background:rgba(18,59,48,0.72);
+    border:2px solid var(--forest-deep);
+    border-radius:10px;
+    padding:5px 10px;
+    align-items:baseline; gap:4px;
     font-family:'Baloo 2',cursive;
-    font-weight:700; font-size:13px;
-    color:var(--forest-deep);
-    max-width:220px;
+    color:var(--parchment);
+    transition:background-color .2s ease, border-color .2s ease;
   }
-  #drive-hud .speedo{ font-size:20px; margin-bottom:2px; }
-  #drive-hud .controls-line{ font-size:11px; font-weight:600; opacity:0.8; }
-
-  /* ---------- Nearby photos panel ---------- */
-  #photo-panel{
-    position:absolute; top:64px; right:14px;
-    z-index:12; display:none;
-    width:150px;
-    background:var(--parchment);
-    border:3px solid var(--forest-deep);
-    border-radius:14px;
-    padding:10px;
-    box-shadow:0 4px 0 rgba(0,0,0,0.28);
-  }
-  #photo-panel h3{
-    margin:0 0 6px; font-size:12px; color:var(--forest-deep);
-    display:flex; align-items:center; gap:4px;
-  }
-  #photo-panel .pshots{ display:flex; flex-direction:column; gap:6px; }
-  #photo-panel img{
-    width:100%; height:72px; object-fit:cover;
-    border-radius:8px; border:2px solid var(--forest-deep);
-    display:block;
-  }
-  #photo-panel .ploading{ font-size:11px; color:var(--forest); text-align:center; padding:8px 0; }
-  #photo-panel .pcaption{ font-size:9px; color:var(--forest); margin-top:2px; line-height:1.2; }
+  #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
+  #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
+  #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
+  #drive-hud.state-boat{ background:rgba(62,156,220,0.85); border-color:#2d78ad; }
 
   /* ---------- Location permission card ---------- */
   #locate-card{
@@ -419,78 +396,77 @@
 <div id="topbar">
   <div id="brand">
     <svg class="compass" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#F4802E" stroke="#123B30" stroke-width="3"/><polygon points="20,7 24,20 20,33 16,20" fill="#FBF3DE"/><polygon points="20,7 24,20 20,20" fill="#D8631A"/><circle cx="20" cy="20" r="3" fill="#123B30"/></svg>
-    <span>Ranger's Expedition</span>
+    <span>La Expedición</span>
   </div>
   <div id="mode-toggle">
-    <button id="mode-explore-btn" class="active">🌍 Explore</button>
-    <button id="mode-drive-btn">🚗 Drive</button>
+    <button id="mode-explore-btn" class="active">🌍 Explorar</button>
+    <button id="mode-drive-btn">🚗 Conducir</button>
   </div>
-  <button id="passport-btn">🪪 Passport <span id="passport-count">0/8</span></button>
+  <button id="passport-btn">🪪 Pasaporte <span id="passport-count">0/8</span></button>
 </div>
 
 <div id="drive-hud">
-  <div class="speedo" id="drive-speedo">🚗 Parked</div>
-  <div class="controls-line">Arrow keys, WASD, or the pad below</div>
+  <span id="drive-speedo">0</span><span class="unit">km/h</span>
 </div>
 
 <div id="drive-pad">
-  <button id="pad-up" aria-label="Drive forward">⬆️</button>
-  <button id="pad-left" aria-label="Turn left">⬅️</button>
-  <button id="pad-right" aria-label="Turn right">➡️</button>
-  <button id="pad-down" aria-label="Reverse">⬇️</button>
-</div>
-
-<div id="photo-panel">
-  <h3>📸 Near you</h3>
-  <div class="pshots" id="photo-shots"><div class="ploading">Looking around…</div></div>
+  <button id="pad-up" aria-label="Mover al norte">⬆️</button>
+  <button id="pad-left" aria-label="Mover al oeste">⬅️</button>
+  <button id="pad-right" aria-label="Mover al este">➡️</button>
+  <button id="pad-down" aria-label="Mover al sur">⬇️</button>
 </div>
 
 <div id="locate-card">
   <div id="locate-inner">
     <span class="lemoji">📍</span>
-    <h2>Drive near you!</h2>
-    <p>This uses your device's location to drop your car on a real map of your neighborhood, so you can drive around and see photos taken nearby.</p>
-    <button id="locate-go">Share my location</button>
-    <button id="locate-cancel">Not now</button>
+    <h2>¡Conduce cerca de ti!</h2>
+    <p>Esto usa la ubicación de tu dispositivo para poner tu carro en un mapa real de tu vecindario, para que puedas conducir y explorarlo.</p>
+    <button id="locate-go">Compartir mi ubicación</button>
+    <button id="locate-cancel">Ahora no</button>
   </div>
 </div>
 
-<div id="hint">🧭 Drag to spin the globe • pinch or scroll to zoom</div>
+<div id="hint">🧭 Arrastra para girar el globo • pellizca o desplázate para hacer zoom</div>
 
 <div id="fact-card">
   <button class="fclose" aria-label="Close">✕</button>
   <span class="femoji">🌍</span>
-  <h2 id="fact-title">Place name</h2>
-  <div class="fcountry" id="fact-country">COUNTRY</div>
-  <p id="fact-text">Fun fact goes here.</p>
-  <button class="stamp-btn" id="stamp-btn">🎟️ Collect stamp!</button>
+  <h2 id="fact-title">Nombre del lugar</h2>
+  <div class="fcountry" id="fact-country">PAÍS</div>
+  <p id="fact-text">Aquí va un dato curioso.</p>
+  <button class="stamp-btn" id="stamp-btn">🎟️ ¡Conseguir sello!</button>
 </div>
 
 <div id="dock-wrap">
-  <p id="dock-label">✨ Pick a place to fly to!</p>
+  <p id="dock-label">✨ ¡Elige un lugar para volar!</p>
   <div id="dock"></div>
 </div>
 
 <div id="welcome">
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
-    <h1>Ranger's Earth Expedition</h1>
-    <p>Spin the whole world, zoom into mountains and cities, and collect stamps from every continent. Ready to explore?</p>
-    <button id="start-btn">Start exploring →</button>
+    <h1>La Expedición del Explorador</h1>
+    <p>Gira el mundo entero, acércate a montañas y ciudades, y colecciona sellos de todos los continentes. ¿Listo para explorar?</p>
+    <button id="start-btn">Empezar a explorar →</button>
   </div>
 </div>
 
 <div id="passport-modal">
   <div id="passport-book">
     <button class="pclose" aria-label="Close">✕</button>
-    <h2>🪪 My Passport</h2>
-    <div class="sub" id="passport-sub">0 of 8 stamps collected</div>
+    <h2>🪪 Mi Pasaporte</h2>
+    <div class="sub" id="passport-sub">0 de 8 sellos conseguidos</div>
     <div id="stamp-grid"></div>
-    <p id="passport-empty">Fly to places and tap "Collect stamp!" to fill your passport.</p>
+    <p id="passport-empty">Vuela a otros lugares y toca "¡Conseguir sello!" para llenar tu pasaporte.</p>
   </div>
 </div>
 
 <script>
+// Set once the map successfully initializes (inside the try block below).
+// Kept outside that block, alongside the start button listener, so both
+// stay usable even if map setup fails.
+let exploreMap = null;
+
 // ---------------------------------------------------------------
 // Attach the welcome/start button FIRST, before anything that
 // touches the map library. If the map fails to load for any
@@ -501,52 +477,124 @@
 document.getElementById('start-btn').addEventListener('click', ()=>{
   document.getElementById('welcome').style.display = 'none';
   if(typeof showHint === 'function') showHint();
+
+  // Open zoomed in on Times Square, NYC instead of the flat world view,
+  // so the very first jump out to a far-off landmark actually feels like
+  // traveling somewhere.
+  if(exploreMap){
+    exploreMap.jumpTo({
+      center:[-73.9855, 40.7580],
+      zoom:15.5,
+      pitch:55,
+      bearing:-15
+    });
+  }
 });
 
 // ---------------------------------------------------------------
 // Destinations: each has coords, a kid-friendly fact, and an emoji
 // ---------------------------------------------------------------
 const DESTINATIONS = [
-  {
-    id:'everest', name:'Mount Everest', country:'NEPAL / CHINA', emoji:'🏔️',
-    center:[86.9250, 27.9881], zoom:9.5, pitch:60,
-    fact:"This is the tallest mountain on Earth! Its peak is so high that airplanes used to fly close to it, and climbers need to bring their own oxygen to breathe up there."
-  },
-  {
-    id:'amazon', name:'Amazon Rainforest', country:'BRAZIL', emoji:'🌳',
-    center:[-62.2159, -3.4653], zoom:6.2, pitch:30,
-    fact:"The Amazon makes so much oxygen that people call it the 'lungs of the Earth.' It's home to millions of kinds of plants, bugs, and animals — more than anywhere else on the planet!"
-  },
-  {
-    id:'sahara', name:'Sahara Desert', country:'NORTH AFRICA', emoji:'🏜️',
-    center:[10.0, 23.0], zoom:5, pitch:20,
-    fact:"The Sahara is almost as big as the whole United States! During the day it can get super hot, but at night the sand cools off so fast it can actually feel chilly."
-  },
-  {
-    id:'pyramids', name:'Great Pyramids', country:'EGYPT', emoji:'🔺',
-    center:[31.1342, 29.9792], zoom:15.5, pitch:55,
-    fact:"These pyramids are over 4,500 years old and were built as giant tombs for Egyptian pharaohs. The biggest one was the tallest structure on Earth for almost 4,000 years!"
-  },
-  {
-    id:'reef', name:'Great Barrier Reef', country:'AUSTRALIA', emoji:'🐠',
-    center:[147.6992, -18.2871], zoom:9, pitch:0,
-    fact:"This is the biggest living structure on Earth, made entirely by tiny animals called coral! It's so huge you can actually see it from space."
-  },
-  {
-    id:'everglades', name:'Grand Canyon', country:'UNITED STATES', emoji:'🏞️',
-    center:[-112.1401, 36.0544], zoom:10.5, pitch:65,
-    fact:"The Grand Canyon was carved by the Colorado River over millions and millions of years. It's so wide that it can take two hours to drive from one side to the other!"
-  },
-  {
-    id:'antarctica', name:'Antarctica', country:'SOUTH POLE', emoji:'🐧',
-    center:[0.0, -80.0], zoom:4.5, pitch:0,
-    fact:"Antarctica is the coldest place on Earth, and almost the whole continent is covered in thick ice. Penguins live here — but polar bears don't, they only live way up at the North Pole!"
-  },
-  {
-    id:'fuji', name:'Mount Fuji', country:'JAPAN', emoji:'🗻',
-    center:[138.7274, 35.3606], zoom:11, pitch:60,
-    fact:"Mount Fuji is a volcano, and its snowy, perfectly-shaped peak is one of the most famous mountain views in the world. Thousands of people hike to the top every summer!"
-  }
+  { id:'everest', name:'Monte Everest', country:'NEPAL / CHINA', emoji:'🏔️', center:[86.925, 27.9881], zoom:9.5, pitch:60, fact:"¡Esta es la montaña más alta de la Tierra! Su cima está tan alta que los aviones solían volar cerca de ella, y los escaladores necesitan llevar su propio oxígeno para poder respirar allá arriba." },
+  { id:'amazon', name:'Selva Amazónica', country:'BRASIL', emoji:'🌳', center:[-62.2159, -3.4653], zoom:6.2, pitch:30, fact:"El Amazonas produce tanto oxígeno que la gente la llama 'el pulmón del planeta'. Es el hogar de millones de tipos de plantas, insectos y animales — ¡más que en cualquier otro lugar de la Tierra!" },
+  { id:'sahara', name:'Desierto del Sahara', country:'NORTE DE ÁFRICA', emoji:'🏜️', center:[10.0, 23.0], zoom:5, pitch:20, fact:"¡El Sahara es casi tan grande como todo Estados Unidos! Durante el día puede hacer muchísimo calor, pero de noche la arena se enfría tan rápido que hasta puede sentirse frío." },
+  { id:'grand-canyon', name:'Gran Cañón', country:'ESTADOS UNIDOS', emoji:'🏞️', center:[-112.1401, 36.0544], zoom:10.5, pitch:65, fact:"El Gran Cañón fue formado por el río Colorado a lo largo de millones y millones de años. ¡Es tan ancho que cruzarlo en coche puede tomar hasta dos horas!" },
+  { id:'antarctica', name:'Antártida', country:'POLO SUR', emoji:'🐧', center:[0.0, -80.0], zoom:4.5, pitch:0, fact:"La Antártida es el lugar más frío de la Tierra, y casi todo el continente está cubierto de hielo grueso. Aquí viven pingüinos — pero los osos polares no, ellos solo viven en el Polo Norte." },
+  { id:'fuji', name:'Monte Fuji', country:'JAPÓN', emoji:'🗻', center:[138.7274, 35.3606], zoom:11, pitch:60, fact:"El Monte Fuji es un volcán, y su pico nevado y perfectamente formado es una de las vistas de montaña más famosas del mundo. ¡Miles de personas lo escalan cada verano!" },
+  { id:'reef', name:'Gran Barrera de Coral', country:'AUSTRALIA', emoji:'🐠', center:[147.6992, -18.2871], zoom:9, pitch:0, fact:"¡Esta es la estructura viva más grande de la Tierra, hecha completamente por pequeños animales llamados corales! Es tan enorme que se puede ver desde el espacio." },
+  { id:'niagara', name:'Cataratas del Niágara', country:'CANADÁ / EE. UU.', emoji:'💦', center:[-79.0849, 43.0962], zoom:13, pitch:55, fact:"¡Más de 3,000 toneladas de agua caen por las Cataratas del Niágara cada segundo! Unos barcos llamados 'Maid of the Mist' llevan a los visitantes muy cerca del agua rugiente." },
+  { id:'iguazu', name:'Cataratas del Iguazú', country:'ARGENTINA / BRASIL', emoji:'🌊', center:[-54.4367, -25.6953], zoom:12.5, pitch:55, fact:"¡Iguazú no es una sola catarata, sino casi 300 cataratas cayendo juntas! Es tan ancha que quienes la visitan dicen que Niágara parece pequeñita en comparación." },
+  { id:'victoria-falls', name:'Cataratas Victoria', country:'ZAMBIA / ZIMBABUE', emoji:'🌊', center:[25.8572, -17.9243], zoom:13, pitch:55, fact:"La gente del lugar la llama 'El humo que truena', porque el agua salpica tan alto que parece humo, y se puede escuchar el rugido desde muy lejos." },
+  { id:'uluru', name:'Uluru (Ayers Rock)', country:'AUSTRALIA', emoji:'🪨', center:[131.0369, -25.3444], zoom:12, pitch:45, fact:"¡Uluru es una gigantesca roca de arenisca que cambia de color a lo largo del día — puede verse naranja, roja o hasta morada según cómo le pegue el sol!" },
+  { id:'prismatic-spring', name:'Gran Manantial Prismático', country:'ESTADOS UNIDOS', emoji:'🎨', center:[-110.8383, 44.5251], zoom:15, pitch:55, fact:"¡Este manantial caliente en Yellowstone es el más grande del país, y tiene todos los colores del arcoíris! Los colores vienen de unos organismos diminutos llamados termófilos que aman el calor." },
+  { id:'dead-sea', name:'Mar Muerto', country:'JORDANIA / ISRAEL', emoji:'🧂', center:[35.5, 31.5], zoom:9, pitch:10, fact:"¡El Mar Muerto es tan salado que puedes flotar en la superficie sin ni siquiera intentarlo — es casi imposible hundirse! También es uno de los puntos más bajos de la Tierra." },
+  { id:'blue-hole', name:'Gran Agujero Azul', country:'BELICE', emoji:'🕳️', center:[-87.5347, 17.3158], zoom:13, pitch:20, fact:"¡Este gigantesco círculo azul en el océano es en realidad un sumidero de más de 120 metros de profundidad! Alguna vez fue una cueva seca, pero el techo se derrumbó y el mar la inundó hace miles de años." },
+  { id:'salar-uyuni', name:'Salar de Uyuni', country:'BOLIVIA', emoji:'🪞', center:[-67.4891, -20.1338], zoom:9, pitch:15, fact:"¡Este es el salar más grande de la Tierra — tan plano y brillante que, después de llover, se convierte en un espejo gigante que refleja todo el cielo!" },
+  { id:'matterhorn', name:'El Matterhorn', country:'SUIZA / ITALIA', emoji:'⛰️', center:[7.6586, 45.9763], zoom:12, pitch:60, fact:"¡El pico afilado y triangular del Matterhorn es tan famoso que inspiró la montaña del logo de Disneyland y la forma de las tabletas de chocolate Toblerone!" },
+  { id:'cliffs-moher', name:'Acantilados de Moher', country:'IRLANDA', emoji:'🐦', center:[-9.4276, 52.9715], zoom:13, pitch:55, fact:"Estos acantilados se elevan más de 200 metros sobre el Océano Atlántico, y miles de frailecillos y aves marinas anidan directamente en las paredes de roca." },
+  { id:'zhangjiajie', name:'Zhangjiajie', country:'CHINA', emoji:'🌲', center:[110.47, 29.326], zoom:11, pitch:55, fact:"¡Estos delgados y altísimos pilares de piedra inspiraron las montañas flotantes de la película Avatar! Algunos se elevan más de 900 metros sobre el bosque." },
+  { id:'halong-bay', name:'Bahía de Ha Long', country:'VIETNAM', emoji:'⛵', center:[107.048, 20.9101], zoom:10.5, pitch:40, fact:"Casi 2,000 islas altas de piedra caliza se asoman en esta bahía de color verde esmeralda. La leyenda local dice que un dragón cayó al mar aquí y su cuerpo talló todas las islas." },
+  { id:'galapagos', name:'Islas Galápagos', country:'ECUADOR', emoji:'🐢', center:[-90.9656, -0.7893], zoom:9, pitch:20, fact:"¡Estas islas son famosas por sus tortugas gigantes que pueden vivir más de 100 años! Un científico llamado Charles Darwin estudió aquí a los animales únicos para entender mejor cómo funciona la evolución." },
+  { id:'serengeti', name:'Serengeti', country:'TANZANIA', emoji:'🦁', center:[34.8333, -2.3333], zoom:7, pitch:10, fact:"Cada año, más de un millón de ñus y cebras migran a través del Serengeti en uno de los viajes de animales más grandes de la Tierra, con leones y guepardos siguiéndolos de cerca." },
+  { id:'kilimanjaro', name:'Monte Kilimanjaro', country:'TANZANIA', emoji:'🏔️', center:[37.3556, -3.0674], zoom:10, pitch:55, fact:"El Kilimanjaro es la montaña más alta de África, y aunque está cerca del cálido ecuador, ¡su cima está cubierta de nieve y hielo todo el año!" },
+  { id:'table-mountain', name:'Montaña de la Mesa', country:'SUDÁFRICA', emoji:'🌥️', center:[18.4033, -33.9628], zoom:12, pitch:55, fact:"¡Esta montaña tiene la cima completamente plana, como una mesa gigante! Algunos días las nubes pasan por encima y se derraman por los lados como un mantel blanco y esponjoso." },
+  { id:'milford-sound', name:'Milford Sound', country:'NUEVA ZELANDA', emoji:'🏔️', center:[167.925, -44.6414], zoom:11, pitch:50, fact:"Aquí los acantilados se elevan directamente desde el agua, y llueve tanto que después de cada tormenta aparecen cientos de cascadas temporales en las paredes de roca." },
+  { id:'twelve-apostles', name:'Los Doce Apóstoles', country:'AUSTRALIA', emoji:'🌊', center:[143.1042, -38.6619], zoom:12, pitch:50, fact:"Estas gigantescas formaciones de roca se elevan justo desde el océano, junto a la Great Ocean Road de Australia. Las olas las están desgastando poco a poco, así que nuevas rocas se van formando mientras las viejas se derrumban." },
+  { id:'angel-falls', name:'Salto Ángel', country:'VENEZUELA', emoji:'💧', center:[-62.5359, 5.9701], zoom:11, pitch:50, fact:"¡Esta es la cascada más alta del mundo! El agua cae desde tan alto (más de 900 metros) que buena parte se convierte en neblina antes de llegar abajo." },
+  { id:'torres-paine', name:'Torres del Paine', country:'CHILE', emoji:'🗻', center:[-73.0392, -50.9423], zoom:10, pitch:55, fact:"Estas tres torres de granito en la Patagonia fueron talladas por antiguos glaciares, y excursionistas de todo el mundo viajan solo para ver su forma dramática y afilada." },
+  { id:'banff', name:'Parque Nacional de Banff', country:'CANADÁ', emoji:'🏔️', center:[-115.5708, 51.1784], zoom:10, pitch:45, fact:"Los lagos aquí son de un azul turquesa brillante — no por pintura, sino por pequeños trocitos de roca molida por los glaciares, llamados 'harina de roca', flotando en el agua." },
+  { id:'antelope-canyon', name:'Cañón del Antílope', country:'ESTADOS UNIDOS', emoji:'🌀', center:[-111.3743, 36.8619], zoom:15, pitch:45, fact:"El viento y el agua de lluvia tallaron estas paredes onduladas en la suave piedra arenisca a lo largo de miles de años, creando patrones que brillan color naranja cuando la luz del sol entra desde arriba." },
+  { id:'bryce-canyon', name:'Cañón Bryce', country:'ESTADOS UNIDOS', emoji:'🗿', center:[-112.1871, 37.593], zoom:12, pitch:55, fact:"El Cañón Bryce es famoso por miles de altas y delgadas torres de roca llamadas 'hoodoos'. El agua que se congela y se derrite las talló lentamente en los acantilados durante millones de años." },
+  { id:'pyramids', name:'Las Grandes Pirámides', country:'EGIPTO', emoji:'🔺', center:[31.1342, 29.9792], zoom:15.5, pitch:55, fact:"Estas pirámides tienen más de 4,500 años y fueron construidas como tumbas gigantes para los faraones egipcios. ¡La más grande fue la estructura más alta de la Tierra durante casi 4,000 años!" },
+  { id:'great-wall', name:'Gran Muralla China', country:'CHINA', emoji:'🧱', center:[116.5704, 40.4319], zoom:14, pitch:55, fact:"¡La Gran Muralla es tan larga que si la estiraras, daría la vuelta a la mayor parte de la Tierra! Se construyó a lo largo de siglos para ayudar a proteger a China de los invasores." },
+  { id:'machu-picchu', name:'Machu Picchu', country:'PERÚ', emoji:'🏔️', center:[-72.545, -13.1631], zoom:14.5, pitch:55, fact:"Esta antigua ciudad inca está en lo alto de los Andes, y fue construida sin herramientas de metal ni ruedas — ¡las piedras encajan tan perfecto que no necesitaron argamasa!" },
+  { id:'colosseum', name:'El Coliseo', country:'ITALIA', emoji:'🏟️', center:[12.4922, 41.8902], zoom:16, pitch:55, fact:"Hace casi 2,000 años, hasta 50,000 personas se reunían en este enorme estadio para ver peleas de gladiadores y otros espectáculos — casi tantas como en un estadio de fútbol moderno." },
+  { id:'eiffel-tower', name:'Torre Eiffel', country:'FRANCIA', emoji:'🗼', center:[2.2945, 48.8584], zoom:15.5, pitch:55, fact:"¡La Torre Eiffel solo iba a estar en pie 20 años antes de ser derribada! Hoy la gente la ama, pero cuando se construyó en 1889, muchos parisinos pensaban que era fea." },
+  { id:'statue-liberty', name:'Estatua de la Libertad', country:'ESTADOS UNIDOS', emoji:'🗽', center:[-74.0445, 40.6892], zoom:14.5, pitch:50, fact:"La Estatua de la Libertad fue un regalo de Francia a Estados Unidos, y es tan grande que antes la gente podía subir hasta dentro de su antorcha (aunque hoy esa parte está cerrada)." },
+  { id:'taj-mahal', name:'Taj Mahal', country:'INDIA', emoji:'🕌', center:[78.0421, 27.1751], zoom:15.5, pitch:55, fact:"Un emperador construyó este hermoso edificio de mármol blanco como tumba para su esposa, y le tomó a más de 20,000 trabajadores más de 20 años terminarlo." },
+  { id:'petra', name:'Petra', country:'JORDANIA', emoji:'🏛️', center:[35.4444, 30.3285], zoom:14.5, pitch:55, fact:"Los edificios de esta antigua ciudad fueron tallados directamente en acantilados de arenisca rosada hace más de 2,000 años. Estuvo perdida para el mundo exterior durante siglos hasta que fue redescubierta en 1812." },
+  { id:'christ-redeemer', name:'Cristo Redentor', country:'BRASIL', emoji:'✝️', center:[-43.2105, -22.9519], zoom:14.5, pitch:55, fact:"Esta gigantesca estatua está en la cima de una montaña con vista a Río de Janeiro, con los brazos extendidos casi 30 metros — ¡y de hecho le han caído varios rayos!" },
+  { id:'sydney-opera', name:'Ópera de Sídney', country:'AUSTRALIA', emoji:'🎭', center:[151.2153, -33.8568], zoom:15.5, pitch:50, fact:"¡El techo parece hecho de velas o conchas marinas gigantes! Tardaron más de 14 años en construirla, y más de un millón de baldosas de cerámica cubren su techo blanco y curvo." },
+  { id:'big-ben', name:'Big Ben', country:'REINO UNIDO', emoji:'🕰️', center:[-0.1246, 51.5007], zoom:16, pitch:55, fact:"¡Big Ben es en realidad el nombre de la campana gigante dentro de la torre del reloj, no de la torre misma! La campana pesa casi lo mismo que dos elefantes." },
+  { id:'stonehenge', name:'Stonehenge', country:'REINO UNIDO', emoji:'🗿', center:[-1.8262, 51.1789], zoom:14.5, pitch:40, fact:"Nadie sabe con certeza por qué la gente antigua construyó este círculo de piedras gigantes hace más de 4,500 años — ¡algunas fueron arrastradas desde más de 240 kilómetros de distancia sin ninguna máquina!" },
+  { id:'neuschwanstein', name:'Castillo de Neuschwanstein', country:'ALEMANIA', emoji:'🏰', center:[10.7498, 47.5576], zoom:14.5, pitch:55, fact:"¡Este castillo de cuento de hadas sobre una colina inspiró la apariencia del Castillo de la Bella Durmiente de Disney! Fue construido para un rey que amaba los cuentos de hadas y las óperas." },
+  { id:'acropolis', name:'La Acrópolis', country:'GRECIA', emoji:'🏛️', center:[23.7264, 37.9715], zoom:15.5, pitch:55, fact:"El templo del Partenón, encima de esta colina, fue construido hace casi 2,500 años en la antigua Atenas, sin herramientas modernas, y sus columnas parecen perfectamente rectas aunque en realidad se curvan un poquito." },
+  { id:'angkor-wat', name:'Angkor Wat', country:'CAMBOYA', emoji:'🕍', center:[103.867, 13.4125], zoom:15, pitch:50, fact:"¡Este es el monumento religioso más grande del mundo entero! Se construyó hace casi 900 años y está rodeado por un foso gigante más ancho que una cancha de fútbol." },
+  { id:'forbidden-city', name:'Ciudad Prohibida', country:'CHINA', emoji:'🏯', center:[116.3972, 39.9163], zoom:15, pitch:50, fact:"Durante casi 500 años, este enorme palacio fue el hogar de los emperadores chinos, y la gente común no podía entrar — ¡así fue como obtuvo su nombre!" },
+  { id:'sagrada-familia', name:'Sagrada Familia', country:'ESPAÑA', emoji:'⛪', center:[2.1744, 41.4036], zoom:16, pitch:55, fact:"¡Esta gran iglesia lleva construyéndose desde 1882 — más de 140 años! — y se espera que finalmente esté terminada muy pronto, con torres inspiradas en árboles y montañas." },
+  { id:'golden-gate', name:'Puente Golden Gate', country:'ESTADOS UNIDOS', emoji:'🌉', center:[-122.4783, 37.8199], zoom:13.5, pitch:55, fact:"Este puente está pintado de un color llamado 'naranja internacional' para que resalte contra la niebla que llega a la Bahía de San Francisco casi todos los días." },
+  { id:'mount-rushmore', name:'Monte Rushmore', country:'ESTADOS UNIDOS', emoji:'🗿', center:[-103.4591, 43.8791], zoom:14, pitch:55, fact:"¡El rostro de cada presidente tallado en esta montaña mide unos 18 metros de alto — como un edificio de seis pisos! Tomó 14 años y cientos de trabajadores tallarlos." },
+  { id:'pisa-tower', name:'Torre de Pisa', country:'ITALIA', emoji:'🗼', center:[10.3966, 43.723], zoom:16, pitch:55, fact:"¡Esta torre ha estado inclinada desde que aún la estaban construyendo hace casi 850 años, porque se levantó sobre un terreno blando y desnivelado! Los ingenieros han trabajado mucho para asegurarse de que no se caiga." },
+  { id:'burj-khalifa', name:'Burj Khalifa', country:'EMIRATOS ÁRABES UNIDOS', emoji:'🏙️', center:[55.2744, 25.1972], zoom:14.5, pitch:55, fact:"¡Este es el edificio más alto del mundo entero — tan alto que si estás abajo, a veces ni siquiera puedes ver la punta entre las nubes!" },
+  { id:'space-needle', name:'Space Needle', country:'ESTADOS UNIDOS', emoji:'🛰️', center:[-122.3493, 47.6205], zoom:15, pitch:50, fact:"Esta torre se construyó para la Feria Mundial de 1962 para mostrar cómo podría ser el futuro, y puede resistir vientos de hasta 320 kilómetros por hora, además de terremotos." },
+  { id:'santorini', name:'Santorini', country:'GRECIA', emoji:'🏝️', center:[25.3963, 36.3932], zoom:12.5, pitch:40, fact:"Las casas blancas con techos azul brillante de esta isla están sobre el borde de un volcán gigante que hizo erupción hace miles de años, formando la dramática forma curva de la isla." },
+  { id:'venice', name:'Canales de Venecia', country:'ITALIA', emoji:'🚤', center:[12.3155, 45.4408], zoom:13.5, pitch:40, fact:"¡Venecia está construida sobre más de 100 pequeñas islas conectadas por canales en vez de calles — así que en lugar de coches, la gente se mueve en barcos!" },
+  { id:'bali-terraces', name:'Terrazas de Arroz de Tegalalang', country:'INDONESIA', emoji:'🌾', center:[115.2794, -8.431], zoom:14, pitch:40, fact:"Los agricultores tallaron estos campos de arroz verde esmeralda en la ladera como escaleras gigantes de color verde, usando un sistema de riego centenario para regar cada nivel." },
+  { id:'bran-castle', name:'Castillo de Bran', country:'RUMANÍA', emoji:'🏰', center:[25.3675, 45.5149], zoom:14.5, pitch:55, fact:"¡Este dramático castillo sobre un acantilado suele relacionarse con la leyenda de Drácula! Está en lo alto de una roca, con torres que parecen sacadas de un cuento de terror." },
+  { id:'easter-island', name:'Moáis de la Isla de Pascua', country:'CHILE', emoji:'🗿', center:[-109.3497, -27.1212], zoom:12, pitch:40, fact:"Casi 900 estatuas gigantes de piedra llamadas moáis vigilan esta isla remota. Algunas son tan altas como un edificio de dos pisos, y nadie está del todo seguro de cómo la gente antigua las movió." },
+  { id:'loch-ness', name:'Lago Ness', country:'ESCOCIA', emoji:'🐉', center:[-4.4244, 57.3229], zoom:10, pitch:10, fact:"¡Este lago profundo y oscuro es famoso por las leyendas de 'Nessie', una misteriosa criatura que algunas personas dicen haber visto — aunque nadie ha podido probar que realmente existe!" },
+  { id:'las-vegas', name:'Las Vegas Strip', country:'ESTADOS UNIDOS', emoji:'🎰', center:[-115.1728, 36.1147], zoom:14, pitch:50, fact:"¡Las Vegas tiene tantas luces brillantes que se pueden ver desde el espacio de noche! Aquí hay hoteles gigantes con forma de pirámide, castillo, ¡y hasta de Torre Eiffel!" },
+  { id:'hollywood', name:'Letrero de Hollywood', country:'ESTADOS UNIDOS', emoji:'🎬', center:[-118.3215, 34.1341], zoom:13.5, pitch:45, fact:"¡Cada letra del letrero de Hollywood mide unos 14 metros de alto! Originalmente se construyó en 1923 como un anuncio para un proyecto de viviendas y decía 'HOLLYWOODLAND'." },
+  { id:'chichen-itza', name:'Chichén Itzá', country:'MÉXICO', emoji:'🔺', center:[-88.5678, 20.6843], zoom:15.5, pitch:55, fact:"¡Esta antigua pirámide maya fue construida con tanta precisión que en el equinoccio de primavera y otoño, la luz del sol crea una sombra que parece una serpiente deslizándose por la escalera!" },
+  { id:'teotihuacan', name:'Teotihuacán', country:'MÉXICO', emoji:'🌞', center:[-98.8438, 19.6925], zoom:14.5, pitch:45, fact:"La Pirámide del Sol aquí es una de las pirámides más grandes jamás construidas en el mundo, y la antigua ciudad a su alrededor llegó a tener más de 100,000 habitantes." },
+  { id:'tulum', name:'Ruinas de Tulum', country:'MÉXICO', emoji:'🏝️', center:[-87.4297, 20.2114], zoom:15, pitch:50, fact:"¡Tulum es una de las pocas ciudades mayas antiguas construidas justo sobre un acantilado frente al mar — imagina tener vista a la playa hace mil años!" },
+  { id:'palenque', name:'Palenque', country:'MÉXICO', emoji:'🌴', center:[-92.0475, 17.4849], zoom:14, pitch:45, fact:"Esta ciudad maya está en pleno corazón de la selva, y sus templos solo fueron redescubiertos después de estar cubiertos por árboles y enredaderas durante cientos de años." },
+  { id:'copper-canyon', name:'Barranca del Cobre', country:'MÉXICO', emoji:'🚂', center:[-107.6, 27.5], zoom:9, pitch:30, fact:"¡Este sistema de cañones es más grande y profundo que el Gran Cañón de Estados Unidos! Un famoso tren recorre su interior, cruzando docenas de puentes y túneles." },
+  { id:'gran-cenote', name:'Gran Cenote', country:'MÉXICO', emoji:'💧', center:[-87.4644, 20.2298], zoom:15, pitch:20, fact:"Un cenote es un pozo natural lleno de agua dulce y cristalina. La Península de Yucatán tiene miles de ellos, conectados por ríos subterráneos que corren bajo la selva." },
+  { id:'guanajuato', name:'Guanajuato', country:'MÉXICO', emoji:'🎨', center:[-101.2574, 21.019], zoom:15, pitch:50, fact:"¡Esta ciudad en las colinas es famosa por sus casas de colores apiladas unas sobre otras, además de una red de túneles subterráneos por donde de verdad circulan los coches!" },
+  { id:'xochimilco', name:'Xochimilco', country:'MÉXICO', emoji:'🛶', center:[-99.1039, 19.2825], zoom:14, pitch:20, fact:"Estos coloridos jardines flotantes son lo último que queda de una enorme red de canales sobre la que se construyó originalmente la Ciudad de México, cuando era una ciudad isla." },
+  { id:'cabo-arch', name:'Arco de Cabo San Lucas', country:'MÉXICO', emoji:'🏖️', center:[-109.6974, 22.8697], zoom:14, pitch:40, fact:"Este arco de roca natural, llamado 'El Arco', está justo donde el Océano Pacífico se encuentra con el Mar de Cortés, y a los lobos marinos les encanta tomar el sol sobre las rocas cercanas." },
+  { id:'isla-mujeres', name:'Isla Mujeres', country:'MÉXICO', emoji:'🐠', center:[-86.732, 21.2314], zoom:13, pitch:30, fact:"¡Esta pequeña isla frente a la costa de Cancún tiene una de las aguas turquesas más claras del mundo, perfecta para ver tortugas marinas y peces de colores mientras se hace esnórquel!" },
+  { id:'joya-de-ceren', name:'Joya de Cerén', country:'EL SALVADOR', emoji:'🏺', center:[-89.3597, 13.8309], zoom:15, pitch:40, fact:"¡Este antiguo pueblo agrícola quedó enterrado bajo cenizas volcánicas hace casi 1,400 años, y todo se conservó tan bien que la gente la llama la 'Pompeya de América'!" },
+  { id:'santa-ana-volcano', name:'Volcán de Santa Ana', country:'EL SALVADOR', emoji:'🌋', center:[-89.63, 13.8536], zoom:12, pitch:50, fact:"El volcán más alto de El Salvador tiene una impresionante laguna de cráter color verde turquesa echando vapor en la cima — quienes lo escalan pueden asomarse directamente al cráter." },
+  { id:'coatepeque', name:'Lago de Coatepeque', country:'EL SALVADOR', emoji:'💦', center:[-89.5333, 13.8667], zoom:12, pitch:25, fact:"Este hermoso lago azul en realidad llena el cráter de un antiguo volcán que colapsó hace miles de años, y a veces brilla débilmente de noche por un plancton diminuto que produce luz propia." },
+  { id:'el-boqueron', name:'El Boquerón', country:'EL SALVADOR', emoji:'🌋', center:[-89.2864, 13.7358], zoom:13, pitch:45, fact:"¡El cráter de este volcán es tan enorme — de más de un kilómetro y medio de ancho — que se puede bajar caminando y recorrerlo por un sendero en la selva!" },
+  { id:'tazumal', name:'Tazumal', country:'EL SALVADOR', emoji:'🗿', center:[-89.6739, 13.9764], zoom:15, pitch:45, fact:"Tazumal es uno de los sitios mayas mejor conservados de Centroamérica, con una pirámide escalonada que la gente ha podido visitar y subir durante siglos." },
+  { id:'suchitoto', name:'Suchitoto', country:'EL SALVADOR', emoji:'🏘️', center:[-89.0261, 13.9384], zoom:15, pitch:45, fact:"Este encantador pueblo colonial tiene calles empedradas y edificios blancos, y tiene vista a un enorme lago que se formó cuando se represó un río cercano." },
+  { id:'el-tunco', name:'Playa El Tunco', country:'EL SALVADOR', emoji:'🏄', center:[-89.3833, 13.4917], zoom:13, pitch:30, fact:"¡Esta playa de arena negra es uno de los lugares para surfear más famosos de Centroamérica, y su nombre viene de una roca cercana a la orilla que parece un tunquito (cerdito)!" },
+  { id:'space-center-houston', name:'Space Center Houston', country:'HOUSTON, TEXAS', emoji:'🚀', center:[-95.0949, 29.5518], zoom:15, pitch:55, fact:"¡Aquí está el Control de Misión de los astronautas de la NASA! Todas las misiones espaciales tripuladas se dirigen desde este lugar, y puedes ver un cohete Saturno V de verdad acostado de lado — más largo que una cancha de fútbol americano." },
+  { id:'houston-museum', name:'Museo de Ciencias Naturales de Houston', country:'HOUSTON, TEXAS', emoji:'🦕', center:[-95.3903, 29.7221], zoom:16, pitch:50, fact:"Este museo tiene esqueletos reales de dinosaurios, un jardín de mariposas gigante por el que puedes caminar, e incluso un planetario que proyecta todo el cielo nocturno en el techo." },
+  { id:'downtown-houston', name:'Centro de Houston', country:'HOUSTON, TEXAS', emoji:'🏙️', center:[-95.3698, 29.7604], zoom:14, pitch:55, fact:"¡El horizonte de Houston tiene algunos de los rascacielos más altos de todo el país, e incluso hay una red de túneles con aire acondicionado bajo el centro de la ciudad para escapar del calor de Texas!" },
+  { id:'buffalo-bayou', name:'Parque Buffalo Bayou', country:'HOUSTON, TEXAS', emoji:'🌳', center:[-95.386, 29.7633], zoom:15, pitch:30, fact:"Este sinuoso parque sigue un arroyo justo por el centro de la ciudad, con senderos para bicicleta, una gran cisterna cubierta de arte, y excelentes vistas del horizonte del centro." },
+  { id:'houston-zoo', name:'Zoológico de Houston', country:'HOUSTON, TEXAS', emoji:'🦒', center:[-95.3903, 29.7159], zoom:16, pitch:30, fact:"El Zoológico de Houston tiene miles de animales, incluyendo jirafas, elefantes y una enorme exhibición interior de selva tropical llena de jaguares y aves de colores." },
+  { id:'nrg-stadium', name:'Estadio NRG', country:'HOUSTON, TEXAS', emoji:'🤠', center:[-95.4107, 29.6847], zoom:15.5, pitch:45, fact:"Este estadio recibe cada año el Houston Livestock Show and Rodeo — uno de los rodeos más grandes del mundo — y además tiene un techo que se puede abrir y cerrar." },
+  { id:'galveston', name:'Malecón de Galveston', country:'CERCA DE HOUSTON, TEXAS', emoji:'🏖️', center:[-94.7955, 29.2694], zoom:13.5, pitch:25, fact:"Este pueblo playero está en una isla justo al sur de Houston, protegido por un malecón de más de 16 kilómetros construido después de un huracán devastador en 1900 — una de las tormentas más mortales en la historia de EE. UU." },
+  { id:'san-jacinto', name:'Monumento de San Jacinto', country:'HOUSTON, TEXAS', emoji:'🗽', center:[-95.0814, 29.7508], zoom:14.5, pitch:50, fact:"¡Este monumento es más alto que el Monumento a Washington! Marca el lugar donde se libró la batalla decisiva por la independencia de Texas en 1836." },
+  { id:'great-sand-dunes', name:'Grandes Dunas de Arena', country:'ESTADOS UNIDOS', emoji:'🏜️', center:[-105.5943, 37.7916], zoom:12, pitch:30, fact:"¡Estas son las dunas de arena más altas de Norteamérica — algunas superan los 230 metros! A los niños les encanta bajarlas deslizándose en trineos especiales para arena." },
+  { id:'redwoods', name:'Parque Nacional Redwood', country:'ESTADOS UNIDOS', emoji:'🌲', center:[-124.0046, 41.2132], zoom:10, pitch:30, fact:"Estos son los árboles más altos de la Tierra, algunos de más de 100 metros — más alto que una cancha de fútbol puesta de pie — y algunos han estado vivos por más de 2,000 años." },
+  { id:'old-faithful', name:'Old Faithful', country:'ESTADOS UNIDOS', emoji:'💦', center:[-110.828, 44.4605], zoom:15, pitch:40, fact:"Este famoso géiser lanza agua hirviendo hasta 55 metros de altura, y hace erupción con tanta puntualidad — casi cada 90 minutos — que le pusieron el nombre 'el Fiel'." },
+  { id:'monument-valley', name:'Monument Valley', country:'ESTADOS UNIDOS', emoji:'🏜️', center:[-110.098, 36.998], zoom:11, pitch:30, fact:"Estas gigantescas torres de arenisca roja que se elevan sobre el desierto han aparecido en incontables películas, y la tierra pertenece a la Nación Navajo." },
+  { id:'death-valley', name:'Valle de la Muerte', country:'ESTADOS UNIDOS', emoji:'🌡️', center:[-117.0794, 36.5054], zoom:9, pitch:20, fact:"¡Este es uno de los lugares más calurosos de la Tierra — una vez llegó a 57°C! También es uno de los puntos más bajos de Norteamérica, muy por debajo del nivel del mar." },
+  { id:'yosemite', name:'Half Dome de Yosemite', country:'ESTADOS UNIDOS', emoji:'🧗', center:[-119.5383, 37.7459], zoom:12, pitch:55, fact:"¡Half Dome parece una cúpula gigante de granito que fue cortada limpiamente por la mitad con un cuchillo enorme! En realidad, fue formada lentamente por glaciares a lo largo de millones de años." },
+  { id:'amazon-dolphins', name:'Delfines Rosados del Amazonas', country:'BRASIL', emoji:'🐬', center:[-60.0217, -3.1019], zoom:9, pitch:20, fact:"¡El río Amazonas es el hogar de delfines de río que en realidad son de color rosado! Los científicos creen que su color viene de tejido cicatrizado y vasos sanguíneos cerca de la piel." },
+  { id:'whitehaven-beach', name:'Playa Whitehaven', country:'AUSTRALIA', emoji:'🏖️', center:[149.0392, -20.283], zoom:13, pitch:30, fact:"¡La arena de esta playa está hecha de sílice casi pura — es tan fina que no se calienta con el sol y hace un chirrido al caminar sobre ella!" },
+  { id:'jokulsarlon', name:'Laguna Glaciar Jökulsárlón', country:'ISLANDIA', emoji:'🧊', center:[-16.2306, 64.0784], zoom:12, pitch:30, fact:"Enormes trozos de glaciar se desprenden y flotan en esta laguna como esculturas de hielo gigantes, antes de derivar hacia el mar y varar en una playa cercana de arena negra." },
+  { id:'blue-lagoon', name:'Laguna Azul', country:'ISLANDIA', emoji:'♨️', center:[-22.4495, 63.8804], zoom:14, pitch:30, fact:"Esta laguna geotérmica de color azul lechoso se mantiene tibia todo el año, incluso en los fríos inviernos de Islandia, porque el calor viene de la actividad volcánica bajo tierra." },
+  { id:'komodo', name:'Isla de Komodo', country:'INDONESIA', emoji:'🦎', center:[119.489, -8.5455], zoom:11, pitch:30, fact:"¡Esta isla es el hogar del dragón de Komodo — el lagarto más grande de la Tierra, que puede medir hasta 3 metros de largo! Es el único lugar del mundo donde viven en libertad estos lagartos gigantes." },
+  { id:'great-zimbabwe', name:'Gran Zimbabue', country:'ZIMBABUE', emoji:'🏰', center:[30.9337, -20.2678], zoom:15, pitch:45, fact:"¡Esta antigua ciudad de piedra se construyó sin ninguna argamasa que uniera las piedras — solo apilándolas con mucho cuidado y precisión! Y todo el país de Zimbabue lleva su nombre." },
+  { id:'meteor-crater', name:'Cráter del Meteorito', country:'ESTADOS UNIDOS', emoji:'☄️', center:[-111.0225, 35.0275], zoom:13, pitch:35, fact:"¡Este enorme agujero se formó cuando un meteorito chocó contra el desierto de Arizona hace unos 50,000 años! Es tan realista que los astronautas de la NASA entrenaron aquí antes de las misiones a la Luna." },
+  { id:'carlsbad-caverns', name:'Cavernas de Carlsbad', country:'ESTADOS UNIDOS', emoji:'🦇', center:[-104.4442, 32.1479], zoom:13, pitch:20, fact:"Muy adentro de la tierra, este sistema de cuevas tiene salas enormes llenas de formaciones de roca que gotean, y cada tarde de verano cientos de miles de murciélagos salen volando de la entrada al atardecer." },
+  { id:'tromso-auroras', name:'Auroras Boreales, Tromsø', country:'NORUEGA', emoji:'🌌', center:[18.9553, 69.6492], zoom:10, pitch:10, fact:"¡Esta ciudad está tan al norte que unas auroras de colores — cortinas brillantes de luz verde y morada — suelen bailar en el cielo nocturno, causadas por partículas del sol chocando con nuestra atmósfera!" },
 ];
 
 const STORAGE_KEY = 'ranger-expedition-stamps';
@@ -597,6 +645,7 @@ const map = new maplibregl.Map({
   pitch:0,
   attributionControl:{ compact:true }
 });
+exploreMap = map;
 
 map.on('load', ()=>{
   try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
@@ -690,10 +739,10 @@ function showFactCard(d){
 }
 function updateStampBtn(d){
   if(collected.has(d.id)){
-    stampBtn.textContent = '✓ Stamp collected!';
+    stampBtn.textContent = '✓ ¡Sello conseguido!';
     stampBtn.classList.add('already');
   } else {
-    stampBtn.textContent = '🎟️ Collect stamp!';
+    stampBtn.textContent = '🎟️ ¡Conseguir sello!';
     stampBtn.classList.remove('already');
   }
 }
@@ -727,18 +776,16 @@ const modeExploreBtn = document.getElementById('mode-explore-btn');
 const modeDriveBtn = document.getElementById('mode-drive-btn');
 const driveHud = document.getElementById('drive-hud');
 const driveSpeedo = document.getElementById('drive-speedo');
-const photoPanel = document.getElementById('photo-panel');
-const photoShots = document.getElementById('photo-shots');
 const locateCard = document.getElementById('locate-card');
 const drivePad = document.getElementById('drive-pad');
 
 let currentMode = 'explore';
 let carMarker = null;
-let carLng = 0, carLat = 0, carHeading = 0, carSpeed = 0;
+let carMarkerEl = null;
+let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
 const keys = {};
 let driveRAF = null;
 let lastFrameTime = null;
-let lastPhotoFetchLng = null, lastPhotoFetchLat = null, lastPhotoFetchTime = 0;
 
 function metersPerDegLng(lat){ return 111320 * Math.cos(lat * Math.PI / 180); }
 const METERS_PER_DEG_LAT = 111320;
@@ -753,14 +800,19 @@ function switchMode(next){
     stopDrive();
     document.getElementById('dock-wrap').style.display = '';
     driveHud.style.display = 'none';
-    photoPanel.style.display = 'none';
+    driveHud.classList.remove('state-boost', 'state-boat');
     drivePad.style.display = 'none';
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'none');
     map.dragRotate.enable();
     map.setPitch(0);
   } else {
     document.getElementById('dock-wrap').style.display = 'none';
     factCard.classList.remove('show');
     if(carMarker){
+      driveHud.style.display = 'flex';
+      drivePad.style.display = 'block';
+      ensureRoadWaterLayers();
       resumeDrive();
     } else {
       locateCard.classList.add('show');
@@ -776,7 +828,7 @@ document.getElementById('locate-cancel').addEventListener('click', ()=>{
 });
 document.getElementById('locate-go').addEventListener('click', ()=>{
   if(!navigator.geolocation){
-    alert("This browser can't share location — try driving from a phone or a modern browser.");
+    alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -786,7 +838,7 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
     },
     ()=>{
       locateCard.classList.remove('show');
-      alert("Couldn't get your location — you may need to allow location access in your browser settings.");
+      alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
       switchMode('explore');
     },
     { enableHighAccuracy:true, timeout:10000 }
@@ -794,23 +846,50 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
 });
 
 function beginDriveAt(lng, lat){
-  carLng = lng; carLat = lat; carHeading = 0; carSpeed = 0;
+  carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
+  isOnWater = false;
 
   const el = document.createElement('div');
   el.textContent = '🚗';
   el.style.fontSize = '30px';
   el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))';
-  el.style.transformOrigin = '50% 50%';
-  carMarker = new maplibregl.Marker({ element:el, rotationAlignment:'map' })
+  carMarker = new maplibregl.Marker({ element:el })
     .setLngLat([carLng, carLat]).addTo(map);
+  carMarkerEl = el;
 
-  driveHud.style.display = 'block';
-  photoPanel.style.display = 'block';
+  driveHud.style.display = 'flex';
   drivePad.style.display = 'block';
   map.dragRotate.disable();
-  map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:60, bearing:0 });
-  fetchNearbyPhotos(carLat, carLng);
+  map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
+  ensureRoadWaterLayers();
   resumeDrive();
+}
+
+// Free, keyless vector road/water data from OpenFreeMap (OpenStreetMap-based,
+// no API key, no limits) so the car can tell whether it's near a road or
+// over water. Added once, only used while driving — see switchMode() for
+// how visibility is toggled off in Explore mode so it doesn't cost tile
+// requests while spinning the globe.
+function ensureRoadWaterLayers(){
+  if(!map.getSource('openmaptiles')){
+    map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
+  }
+  if(!map.getLayer('drive-roads')){
+    map.addLayer({
+      id:'drive-roads', type:'line', source:'openmaptiles', 'source-layer':'transportation',
+      minzoom:10,
+      paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
+    });
+  }
+  if(!map.getLayer('drive-water')){
+    map.addLayer({
+      id:'drive-water', type:'fill', source:'openmaptiles', 'source-layer':'water',
+      minzoom:10,
+      paint:{ 'fill-color':'#3E9CDC', 'fill-opacity':0.3 }
+    });
+  }
+  map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+  map.setLayoutProperty('drive-water', 'visibility', 'visible');
 }
 
 function resumeDrive(){
@@ -851,97 +930,91 @@ bindPadButton('pad-down', 'arrowdown');
 bindPadButton('pad-left', 'arrowleft');
 bindPadButton('pad-right', 'arrowright');
 
-const MAX_SPEED = 13;      // m/s, ~29 mph — plenty fast for a kid's drive
-const ACCEL = 9;
-const BRAKE = 16;
-const FRICTION = 5;
-const TURN_RATE = 55;      // degrees/sec at full speed
+// Translation-only driving: each arrow/WASD direction pushes the car
+// straight north/south/east/west (map-relative, not car-relative) —
+// no turning or heading to manage. Holding two directions at once
+// (e.g. up + right) drives diagonally. Speed gets a boost while
+// hugging a road, and the car becomes a boat over water.
+const BASE_MAX_SPEED = 10;   // m/s off-road
+const ROAD_BOOST = 1.7;      // multiplier while near a road
+const ACCEL = 10;
+const FRICTION = 7;
+const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
+
+let isOnWater = false;
+let isNearRoad = false;
+let lastTerrainCheck = 0;
+
+function checkTerrain(t){
+  if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
+  lastTerrainCheck = t;
+  let nearRoad = false, onWater = false;
+  try{
+    const pt = map.project([carLng, carLat]);
+    if(map.getLayer('drive-roads')){
+      const roadHits = map.queryRenderedFeatures(
+        [[pt.x - ROAD_CHECK_PX, pt.y - ROAD_CHECK_PX], [pt.x + ROAD_CHECK_PX, pt.y + ROAD_CHECK_PX]],
+        { layers:['drive-roads'] }
+      );
+      nearRoad = roadHits.length > 0;
+    }
+    if(map.getLayer('drive-water')){
+      const waterHits = map.queryRenderedFeatures([pt.x, pt.y], { layers:['drive-water'] });
+      onWater = waterHits.length > 0;
+    }
+  } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
+
+  isNearRoad = nearRoad;
+  if(onWater !== isOnWater){
+    isOnWater = onWater;
+    if(carMarkerEl) carMarkerEl.textContent = isOnWater ? '⛴️' : '🚗';
+  }
+}
 
 function driveLoop(t){
   if(lastFrameTime === null) lastFrameTime = t;
   const dt = Math.min((t - lastFrameTime) / 1000, 0.1);
   lastFrameTime = t;
 
-  const forward = keys['arrowup'] || keys['w'];
-  const backward = keys['arrowdown'] || keys['s'];
-  const left = keys['arrowleft'] || keys['a'];
-  const right = keys['arrowright'] || keys['d'];
+  checkTerrain(t);
+  const maxSpeed = BASE_MAX_SPEED * (isNearRoad ? ROAD_BOOST : 1);
 
-  if(forward) carSpeed = Math.min(MAX_SPEED, carSpeed + ACCEL * dt);
-  else if(backward) carSpeed = Math.max(-MAX_SPEED * 0.5, carSpeed - BRAKE * dt);
-  else carSpeed -= Math.sign(carSpeed) * Math.min(Math.abs(carSpeed), FRICTION * dt);
+  const north = (keys['arrowup'] || keys['w']) ? 1 : 0;
+  const south = (keys['arrowdown'] || keys['s']) ? 1 : 0;
+  const west = (keys['arrowleft'] || keys['a']) ? 1 : 0;
+  const east = (keys['arrowright'] || keys['d']) ? 1 : 0;
 
-  const turnFactor = Math.max(0.25, Math.min(1, Math.abs(carSpeed) / (MAX_SPEED * 0.4)));
-  if(left) carHeading -= TURN_RATE * turnFactor * dt * Math.sign(carSpeed || 1);
-  if(right) carHeading += TURN_RATE * turnFactor * dt * Math.sign(carSpeed || 1);
-  carHeading = ((carHeading % 360) + 360) % 360;
-
-  const dist = carSpeed * dt;
-  const headRad = carHeading * Math.PI / 180;
-  carLat += (dist * Math.cos(headRad)) / METERS_PER_DEG_LAT;
-  carLng += (dist * Math.sin(headRad)) / metersPerDegLng(carLat);
-
-  if(carMarker){
-    carMarker.setLngLat([carLng, carLat]);
-    carMarker.setRotation(carHeading);
+  let targetVN = (north - south) * maxSpeed;
+  let targetVE = (east - west) * maxSpeed;
+  // Normalize diagonal speed so it isn't faster than a straight line.
+  const mag = Math.hypot(targetVN, targetVE);
+  if(mag > maxSpeed){
+    targetVN = targetVN / mag * maxSpeed;
+    targetVE = targetVE / mag * maxSpeed;
   }
-  map.jumpTo({ center:[carLng, carLat], bearing:carHeading, pitch:60, zoom:map.getZoom() });
 
-  const kmh = Math.round(Math.abs(carSpeed) * 3.6);
-  driveSpeedo.textContent = kmh === 0 ? '🚗 Parked' : (carSpeed < 0 ? `⬅️ Reversing ${kmh} km/h` : kmh < 20 ? `🚗 Cruising ${kmh} km/h` : `🏎️ Zooming ${kmh} km/h`);
-
-  const movedFar = lastPhotoFetchLng === null ||
-    Math.hypot((carLng - lastPhotoFetchLng) * metersPerDegLng(carLat), (carLat - lastPhotoFetchLat) * METERS_PER_DEG_LAT) > 250;
-  if(movedFar && (t - lastPhotoFetchTime) > 6000){
-    fetchNearbyPhotos(carLat, carLng);
+  const anyInput = north || south || west || east;
+  if(anyInput){
+    carVelN += Math.sign(targetVN - carVelN) * Math.min(Math.abs(targetVN - carVelN), ACCEL * dt);
+    carVelE += Math.sign(targetVE - carVelE) * Math.min(Math.abs(targetVE - carVelE), ACCEL * dt);
+  } else {
+    carVelN -= Math.sign(carVelN) * Math.min(Math.abs(carVelN), FRICTION * dt);
+    carVelE -= Math.sign(carVelE) * Math.min(Math.abs(carVelE), FRICTION * dt);
   }
+
+  carLat += (carVelN * dt) / METERS_PER_DEG_LAT;
+  carLng += (carVelE * dt) / metersPerDegLng(carLat);
+
+  if(carMarker) carMarker.setLngLat([carLng, carLat]);
+  map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:map.getZoom() });
+
+  const speed = Math.hypot(carVelN, carVelE);
+  const kmh = Math.round(speed * 3.6);
+  driveSpeedo.textContent = kmh;
+  driveHud.classList.toggle('state-boost', isNearRoad && kmh > 0);
+  driveHud.classList.toggle('state-boat', isOnWater);
 
   driveRAF = requestAnimationFrame(driveLoop);
-}
-
-async function fetchNearbyPhotos(lat, lng){
-  lastPhotoFetchLng = lng; lastPhotoFetchLat = lat; lastPhotoFetchTime = performance.now();
-  photoShots.innerHTML = '<div class="ploading">Looking around…</div>';
-  try{
-    const geoUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=4000&gsnamespace=6&gslimit=8&format=json&origin=*`;
-    const geoRes = await fetch(geoUrl);
-    const geoData = await geoRes.json();
-    const results = (geoData.query && geoData.query.geosearch) || [];
-    if(results.length === 0){
-      photoShots.innerHTML = '<div class="ploading">No photos found near here yet — keep driving!</div>';
-      return;
-    }
-    const titles = results.slice(0, 4).map(r => r.title).join('|');
-    const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url&iiurlwidth=300&format=json&origin=*`;
-    const infoRes = await fetch(infoUrl);
-    const infoData = await infoRes.json();
-    const pages = (infoData.query && infoData.query.pages) || {};
-    const shots = Object.values(pages)
-      .filter(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl)
-      .slice(0, 3);
-    if(shots.length === 0){
-      photoShots.innerHTML = '<div class="ploading">No photos found near here yet — keep driving!</div>';
-      return;
-    }
-    photoShots.innerHTML = '';
-    shots.forEach(p=>{
-      const caption = p.title.replace(/^File:/, '').replace(/\.[a-zA-Z]+$/, '').replace(/_/g, ' ').slice(0, 40);
-      const wrap = document.createElement('div');
-      const img = document.createElement('img');
-      img.src = p.imageinfo[0].thumburl;
-      img.alt = caption;
-      img.loading = 'lazy';
-      const cap = document.createElement('div');
-      cap.className = 'pcaption';
-      cap.textContent = caption;
-      wrap.appendChild(img);
-      wrap.appendChild(cap);
-      photoShots.appendChild(wrap);
-    });
-  } catch(err){
-    console.error('Nearby photos fetch failed', err);
-    photoShots.innerHTML = '<div class="ploading">Couldn\'t load photos right now.</div>';
-  }
 }
 
 } catch(mapError){
@@ -949,7 +1022,7 @@ async function fetchNearbyPhotos(lat, lng){
   // but let the rest of the page (welcome screen, passport) keep working.
   console.error('Earth Expedition: map failed to load —', mapError);
   const dockLabel = document.getElementById('dock-label');
-  if(dockLabel) dockLabel.textContent = "⚠️ The map couldn't load — check your internet connection and refresh.";
+  if(dockLabel) dockLabel.textContent = "⚠️ El mapa no pudo cargar — revisa tu conexión a internet y actualiza la página.";
   const hintElFallback = document.getElementById('hint');
   if(hintElFallback) hintElFallback.style.display = 'none';
 }
@@ -978,7 +1051,7 @@ function renderPassport(){
       : `<span class="semoji" style="opacity:.4">${d.emoji}</span><span class="sname">?</span>`;
     stampGrid.appendChild(slot);
   });
-  passportSub.textContent = `${collected.size} of ${DESTINATIONS.length} stamps collected`;
+  passportSub.textContent = `${collected.size} de ${DESTINATIONS.length} sellos conseguidos`;
   passportEmpty.style.display = collected.size === 0 ? 'block' : 'none';
 }
 passportBtn.addEventListener('click', ()=>{
