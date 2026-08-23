@@ -327,6 +327,64 @@
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
   #drive-hud.state-boat{ background:rgba(62,156,220,0.85); border-color:#2d78ad; }
 
+  /* ---------- Nearby photos: toggle buttons + panel ---------- */
+  .photo-toggle-btn{
+    display:block; width:100%;
+    background:var(--parchment-deep); color:var(--forest-deep);
+    border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    border-radius:999px; padding:8px; cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.18);
+    margin-top:8px;
+  }
+  .photo-toggle-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.18); }
+
+  #drive-photo-btn{
+    position:absolute; bottom:60px; right:14px;
+    z-index:12; display:none;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:999px;
+    padding:8px 14px;
+    font-family:'Baloo 2',cursive;
+    font-weight:700; font-size:13px;
+    color:var(--forest-deep);
+    cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+    transition:transform .12s ease;
+  }
+  #drive-photo-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.28); }
+
+  #photo-panel{
+    position:absolute; top:64px; right:14px;
+    z-index:22; display:none;
+    width:150px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:14px;
+    padding:10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+  }
+  #photo-panel.show{ display:block; }
+  #photo-panel .photo-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:6px;
+  }
+  #photo-panel h3{ margin:0; font-size:12px; color:var(--forest-deep); }
+  .photo-close{
+    background:none; border:none; cursor:pointer;
+    font-size:14px; font-weight:800; color:var(--forest-deep);
+    line-height:1; padding:0 0 0 6px;
+  }
+  #photo-panel .pshots{ display:flex; flex-direction:column; gap:6px; }
+  #photo-panel img{
+    width:100%; height:72px; object-fit:cover;
+    border-radius:8px; border:2px solid var(--forest-deep);
+    display:block;
+  }
+  #photo-panel .ploading{ font-size:11px; color:var(--forest); text-align:center; padding:8px 0; }
+  #photo-panel .pcaption{ font-size:9px; color:var(--forest); margin-top:2px; line-height:1.2; }
+
   /* ---------- Location permission card ---------- */
   #locate-card{
     position:absolute; inset:0; z-index:40;
@@ -409,6 +467,8 @@
   <span id="drive-speedo">0</span><span class="unit">km/h</span>
 </div>
 
+<button id="drive-photo-btn">📸 Fotos</button>
+
 <div id="drive-pad">
   <button id="pad-up" aria-label="Mover al norte">⬆️</button>
   <button id="pad-left" aria-label="Mover al oeste">⬅️</button>
@@ -435,6 +495,15 @@
   <div class="fcountry" id="fact-country">PAÍS</div>
   <p id="fact-text">Aquí va un dato curioso.</p>
   <button class="stamp-btn" id="stamp-btn">🎟️ ¡Conseguir sello!</button>
+  <button class="photo-toggle-btn" id="fact-photo-btn">📸 Fotos cercanas</button>
+</div>
+
+<div id="photo-panel">
+  <div class="photo-panel-header">
+    <h3>📸 Fotos cercanas</h3>
+    <button class="photo-close" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="pshots" id="photo-shots"><div class="ploading">Buscando fotos…</div></div>
 </div>
 
 <div id="dock-wrap">
@@ -733,6 +802,7 @@ function showFactCard(d){
   factText.textContent = d.fact;
   updateStampBtn(d);
   factCard.classList.add('show');
+  photoPanel.classList.remove('show');
 }
 function updateStampBtn(d){
   if(collected.has(d.id)){
@@ -745,6 +815,7 @@ function updateStampBtn(d){
 }
 document.querySelector('#fact-card .fclose').addEventListener('click', ()=>{
   factCard.classList.remove('show');
+  photoPanel.classList.remove('show');
 });
 stampBtn.addEventListener('click', ()=>{
   if(!activeDest || collected.has(activeDest.id)) return;
@@ -761,6 +832,80 @@ function celebrateStamp(){
 }
 
 // =================================================================
+// NEARBY PHOTOS — shared by both Explore and Drive mode
+// On-demand only: fetching happens when the button is tapped, not
+// continuously, so driving doesn't hammer the API every few seconds.
+// Uses Wikimedia Commons' free, keyless geosearch API — real geotagged
+// photos near whatever coordinates are passed in.
+// =================================================================
+const photoPanel = document.getElementById('photo-panel');
+const photoShots = document.getElementById('photo-shots');
+let photoPanelLat = null, photoPanelLng = null;
+
+function togglePhotoPanel(lat, lng){
+  const alreadyShowingHere = photoPanel.classList.contains('show') && lat === photoPanelLat && lng === photoPanelLng;
+  if(alreadyShowingHere){
+    photoPanel.classList.remove('show');
+    return;
+  }
+  photoPanel.classList.add('show');
+  fetchNearbyPhotos(lat, lng);
+}
+
+async function fetchNearbyPhotos(lat, lng){
+  photoPanelLat = lat; photoPanelLng = lng;
+  photoShots.innerHTML = '<div class="ploading">Buscando fotos…</div>';
+  try{
+    const geoUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=4000&gsnamespace=6&gslimit=8&format=json&origin=*`;
+    const geoRes = await fetch(geoUrl);
+    const geoData = await geoRes.json();
+    const results = (geoData.query && geoData.query.geosearch) || [];
+    if(results.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No hay fotos cerca todavía.</div>';
+      return;
+    }
+    const titles = results.slice(0, 4).map(r => r.title).join('|');
+    const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url&iiurlwidth=300&format=json&origin=*`;
+    const infoRes = await fetch(infoUrl);
+    const infoData = await infoRes.json();
+    const pages = (infoData.query && infoData.query.pages) || {};
+    const shots = Object.values(pages)
+      .filter(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl)
+      .slice(0, 3);
+    if(shots.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No hay fotos cerca todavía.</div>';
+      return;
+    }
+    photoShots.innerHTML = '';
+    shots.forEach(p=>{
+      const caption = p.title.replace(/^File:/, '').replace(/\.[a-zA-Z]+$/, '').replace(/_/g, ' ').slice(0, 40);
+      const wrap = document.createElement('div');
+      const img = document.createElement('img');
+      img.src = p.imageinfo[0].thumburl;
+      img.alt = caption;
+      img.loading = 'lazy';
+      const cap = document.createElement('div');
+      cap.className = 'pcaption';
+      cap.textContent = caption;
+      wrap.appendChild(img);
+      wrap.appendChild(cap);
+      photoShots.appendChild(wrap);
+    });
+  } catch(err){
+    console.error('Nearby photos fetch failed', err);
+    photoShots.innerHTML = '<div class="ploading">No se pudieron cargar las fotos.</div>';
+  }
+}
+
+document.querySelector('.photo-close').addEventListener('click', ()=>{
+  photoPanel.classList.remove('show');
+});
+document.getElementById('fact-photo-btn').addEventListener('click', ()=>{
+  if(!activeDest) return;
+  togglePhotoPanel(activeDest.center[1], activeDest.center[0]);
+});
+
+// =================================================================
 // DRIVE MODE
 // Uses the browser's built-in geolocation (device location, granted
 // by the user) to drop a car on a real map near them, driven with
@@ -774,8 +919,11 @@ const driveHud = document.getElementById('drive-hud');
 const driveSpeedo = document.getElementById('drive-speedo');
 const locateCard = document.getElementById('locate-card');
 const drivePad = document.getElementById('drive-pad');
+const drivePhotoBtn = document.getElementById('drive-photo-btn');
+drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
 
 let currentMode = 'explore';
+let exploreCameraState = null;
 let carMarker = null;
 let carMarkerEl = null;
 let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
@@ -798,16 +946,44 @@ function switchMode(next){
     driveHud.style.display = 'none';
     driveHud.classList.remove('state-boost', 'state-boat');
     drivePad.style.display = 'none';
+    drivePhotoBtn.style.display = 'none';
+    photoPanel.classList.remove('show');
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
     if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'none');
     map.dragRotate.enable();
-    map.setPitch(0);
+    // Fly back to wherever the globe was left, rather than staying
+    // zoomed into whatever street the car was just driving on — that's
+    // what made switching back to Explore feel broken.
+    if(exploreCameraState){
+      map.flyTo({
+        center:exploreCameraState.center,
+        zoom:exploreCameraState.zoom,
+        pitch:exploreCameraState.pitch,
+        bearing:exploreCameraState.bearing,
+        speed:0.9,
+        curve:1.3,
+        essential:true
+      });
+    } else {
+      map.setPitch(0);
+    }
   } else {
+    // Leaving Explore for Drive — remember exactly where the globe was
+    // so switching back restores it instead of leaving the camera
+    // wherever driving last left it.
+    exploreCameraState = {
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      pitch: map.getPitch(),
+      bearing: map.getBearing()
+    };
     document.getElementById('dock-wrap').style.display = 'none';
     factCard.classList.remove('show');
+    photoPanel.classList.remove('show');
     if(carMarker){
       driveHud.style.display = 'flex';
       drivePad.style.display = 'block';
+      drivePhotoBtn.style.display = 'block';
       ensureRoadWaterLayers();
       resumeDrive();
     } else {
@@ -855,6 +1031,7 @@ function beginDriveAt(lng, lat){
 
   driveHud.style.display = 'flex';
   drivePad.style.display = 'block';
+  drivePhotoBtn.style.display = 'block';
   map.dragRotate.disable();
   map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
   ensureRoadWaterLayers();
