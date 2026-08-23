@@ -516,6 +516,10 @@
     cursor:wait;
   }
   #transition-guard.show{ display:block; }
+  #topbar.dimmed, #dock-wrap.dimmed{
+    opacity:0.4;
+    transition:opacity .2s ease;
+  }
 </style>
 </head>
 <body>
@@ -851,6 +855,8 @@ function flyToDestination(d){
   if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
   activeDest = d;
   transitionGuard.classList.add('show');
+  document.getElementById('topbar').classList.add('dimmed');
+  document.getElementById('dock-wrap').classList.add('dimmed');
   factCard.classList.remove('show');
   photoPanel.classList.remove('show');
   map.flyTo({
@@ -864,6 +870,8 @@ function flyToDestination(d){
   });
   map.once('moveend', ()=>{
     transitionGuard.classList.remove('show');
+    document.getElementById('topbar').classList.remove('dimmed');
+    document.getElementById('dock-wrap').classList.remove('dimmed');
     showFactCard(d);
   });
 }
