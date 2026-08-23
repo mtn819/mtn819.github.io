@@ -292,8 +292,8 @@
   }
   #passport-empty{ text-align:center; color:var(--forest); font-size:14px; margin-top:10px; }
 
-  /* ---------- Hint toast ---------- */
-  #hint{
+  /* ---------- Toast note (used for the drive-mode hint) ---------- */
+  #drive-hint{
     position:absolute; left:50%; bottom:96px; transform:translateX(-50%);
     background:var(--forest-deep); color:var(--parchment);
     font-size:13px; font-weight:700;
@@ -302,7 +302,7 @@
     z-index:15; pointer-events:none;
     white-space:nowrap;
   }
-  #hint.show{ opacity:1; }
+  #drive-hint.show{ opacity:1; }
 
   /* maplibre attribution styling to stay legible on dark globe */
   .maplibregl-ctrl-attrib{
@@ -549,7 +549,7 @@
   </div>
 </div>
 
-<div id="hint">🧭 Arrastra para girar el globo • pellizca o desplázate para hacer zoom</div>
+<div id="drive-hint">👉 Mantén presionado para conducir</div>
 
 <div id="fact-card">
   <button class="fclose" aria-label="Close">✕</button>
@@ -617,7 +617,6 @@ let exploreMap = null;
 // ---------------------------------------------------------------
 document.getElementById('start-btn').addEventListener('click', ()=>{
   document.getElementById('welcome').style.display = 'none';
-  if(typeof showHint === 'function') showHint();
   // Deliberately leave the camera on the map's default zoomed-out globe
   // view here — no jump-in. That way the very first flyTo, whenever the
   // player taps their first destination card, is the moment the journey
@@ -861,7 +860,6 @@ function flyToDestination(d){
     curve:1.4,
     essential:true
   });
-  hideHint();
   map.once('moveend', ()=>{
     transitionGuard.classList.remove('show');
     showFactCard(d);
@@ -1181,6 +1179,7 @@ function beginDriveAt(lng, lat){
   map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
   ensureRoadLayer();
   resumeDrive();
+  if(typeof showDriveHint === 'function') showDriveHint();
 }
 
 // Free, keyless vector road data from OpenFreeMap (OpenStreetMap-based,
@@ -1377,8 +1376,6 @@ function driveLoop(t){
   console.error('Earth Expedition: map failed to load —', mapError);
   const dockLabel = document.getElementById('dock-label');
   if(dockLabel) dockLabel.textContent = "⚠️ El mapa no pudo cargar — revisa tu conexión a internet y actualiza la página.";
-  const hintElFallback = document.getElementById('hint');
-  if(hintElFallback) hintElFallback.style.display = 'none';
 }
 
 // ---------------------------------------------------------------
@@ -1418,14 +1415,14 @@ passportModal.addEventListener('click', (e)=>{ if(e.target === passportModal) pa
 updatePassportCount();
 
 // ---------------------------------------------------------------
-// Hint toast
+// Drive-mode hint toast
 // ---------------------------------------------------------------
-const hintEl = document.getElementById('hint');
-function showHint(){
-  hintEl.classList.add('show');
-  setTimeout(hideHint, 5000);
+const driveHintEl = document.getElementById('drive-hint');
+function showDriveHint(){
+  driveHintEl.classList.add('show');
+  setTimeout(hideDriveHint, 4000);
 }
-function hideHint(){ hintEl.classList.remove('show'); }
+function hideDriveHint(){ driveHintEl.classList.remove('show'); }
 </script>
 </body>
 </html>
