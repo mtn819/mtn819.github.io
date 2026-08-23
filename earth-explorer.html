@@ -124,7 +124,7 @@
 
   .dest-card{
     flex:0 0 auto;
-    width:120px;
+    width:132px;
     background:var(--parchment);
     border:3px solid var(--forest-deep);
     border-radius:var(--radius);
@@ -139,8 +139,21 @@
   .dest-card:hover{ transform:translateY(-3px); }
   .dest-card:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
   .dest-card .emoji{ font-size:30px; display:block; margin-bottom:4px; }
-  .dest-card .name{ font-family:'Baloo 2',cursive; font-weight:700; font-size:13px; color:var(--forest-deep); line-height:1.15; display:block; }
-  .dest-card .country{ display:block; font-size:9px; font-weight:700; color:var(--sunset-deep); text-transform:uppercase; letter-spacing:0.3px; margin-top:3px; opacity:0.85; }
+  .dest-card .name{
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    color:var(--forest-deep); line-height:1.15;
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    overflow:hidden; text-overflow:ellipsis;
+    overflow-wrap:break-word; word-break:break-word; hyphens:auto;
+    min-height:calc(13px * 1.15 * 2);
+  }
+  .dest-card .country{
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1;
+    overflow:hidden; text-overflow:ellipsis;
+    font-size:9px; font-weight:700; color:var(--sunset-deep);
+    text-transform:uppercase; letter-spacing:0.3px; margin-top:3px; opacity:0.85;
+    overflow-wrap:break-word; word-break:break-word;
+  }
   .dest-card.visited{ background:var(--forest); }
   .dest-card.visited .name{ color:var(--parchment); }
   .dest-card.visited .country{ color:var(--gold); }
@@ -180,7 +193,7 @@
     line-height:1;
   }
   #fact-card .femoji{ font-size:40px; display:block; margin-bottom:2px;}
-  #fact-card h2{ margin:0 0 6px; color:var(--forest-deep); font-size:22px; }
+  #fact-card h2{ margin:0 0 6px; color:var(--forest-deep); font-size:22px; overflow-wrap:break-word; word-break:break-word; hyphens:auto; }
   #fact-card .fcountry{ font-size:13px; font-weight:800; color:var(--sunset-deep); margin-bottom:10px; }
   #fact-card p{ margin:0 0 14px; font-size:15px; line-height:1.45; color:var(--ink); }
   #fact-card .stamp-btn{
@@ -255,6 +268,7 @@
     opacity:0.35;
     text-align:center;
     padding:4px;
+    overflow:hidden;
   }
   .stamp-slot.filled{
     opacity:1;
@@ -264,7 +278,13 @@
     transform:rotate(var(--tilt,-2deg));
   }
   .stamp-slot .semoji{ font-size:22px; }
-  .stamp-slot .sname{ font-family:'Baloo 2',cursive; font-size:10px; font-weight:700; margin-top:2px; color:var(--forest-deep); }
+  .stamp-slot .sname{
+    font-family:'Baloo 2',cursive; font-size:10px; font-weight:700;
+    margin-top:2px; color:var(--forest-deep);
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    overflow:hidden; text-overflow:ellipsis;
+    overflow-wrap:break-word; word-break:break-word; hyphens:auto;
+  }
   #passport-empty{ text-align:center; color:var(--forest); font-size:14px; margin-top:10px; }
 
   /* ---------- Hint toast ---------- */
@@ -288,7 +308,7 @@
 
   @media (max-width:480px){
     #brand span{ display:none; }
-    .dest-card{ width:100px; }
+    .dest-card{ width:108px; }
   }
 
   /* ---------- Mode toggle ---------- */
@@ -327,6 +347,21 @@
   #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
+
+  /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
+  .car-flip{ transition:transform .15s ease; }
+  .car-emoji{
+    font-size:30px;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    cursor:pointer;
+    display:block;
+  }
+  @keyframes vehicle-pop{
+    0%{ transform:scale(1); }
+    50%{ transform:scale(1.45); }
+    100%{ transform:scale(1); }
+  }
+  .car-emoji.pop{ animation:vehicle-pop 0.5s ease; }
 
   /* ---------- Nearby photos: toggle buttons + panel ---------- */
   .photo-toggle-btn{
@@ -1039,6 +1074,10 @@ drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
 let currentMode = 'explore';
 let exploreCameraState = null;
 let carMarker = null;
+let carFlipEl = null;
+const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
+let vehicleIndex = 0;
+let facingRight = false; // vehicle emojis default to facing left
 let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
 const keys = {};
 let driveRAF = null;
@@ -1131,13 +1170,34 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
 
 function beginDriveAt(lng, lat){
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
+  facingRight = false;
 
-  const el = document.createElement('div');
-  el.textContent = '🚗';
-  el.style.fontSize = '30px';
-  el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))';
-  carMarker = new maplibregl.Marker({ element:el })
+  // Structure: outer (MapLibre owns its transform for map positioning —
+  // never set transform on this one directly) > flip (persistent
+  // left/right facing, our transform) > emoji (textContent + the
+  // temporary pop animation on click). Nesting like this lets the flip
+  // and the pop animation each own their own transform without fighting.
+  const outer = document.createElement('div');
+  const flip = document.createElement('div');
+  flip.className = 'car-flip';
+  const emoji = document.createElement('div');
+  emoji.className = 'car-emoji';
+  emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
+  flip.appendChild(emoji);
+  outer.appendChild(flip);
+
+  emoji.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
+    emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
+    emoji.classList.remove('pop');
+    void emoji.offsetWidth; // restart the animation even on rapid re-clicks
+    emoji.classList.add('pop');
+  });
+
+  carMarker = new maplibregl.Marker({ element:outer })
     .setLngLat([carLng, carLat]).addTo(map);
+  carFlipEl = flip;
 
   driveHud.style.display = 'flex';
   drivePad.style.display = 'block';
@@ -1208,11 +1268,12 @@ bindPadButton('pad-right', 'arrowright');
 // Translation-only driving: each arrow/WASD direction pushes the car
 // straight north/south/east/west (map-relative, not car-relative) —
 // no turning or heading to manage. Holding two directions at once
-// (e.g. up + right) drives diagonally. Speed gets a boost while
-// hugging a road.
-const BASE_MAX_SPEED = 10;   // m/s off-road
-const ROAD_BOOST = 1.7;      // multiplier while near a road
-const ACCEL = 10;
+// (e.g. up + right) drives diagonally. Speed gets a big boost while
+// hugging a road — up to 256 km/h, race-car territory.
+const BASE_MAX_SPEED = 10;           // m/s off-road (~36 km/h)
+const ROAD_MAX_SPEED = 256 / 3.6;    // m/s on a road (256 km/h)
+const ACCEL_OFFROAD = 10;
+const ACCEL_ROAD = 28;               // faster ramp-up so reaching 256 km/h feels earned, not tedious
 const FRICTION = 7;
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
 
@@ -1243,12 +1304,21 @@ function driveLoop(t){
   lastFrameTime = t;
 
   checkTerrain(t);
-  const maxSpeed = BASE_MAX_SPEED * (isNearRoad ? ROAD_BOOST : 1);
+  const maxSpeed = isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED;
+  const accel = isNearRoad ? ACCEL_ROAD : ACCEL_OFFROAD;
 
   const north = (keys['arrowup'] || keys['w']) ? 1 : 0;
   const south = (keys['arrowdown'] || keys['s']) ? 1 : 0;
   const west = (keys['arrowleft'] || keys['a']) ? 1 : 0;
   const east = (keys['arrowright'] || keys['d']) ? 1 : 0;
+
+  if(east && !facingRight){
+    facingRight = true;
+    if(carFlipEl) carFlipEl.style.transform = 'scaleX(-1)';
+  } else if(west && facingRight){
+    facingRight = false;
+    if(carFlipEl) carFlipEl.style.transform = 'scaleX(1)';
+  }
 
   let targetVN = (north - south) * maxSpeed;
   let targetVE = (east - west) * maxSpeed;
@@ -1261,8 +1331,8 @@ function driveLoop(t){
 
   const anyInput = north || south || west || east;
   if(anyInput){
-    carVelN += Math.sign(targetVN - carVelN) * Math.min(Math.abs(targetVN - carVelN), ACCEL * dt);
-    carVelE += Math.sign(targetVE - carVelE) * Math.min(Math.abs(targetVE - carVelE), ACCEL * dt);
+    carVelN += Math.sign(targetVN - carVelN) * Math.min(Math.abs(targetVN - carVelN), accel * dt);
+    carVelE += Math.sign(targetVE - carVelE) * Math.min(Math.abs(targetVE - carVelE), accel * dt);
   } else {
     carVelN -= Math.sign(carVelN) * Math.min(Math.abs(carVelN), FRICTION * dt);
     carVelE -= Math.sign(carVelE) * Math.min(Math.abs(carVelE), FRICTION * dt);
