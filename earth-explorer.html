@@ -1139,6 +1139,7 @@ function switchMode(next){
       driveHud.style.display = 'flex';
       drivePad.style.display = 'block';
       drivePhotoBtn.style.display = 'block';
+      map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
       ensureRoadLayer();
       resumeDrive();
     } else {
