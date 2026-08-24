@@ -379,7 +379,11 @@
   #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
 
   /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
-  .car-flip{ transition:transform .15s ease; }
+  /* Short transition so the car's left/right flip and the jet's
+     rotation both feel responsive. Kept brief because the jet's
+     heading updates every frame — a longer ease would visibly lag
+     behind the steering. */
+  .car-flip{ transition:transform .08s linear; }
   .car-emoji{
     font-size:30px;
     filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));
@@ -1375,15 +1379,22 @@ const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
 let vehicleIndex = 0;
 let facingRight = false; // vehicle emojis default to facing left
 
-// The car emojis (🚗🛻🚙🚓🐎) point LEFT by default, but the jet (✈️)
-// points RIGHT — so the mirror needed to make each face a given
-// direction is the opposite of the other. Centralized here so both the
-// steering code and the jet engage/release path stay consistent.
+// The car emojis (🚗🛻🚙🚓🐎) point LEFT by default and only ever get
+// mirrored left/right. The jet is different: it rotates freely through
+// 360° to point exactly where you're steering. ✈️ is drawn pointing
+// up-and-to-the-right (about 45° / north-east) in most emoji fonts, so
+// that offset is subtracted to get a true heading. Tweak this single
+// number if the plane looks rotated on a particular device.
+const JET_EMOJI_BASE_HEADING = 45;
+let jetHeadingDeg = 0; // compass bearing the jet currently points (0 = north)
+
 function applyFacing(){
   if(!carFlipEl) return;
-  const facesRightByDefault = jetActive;
-  const mirror = (facingRight !== facesRightByDefault);
-  carFlipEl.style.transform = mirror ? 'scaleX(-1)' : 'scaleX(1)';
+  if(jetActive){
+    carFlipEl.style.transform = `rotate(${jetHeadingDeg - JET_EMOJI_BASE_HEADING}deg)`;
+  } else {
+    carFlipEl.style.transform = facingRight ? 'scaleX(-1)' : 'scaleX(1)';
+  }
 }
 let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
 const keys = {};
@@ -1773,7 +1784,27 @@ function driveLoop(t){
 
   const dir = getInputDirection();
 
-  if(dir.x > 0.15 && !facingRight){
+  if(jetActive){
+    // Free 360° rotation: point straight at wherever the finger/keys
+    // are steering. Heading is only updated while there IS input, so
+    // letting go leaves the jet pointing where it was rather than
+    // snapping back to north.
+    if(dir.x !== 0 || dir.y !== 0){
+      const raw = Math.atan2(dir.x, dir.y) * 180 / Math.PI; // -180..180
+      // Accumulate continuously instead of assigning the raw value:
+      // atan2 wraps at ±180°, so steering across due south would jump
+      // from 179 to -179 and CSS would spin the jet 358° the long way
+      // round. Always take the shorter turn.
+      let delta = raw - (jetHeadingDeg % 360);
+      while(delta > 180) delta -= 360;
+      while(delta < -180) delta += 360;
+      jetHeadingDeg += delta;
+      applyFacing();
+    }
+    // Still track left/right so the car lands facing the right way.
+    if(dir.x > 0.15) facingRight = true;
+    else if(dir.x < -0.15) facingRight = false;
+  } else if(dir.x > 0.15 && !facingRight){
     facingRight = true;
     applyFacing();
   } else if(dir.x < -0.15 && facingRight){
