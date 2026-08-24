@@ -225,6 +225,19 @@
   }
   #welcome .globe-emoji{ font-size:64px; display:block; margin-bottom:6px; animation:bob 2.4s ease-in-out infinite; }
   @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  #build-tag{
+    position:absolute; top:12px; right:14px;
+    background:rgba(9,26,21,0.55);
+    color:var(--parchment-deep);
+    font-family:'Nunito',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:0.5px;
+    padding:4px 9px;
+    border-radius:999px;
+    opacity:0.85;
+    pointer-events:none;
+    user-select:text; /* handy to copy when reporting an issue */
+  }
   #welcome h1{ color:var(--parchment); font-size:34px; margin:0 0 8px; }
   #welcome p{ color:var(--parchment-deep); font-size:16px; line-height:1.5; margin:0 0 24px; }
   #start-btn{
@@ -696,6 +709,11 @@
 </div>
 
 <div id="welcome">
+  <!-- Stamped by deploy.sh with the git short hash of the commit this
+       build came from, so it's obvious at a glance whether the page
+       actually reloaded. Shows 37ab263 when opened
+       straight from the repo without going through deploy.sh. -->
+  <div id="build-tag">37ab263</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -946,9 +964,12 @@ map.touchPitch.enable();
 // the move (a destination jump, a mode switch), which is exactly the
 // kind of thing that made the app appear to randomly break.
 let usingSatellite = false;
-map.on('zoom', ()=>{
+function updateImagery(){
   try{
-    const wantSatellite = map.getZoom() > 7.5;
+    // While flying, always show the labelled OSM street map so street
+    // names and markings are readable from the air. Otherwise it's
+    // satellite up close, street map when zoomed out.
+    const wantSatellite = !jetActive && map.getZoom() > 7.5;
     if(wantSatellite === usingSatellite) return;
     if(wantSatellite){
       if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
@@ -958,8 +979,13 @@ map.on('zoom', ()=>{
       if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
     }
     usingSatellite = wantSatellite;
+    // Keep the road/water overlays above whichever base layer was just
+    // swapped in, otherwise they end up buried underneath it.
+    if(map.getLayer('drive-water')) map.moveLayer('drive-water');
+    if(map.getLayer('drive-roads')) map.moveLayer('drive-roads');
   }catch(e){ console.error('imagery swap skipped', e); }
-});
+}
+map.on('zoom', updateImagery);
 
 // ---------------------------------------------------------------
 // Landmark markers
@@ -1351,6 +1377,7 @@ function engageJet(){
   applyVehicleIcon();
   applyFacing(); // jet points the opposite way by default — re-mirror now
   driveHud.classList.add('state-jet');
+  updateImagery(); // labelled street map while flying
 }
 function releaseJet(){
   if(!jetActive) return;
@@ -1369,6 +1396,7 @@ function releaseJet(){
   applyVehicleIcon();
   applyFacing(); // back to car-style mirroring
   driveHud.classList.remove('state-jet');
+  updateImagery(); // back to satellite at ground level
 }
 
 // A tap counts as a double-tap only if it lands soon after the last one
