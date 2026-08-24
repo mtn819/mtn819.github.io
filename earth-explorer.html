@@ -305,6 +305,19 @@
   #drive-hint.show{ opacity:1; }
 
   /* maplibre attribution styling to stay legible on dark globe */
+  /* Absolute guarantee that no built-in map control buttons (+/-,
+     compass, geolocate, fullscreen) can ever appear in either mode,
+     regardless of what might add them. Attribution is exempt below
+     because the map data licenses require it to stay visible. */
+  .maplibregl-ctrl-group,
+  .maplibregl-ctrl button:not(.maplibregl-ctrl-attrib-button),
+  .maplibregl-ctrl-zoom-in,
+  .maplibregl-ctrl-zoom-out,
+  .maplibregl-ctrl-compass,
+  .maplibregl-ctrl-geolocate,
+  .maplibregl-ctrl-fullscreen{
+    display:none !important;
+  }
   .maplibregl-ctrl-attrib{
     background:rgba(251,243,222,0.85) !important;
     border-radius:8px 0 0 0 !important;
@@ -516,9 +529,17 @@
     cursor:wait;
   }
   #transition-guard.show{ display:block; }
+  /* Applied to the top bar and destination dock while a camera
+     transition is in progress. Fades AND desaturates so the buttons
+     read as genuinely disabled rather than just dim, and swaps the
+     cursor so a click that's about to be swallowed looks intentional. */
   #topbar.dimmed, #dock-wrap.dimmed{
     opacity:0.4;
-    transition:opacity .2s ease;
+    filter:grayscale(70%);
+    transition:opacity .2s ease, filter .2s ease;
+  }
+  #topbar.dimmed button, #dock-wrap.dimmed .dest-card{
+    cursor:not-allowed;
   }
 </style>
 </head>
@@ -811,7 +832,7 @@ exploreMap = map;
 
 map.on('load', ()=>{
   try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
-  map.setFog({});
+  try{ map.setFog({}); }catch(e){ /* not supported on every build/projection — purely cosmetic */ }
 });
 
 // Deliberately not adding NavigationControl (the built-in +/- zoom
@@ -820,21 +841,28 @@ map.dragRotate.enable();
 map.touchZoomRotate.enable();
 map.touchPitch.enable();
 
-// Swap to satellite imagery automatically once zoomed in close,
-// so kids see real photo detail on landmarks, and OSM lines/labels
-// when zoomed out for a friendly, readable globe.
+// Swap to satellite imagery automatically once zoomed in close, so
+// kids see real photo detail on landmarks, and OSM lines/labels when
+// zoomed out. Driven off what's ACTUALLY on the map rather than a
+// tracked boolean, and wrapped in try/catch: addLayer throws
+// "Layer already exists" if called twice, and this fires on every
+// camera move — an exception here would abort whatever code triggered
+// the move (a destination jump, a mode switch), which is exactly the
+// kind of thing that made the app appear to randomly break.
 let usingSatellite = false;
 map.on('zoom', ()=>{
-  const z = map.getZoom();
-  if(z > 7.5 && !usingSatellite){
-    if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
-    map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
-    usingSatellite = true;
-  } else if(z <= 7.5 && usingSatellite){
-    if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
-    map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
-    usingSatellite = false;
-  }
+  try{
+    const wantSatellite = map.getZoom() > 7.5;
+    if(wantSatellite === usingSatellite) return;
+    if(wantSatellite){
+      if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
+      if(!map.getLayer('sat-layer')) map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
+    } else {
+      if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
+      if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
+    }
+    usingSatellite = wantSatellite;
+  }catch(e){ console.error('imagery swap skipped', e); }
 });
 
 // ---------------------------------------------------------------
@@ -860,21 +888,38 @@ function flyToDestination(d){
   document.getElementById('dock-wrap').classList.add('dimmed');
   factCard.classList.remove('show');
   photoPanel.classList.remove('show');
-  map.flyTo({
-    center:d.center,
-    zoom:d.zoom,
-    pitch:d.pitch,
-    bearing: Math.random()*40-20,
-    speed:0.7,
-    curve:1.4,
-    essential:true
-  });
-  map.once('moveend', ()=>{
+
+  // Runs exactly once, whichever trigger gets there first. The guard
+  // blocks the entire UI while shown, so arrival must NEVER depend on
+  // a single event firing: if flyTo throws, or moveend is missed, the
+  // timeout still finishes the transition and unblocks everything.
+  let settled = false;
+  const arrive = ()=>{
+    if(settled) return;
+    settled = true;
     transitionGuard.classList.remove('show');
     document.getElementById('topbar').classList.remove('dimmed');
     document.getElementById('dock-wrap').classList.remove('dimmed');
     showFactCard(d);
-  });
+  };
+
+  try{
+    map.flyTo({
+      center:d.center,
+      zoom:d.zoom,
+      pitch:d.pitch,
+      bearing: Math.random()*40-20,
+      speed:0.7,
+      curve:1.4,
+      essential:true
+    });
+    map.once('moveend', arrive);
+  }catch(e){
+    console.error('flight failed, snapping to destination', e);
+    try{ map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch }); }catch(e2){}
+    arrive();
+  }
+  setTimeout(arrive, 5000); // hard backstop
 }
 
 // ---------------------------------------------------------------
@@ -1113,19 +1158,43 @@ function switchMode(next){
     driveHud.classList.remove('state-boost');
     drivePhotoBtn.style.display = 'none';
     photoPanel.classList.remove('show');
-    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
-    map.dragRotate.enable();
-    map.dragPan.enable();
-    // Always reset to the exact same zoomed-out globe view the app
-    // opens with — never resume wherever driving last left the camera.
+    // Raise the guard (and grey out the controls it's blocking) BEFORE
+    // touching the map, so it also covers a synchronous map failure —
+    // and so the disabled buttons visibly read as disabled rather than
+    // just silently not responding.
     transitionGuard.classList.add('show');
-    map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
-    // Clear on moveend, but ALSO on a hard timeout — a guard that never
-    // clears blocks every button on the page, so it must never depend
-    // on a single event firing.
-    const clearGuard = ()=> transitionGuard.classList.remove('show');
-    map.once('moveend', clearGuard);
-    setTimeout(clearGuard, 4000);
+    document.getElementById('topbar').classList.add('dimmed');
+    document.getElementById('dock-wrap').classList.add('dimmed');
+
+    // Runs exactly once, whichever trigger arrives first. The guard
+    // blocks the whole UI, so releasing it must never depend on a
+    // single event firing.
+    let settled = false;
+    const clearGuard = ()=>{
+      if(settled) return;
+      settled = true;
+      transitionGuard.classList.remove('show');
+      document.getElementById('topbar').classList.remove('dimmed');
+      document.getElementById('dock-wrap').classList.remove('dimmed');
+    };
+
+    // All map calls isolated: the UI state above is already correct, and
+    // a map-level failure must never abort the switch partway and leave
+    // the app half in one mode and half in the other.
+    try{
+      if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+      map.dragRotate.enable();
+      map.dragPan.enable();
+      // Always reset to the exact same zoomed-out globe view the app
+      // opens with — never resume wherever driving last left the camera.
+      map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
+      map.once('moveend', clearGuard);
+    }catch(e){
+      console.error('map reset failed, forcing camera home', e);
+      try{ map.jumpTo(DEFAULT_EXPLORE_VIEW); }catch(e2){}
+      clearGuard();
+    }
+    setTimeout(clearGuard, 4000); // hard backstop
   } else {
     // Entering Drive mode is always treated like the very first time:
     // drop any old marker and re-ask for the current location, rather
@@ -1210,9 +1279,11 @@ function beginDriveAt(lng, lat){
 
   driveHud.style.display = 'flex';
   drivePhotoBtn.style.display = 'block';
-  map.dragRotate.disable();
-  map.dragPan.disable(); // so a held drag steers the car instead of panning the map
-  map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
+  try{
+    map.dragRotate.disable();
+    map.dragPan.disable(); // so a held drag steers the car instead of panning the map
+    map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
+  }catch(e){ console.error('drive camera setup issue', e); }
   ensureRoadLayer();
   resumeDrive();
   if(typeof showDriveHint === 'function') showDriveHint();
@@ -1224,17 +1295,22 @@ function beginDriveAt(lng, lat){
 // visibility is toggled off in Explore mode so it doesn't cost tile
 // requests while spinning the globe.
 function ensureRoadLayer(){
-  if(!map.getSource('openmaptiles')){
-    map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
-  }
-  if(!map.getLayer('drive-roads')){
-    map.addLayer({
-      id:'drive-roads', type:'line', source:'openmaptiles', 'source-layer':'transportation',
-      minzoom:10,
-      paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
-    });
-  }
-  map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+  // Wrapped: road detection is only a speed-boost enhancement. If the
+  // vector source or layer can't be added for any reason, driving must
+  // still work — never let this take the app down.
+  try{
+    if(!map.getSource('openmaptiles')){
+      map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
+    }
+    if(!map.getLayer('drive-roads')){
+      map.addLayer({
+        id:'drive-roads', type:'line', source:'openmaptiles', 'source-layer':'transportation',
+        minzoom:10,
+        paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
+      });
+    }
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+  }catch(e){ console.error('road layer unavailable — driving still works', e); }
 }
 
 function resumeDrive(){
@@ -1403,13 +1479,19 @@ function driveLoop(t){
   carLat += (carVelN * dt) / METERS_PER_DEG_LAT;
   carLng += (carVelE * dt) / metersPerDegLng(carLat);
 
-  if(carMarker) carMarker.setLngLat([carLng, carLat]);
-  map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:map.getZoom() });
+  // A throw anywhere in here would break the requestAnimationFrame
+  // chain permanently — the car would freeze and never recover, with
+  // no way back except a page reload. Keep the loop alive no matter
+  // what a single frame does.
+  try{
+    if(carMarker) carMarker.setLngLat([carLng, carLat]);
+    map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:map.getZoom() });
 
-  const speed = Math.hypot(carVelN, carVelE);
-  const kmh = Math.round(speed * 3.6);
-  driveSpeedo.textContent = kmh;
-  driveHud.classList.toggle('state-boost', isNearRoad && kmh > 0);
+    const speed = Math.hypot(carVelN, carVelE);
+    const kmh = Math.round(speed * 3.6);
+    driveSpeedo.textContent = kmh;
+    driveHud.classList.toggle('state-boost', isNearRoad && kmh > 0);
+  }catch(e){ console.error('drive frame skipped', e); }
 
   driveRAF = requestAnimationFrame(driveLoop);
 }
