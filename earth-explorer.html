@@ -1591,13 +1591,15 @@ function getInputDirection(){
 // Translation-only driving: each arrow/WASD direction pushes the car
 // straight north/south/east/west (map-relative, not car-relative) —
 // no turning or heading to manage. Holding two directions at once
-// (e.g. up + right) drives diagonally. Speed gets a big boost while
-// hugging a road — up to 256 km/h, race-car territory.
-const BASE_MAX_SPEED = 10;           // m/s off-road (~36 km/h)
-const ROAD_MAX_SPEED = 256 / 3.6;    // m/s on a road (256 km/h)
-const ACCEL_OFFROAD = 10;
-const ACCEL_ROAD = 28;               // faster ramp-up so reaching 256 km/h feels earned, not tedious
-const FRICTION = 40;
+// (e.g. up + right) drives diagonally.
+//
+// Tuned to be forgiving for a kid: one top speed on roads, exactly
+// half that off-road, and acceleration/braking quick enough that the
+// car goes where you point almost immediately instead of drifting.
+const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
+const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
+const ACCEL = 60;                          // reaches top speed in about half a second
+const FRICTION = 80;                       // near-instant stop when you let go
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
 
 let isNearRoad = false;
@@ -1636,7 +1638,7 @@ function driveLoop(t){
 
   checkTerrain(t);
   const maxSpeed = isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED;
-  const accel = isNearRoad ? ACCEL_ROAD : ACCEL_OFFROAD;
+  const accel = ACCEL;
 
   const dir = getInputDirection();
 
