@@ -872,7 +872,7 @@ exploreMap = map;
 
 map.on('load', ()=>{
   try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
-  map.setFog({});
+  try{ map.setFog({}); }catch(e){ /* fog isn't supported on every build/projection combo — purely cosmetic, skip it */ }
 });
 
 map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
@@ -1216,8 +1216,13 @@ function switchMode(next){
     driveHud.classList.remove('state-boost');
     drivePhotoBtn.style.display = 'none';
     photoPanel.classList.remove('show');
-  closeLightbox();
-    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+    closeLightbox();
+    // Fully remove the road-detection layer/source (not just hide it) —
+    // leaving it merely hidden let loaded vector tiles pile up in GPU
+    // memory across every drive session in a play sitting, which is
+    // what was eventually causing WebGL buffer/context errors after
+    // extended driving. ensureRoadLayer() recreates it fresh next time.
+    removeRoadLayer();
     map.dragRotate.enable();
     map.dragPan.enable();
     // Always reset to the exact same zoomed-out globe view the app
@@ -1318,9 +1323,10 @@ function beginDriveAt(lng, lat){
 
 // Free, keyless vector road data from OpenFreeMap (OpenStreetMap-based,
 // no API key, no limits) so the car can tell whether it's near a road.
-// Added once, only used while driving — see switchMode() for how
-// visibility is toggled off in Explore mode so it doesn't cost tile
-// requests while spinning the globe.
+// Created fresh each time driving starts, and fully torn down (see
+// removeRoadLayer, called from switchMode) each time it ends — not
+// just hidden — so loaded vector tiles don't accumulate in GPU memory
+// across a long play session.
 function ensureRoadLayer(){
   if(!map.getSource('openmaptiles')){
     map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
@@ -1333,6 +1339,10 @@ function ensureRoadLayer(){
     });
   }
   map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+}
+function removeRoadLayer(){
+  if(map.getLayer('drive-roads')) map.removeLayer('drive-roads');
+  if(map.getSource('openmaptiles')) map.removeSource('openmaptiles');
 }
 
 function resumeDrive(){
@@ -1442,7 +1452,7 @@ let isNearRoad = false;
 let lastTerrainCheck = 0;
 
 function checkTerrain(t){
-  if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
+  if(t - lastTerrainCheck < 300) return; // throttle — a couple times a second is plenty, and lighter on the GPU over a long drive
   lastTerrainCheck = t;
   let nearRoad = false;
   try{
