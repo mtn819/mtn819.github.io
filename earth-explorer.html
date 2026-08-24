@@ -1337,6 +1337,10 @@ function switchMode(next){
     drivePhotoBtn.style.display = 'none';
     photoPanel.classList.remove('show');
     closeLightbox();
+    // The passport is an Explore-mode feature (stamps are earned by
+    // visiting destinations, which only exist in Explore) — bring it
+    // back now that driving is over.
+    passportBtn.style.display = '';
     // Raise the guard (and grey out the controls it's blocking) BEFORE
     // touching the map, so it also covers a synchronous map failure —
     // and so the disabled buttons visibly read as disabled rather than
@@ -1381,6 +1385,10 @@ function switchMode(next){
     // causing a second, stale car to appear at the old spot.
     removeCarMarker();
     document.getElementById('dock-wrap').style.display = 'none';
+    // Nothing in Drive mode can earn a stamp, so the big passport
+    // button in the top right is just clutter here — hide it and
+    // reserve it for Explore mode.
+    passportBtn.style.display = 'none';
     factCard.classList.remove('show');
     photoPanel.classList.remove('show');
     closeLightbox();
