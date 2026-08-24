@@ -225,6 +225,19 @@
   }
   #welcome .globe-emoji{ font-size:64px; display:block; margin-bottom:6px; animation:bob 2.4s ease-in-out infinite; }
   @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  #build-tag{
+    position:absolute; top:12px; right:14px;
+    background:rgba(9,26,21,0.55);
+    color:var(--parchment-deep);
+    font-family:'Nunito',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:0.5px;
+    padding:4px 9px;
+    border-radius:999px;
+    opacity:0.85;
+    pointer-events:none;
+    user-select:text; /* handy to copy when reporting an issue */
+  }
   #welcome h1{ color:var(--parchment); font-size:34px; margin:0 0 8px; }
   #welcome p{ color:var(--parchment-deep); font-size:16px; line-height:1.5; margin:0 0 24px; }
   #start-btn{
@@ -376,9 +389,15 @@
   #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
+  #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
+  #drive-hud.state-boat{ background:rgba(45,120,173,0.85); border-color:#215a83; }
 
   /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
-  .car-flip{ transition:transform .15s ease; }
+  /* Short transition so the car's left/right flip and the jet's
+     rotation both feel responsive. Kept brief because the jet's
+     heading updates every frame — a longer ease would visibly lag
+     behind the steering. */
+  .car-flip{ transition:transform .08s linear; }
   .car-emoji{
     font-size:30px;
     filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));
@@ -690,6 +709,11 @@
 </div>
 
 <div id="welcome">
+  <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
+       it's obvious at a glance whether a reload actually picked up a new
+       build. Shows 1787611683639 when opened straight from the
+       repo without going through deploy.sh. -->
+  <div id="build-tag">1787611683639</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -940,9 +964,12 @@ map.touchPitch.enable();
 // the move (a destination jump, a mode switch), which is exactly the
 // kind of thing that made the app appear to randomly break.
 let usingSatellite = false;
-map.on('zoom', ()=>{
+function updateImagery(){
   try{
-    const wantSatellite = map.getZoom() > 7.5;
+    // While flying, always show the labelled OSM street map so street
+    // names and markings are readable from the air. Otherwise it's
+    // satellite up close, street map when zoomed out.
+    const wantSatellite = !jetActive && map.getZoom() > 7.5;
     if(wantSatellite === usingSatellite) return;
     if(wantSatellite){
       if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
@@ -952,8 +979,13 @@ map.on('zoom', ()=>{
       if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
     }
     usingSatellite = wantSatellite;
+    // Keep the road/water overlays above whichever base layer was just
+    // swapped in, otherwise they end up buried underneath it.
+    if(map.getLayer('drive-water')) map.moveLayer('drive-water');
+    if(map.getLayer('drive-roads')) map.moveLayer('drive-roads');
   }catch(e){ console.error('imagery swap skipped', e); }
-});
+}
+map.on('zoom', updateImagery);
 
 // ---------------------------------------------------------------
 // Landmark markers
@@ -964,6 +996,7 @@ DESTINATIONS.forEach(d=>{
   el.style.fontSize = '26px';
   el.style.cursor = 'pointer';
   el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
+  el.className = 'dest-pin';
   el.title = d.name;
   el.addEventListener('click', ()=> flyToDestination(d));
   new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
@@ -972,6 +1005,20 @@ DESTINATIONS.forEach(d=>{
 const transitionGuard = document.getElementById('transition-guard');
 function flyToDestination(d){
   if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
+
+  // Tapping a landmark pin while driving just opens its card — you stay
+  // in Drive mode, right where you are. Deliberately no camera move at
+  // all: the drive loop is still running and re-centres on the vehicle
+  // every frame, so anything we did to the camera here would be undone
+  // on the next frame anyway (that fight was the old source of lag).
+  if(currentMode === 'drive'){
+    activeDest = d;
+    photoPanel.classList.remove('show');
+    closeLightbox();
+    showFactCard(d);
+    return;
+  }
+
   activeDest = d;
   transitionGuard.classList.add('show');
   document.getElementById('topbar').classList.add('dimmed');
@@ -1305,7 +1352,105 @@ let carMarker = null;
 let carFlipEl = null;
 const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
 let vehicleIndex = 0;
+let carEmojiEl = null;
+
+// ---- Jet mode ----------------------------------------------------
+// Double-tap a direction and HOLD: the car becomes a jet that flies
+// anywhere at 2048 km/h ignoring roads, with the camera pulled back so
+// the speed is actually readable. Releasing drops straight back to
+// whichever vehicle was selected before.
+const JET_EMOJI = '✈️';
+const BOAT_EMOJI = '⛵';
+let isOverWater = false; // on a lake/sea/ocean, so the car becomes a boat
+
+// Single source of truth for the avatar. Three things can decide it, so
+// they're resolved in priority order here rather than scattered around:
+// flying beats floating, floating beats the chosen land vehicle.
+function applyVehicleIcon(){
+  if(!carEmojiEl) return;
+  carEmojiEl.textContent = jetActive ? JET_EMOJI
+    : isOverWater ? BOAT_EMOJI
+    : VEHICLE_EMOJIS[vehicleIndex];
+  carEmojiEl.classList.remove('pop');
+  void carEmojiEl.offsetWidth; // restart the pop animation on rapid changes
+  carEmojiEl.classList.add('pop');
+}
+const DRIVE_ZOOM = 17.5;   // normal street-level driving
+const JET_ZOOM = 13.2;     // pulled back while flying
+const DOUBLE_TAP_MS = 350; // max gap between the two taps
+const JET_DIR_TOLERANCE = 0.5; // dot product: taps must point roughly the same way
+let jetActive = false;
+let driveZoom = DRIVE_ZOOM;        // the zoom actually applied each frame
+let targetDriveZoom = DRIVE_ZOOM;  // eased toward, so the pull-back is smooth
+let lastTapAt = 0;
+let lastTapDir = { x:0, y:0 };
+
+function engageJet(){
+  if(jetActive) return;
+  jetActive = true;
+  targetDriveZoom = JET_ZOOM;
+  applyVehicleIcon();
+  applyFacing(); // jet points the opposite way by default — re-mirror now
+  driveHud.classList.add('state-jet');
+  updateImagery(); // labelled street map while flying
+}
+function releaseJet(){
+  if(!jetActive) return;
+  jetActive = false;
+  targetDriveZoom = DRIVE_ZOOM;
+  // Landing: shed the jet's velocity immediately rather than coasting
+  // at 2000+ km/h for several seconds while friction catches up. Keeps
+  // the direction, just clamps the speed back to what a car can do.
+  const speed = Math.hypot(carVelN, carVelE);
+  if(speed > ROAD_MAX_SPEED){
+    const scale = ROAD_MAX_SPEED / speed;
+    carVelN *= scale;
+    carVelE *= scale;
+  }
+  // Back to the boat if we're over water, otherwise the chosen vehicle.
+  applyVehicleIcon();
+  applyFacing(); // back to car-style mirroring
+  driveHud.classList.remove('state-jet');
+  updateImagery(); // back to satellite at ground level
+}
+
+// A tap counts as a double-tap only if it lands soon after the last one
+// AND points in roughly the same direction — so tapping left then right
+// doesn't accidentally launch the jet sideways.
+function registerDirectionTap(dir){
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  const mag = Math.hypot(dir.x, dir.y);
+  if(mag === 0) return; // no direction, nothing to double-tap
+  const quick = (now - lastTapAt) < DOUBLE_TAP_MS;
+  const aligned = (dir.x * lastTapDir.x + dir.y * lastTapDir.y) > JET_DIR_TOLERANCE;
+  if(quick && aligned){
+    engageJet();
+    lastTapAt = 0; // consume, so a third tap doesn't immediately re-trigger
+  } else {
+    lastTapAt = now;
+    lastTapDir = dir;
+  }
+}
 let facingRight = false; // vehicle emojis default to facing left
+
+// The car emojis (🚗🛻🚙🚓🐎) and the boat (⛵) all point LEFT by
+// default and only ever get mirrored left/right. The jet is different:
+// it rotates freely through
+// 360° to point exactly where you're steering. ✈️ is drawn pointing
+// up-and-to-the-right (about 45° / north-east) in most emoji fonts, so
+// that offset is subtracted to get a true heading. Tweak this single
+// number if the plane looks rotated on a particular device.
+const JET_EMOJI_BASE_HEADING = 45;
+let jetHeadingDeg = 0; // compass bearing the jet currently points (0 = north)
+
+function applyFacing(){
+  if(!carFlipEl) return;
+  if(jetActive){
+    carFlipEl.style.transform = `rotate(${jetHeadingDeg - JET_EMOJI_BASE_HEADING}deg)`;
+  } else {
+    carFlipEl.style.transform = facingRight ? 'scaleX(-1)' : 'scaleX(1)';
+  }
+}
 let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
 const keys = {};
 let driveRAF = null;
@@ -1318,7 +1463,34 @@ const METERS_PER_DEG_LAT = 111320;
 // whenever leaving Drive mode AND right before creating a new one, so
 // there is never a moment where two car markers can both exist.
 function removeCarMarker(){
-  if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; }
+  if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; carEmojiEl = null; }
+}
+
+// Everything needed to leave Drive mode EXCEPT moving the camera.
+// Shared by switchMode (which then flies home) and by clicking a
+// landmark while driving (which jumps to that landmark instead).
+function exitDriveState(){
+  stopDrive();
+  removeCarMarker();
+  document.getElementById('dock-wrap').style.display = '';
+  driveHud.style.display = 'none';
+  driveHud.classList.remove('state-boost');
+  driveHud.classList.remove('state-jet');
+  driveHud.classList.remove('state-boat');
+  drivePhotoBtn.style.display = 'none';
+  photoPanel.classList.remove('show');
+  closeLightbox();
+  // The passport is an Explore-mode feature (stamps are earned by
+  // visiting destinations, which only exist in Explore) — bring it
+  // back now that driving is over.
+  passportBtn.style.display = '';
+  try{
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'none');
+    map.dragRotate.enable();
+    map.dragPan.enable();
+  }catch(e){ console.error('drive teardown issue', e); }
+  updateImagery(); // jetActive is false now, so pick the normal base layer
 }
 
 function switchMode(next){
@@ -1329,18 +1501,7 @@ function switchMode(next){
   modeDriveBtn.classList.toggle('active', next === 'drive');
 
   if(next === 'explore'){
-    stopDrive();
-    removeCarMarker();
-    document.getElementById('dock-wrap').style.display = '';
-    driveHud.style.display = 'none';
-    driveHud.classList.remove('state-boost');
-    drivePhotoBtn.style.display = 'none';
-    photoPanel.classList.remove('show');
-    closeLightbox();
-    // The passport is an Explore-mode feature (stamps are earned by
-    // visiting destinations, which only exist in Explore) — bring it
-    // back now that driving is over.
-    passportBtn.style.display = '';
+    exitDriveState();
     // Raise the guard (and grey out the controls it's blocking) BEFORE
     // touching the map, so it also covers a synchronous map failure —
     // and so the disabled buttons visibly read as disabled rather than
@@ -1365,9 +1526,6 @@ function switchMode(next){
     // a map-level failure must never abort the switch partway and leave
     // the app half in one mode and half in the other.
     try{
-      if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
-      map.dragRotate.enable();
-      map.dragPan.enable();
       // Always reset to the exact same zoomed-out globe view the app
       // opens with — never resume wherever driving last left the camera.
       map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
@@ -1451,6 +1609,7 @@ function beginDriveAt(lng, lat){
   removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
+  isOverWater = false; // first checkTerrain sets this correctly
 
   // Structure: outer (MapLibre owns its transform for map positioning —
   // never set transform on this one directly) > flip (persistent
@@ -1469,22 +1628,24 @@ function beginDriveAt(lng, lat){
   emoji.addEventListener('click', (e)=>{
     e.stopPropagation();
     vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
-    emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
-    emoji.classList.remove('pop');
-    void emoji.offsetWidth; // restart the animation even on rapid re-clicks
-    emoji.classList.add('pop');
+    // While flying or afloat the jet/boat stays on screen — the newly
+    // picked vehicle appears once back on land.
+    applyVehicleIcon();
   });
 
   carMarker = new maplibregl.Marker({ element:outer })
     .setLngLat([carLng, carLat]).addTo(map);
   carFlipEl = flip;
+  carEmojiEl = emoji;
 
   driveHud.style.display = 'flex';
   drivePhotoBtn.style.display = 'block';
+  driveZoom = DRIVE_ZOOM;
+  targetDriveZoom = DRIVE_ZOOM;
   try{
     map.dragRotate.disable();
     map.dragPan.disable(); // so a held drag steers the car instead of panning the map
-    map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
+    map.jumpTo({ center:[carLng, carLat], zoom:DRIVE_ZOOM, pitch:45, bearing:0 });
   }catch(e){ console.error('drive camera setup issue', e); }
   ensureRoadLayer();
   resumeDrive();
@@ -1497,12 +1658,29 @@ function beginDriveAt(lng, lat){
 // visibility is toggled off in Explore mode so it doesn't cost tile
 // requests while spinning the globe.
 function ensureRoadLayer(){
-  // Wrapped: road detection is only a speed-boost enhancement. If the
-  // vector source or layer can't be added for any reason, driving must
-  // still work — never let this take the app down.
+  // Wrapped: road/water detection is only an enhancement. If the vector
+  // source or layers can't be added for any reason, driving must still
+  // work — never let this take the app down.
   try{
     if(!map.getSource('openmaptiles')){
       map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
+    }
+    if(!map.getLayer('drive-water')){
+      // Lakes, seas and oceans. In the OpenMapTiles schema every polygon
+      // built from OSM coastline data is class 'ocean', which covers all
+      // the seas too (Mediterranean, Caribbean, Baltic...) since they sit
+      // beyond the coastline; 'lake' covers inland water. Rivers, ponds,
+      // docks and swimming pools are excluded so crossing a creek or a
+      // back garden doesn't turn the car into a boat.
+      //
+      // Drawn with a visible tint on purpose: queryRenderedFeatures only
+      // reports layers that actually render, and it doubles as a clear
+      // "this is water" cue for a kid.
+      map.addLayer({
+        id:'drive-water', type:'fill', source:'openmaptiles', 'source-layer':'water',
+        filter:['match', ['get','class'], ['ocean','lake'], true, false],
+        paint:{ 'fill-color':'#3E9CDC', 'fill-opacity':0.25 }
+      });
     }
     if(!map.getLayer('drive-roads')){
       map.addLayer({
@@ -1511,8 +1689,9 @@ function ensureRoadLayer(){
         paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
       });
     }
+    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'visible');
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'visible');
-  }catch(e){ console.error('road layer unavailable — driving still works', e); }
+  }catch(e){ console.error('road/water layers unavailable — driving still works', e); }
 }
 
 function resumeDrive(){
@@ -1528,12 +1707,34 @@ function stopDrive(){
   driveRAF = null;
   pointerActive = false;
   activePointerId = null;
+  releaseJet();       // never leave a session mid-flight
+  lastTapAt = 0;      // don't let a tap from a previous session pair up
+  isOverWater = false;
+  Object.keys(keys).forEach(k => delete keys[k]);
 }
+// Maps a movement key to its direction vector, for double-tap detection.
+const KEY_DIRS = {
+  arrowup:{x:0,y:1},    w:{x:0,y:1},
+  arrowdown:{x:0,y:-1}, s:{x:0,y:-1},
+  arrowleft:{x:-1,y:0}, a:{x:-1,y:0},
+  arrowright:{x:1,y:0}, d:{x:1,y:0}
+};
 function onDriveKeyDown(e){
-  keys[e.key.toLowerCase()] = true;
-  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  const k = e.key.toLowerCase();
+  // Holding a key fires keydown over and over (autorepeat). Only treat
+  // it as a tap on the initial press, or every repeat would instantly
+  // look like a double-tap.
+  const isFreshPress = !keys[k];
+  keys[k] = true;
+  if(isFreshPress && KEY_DIRS[k]) registerDirectionTap(KEY_DIRS[k]);
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 }
-function onDriveKeyUp(e){ keys[e.key.toLowerCase()] = false; }
+function onDriveKeyUp(e){
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  // Once no movement key is held, the jet is released.
+  if(jetActive && !Object.keys(KEY_DIRS).some(key => keys[key])) releaseJet();
+}
 
 // Hold-to-drive: press and hold (finger or mouse) anywhere on the map
 // and the car heads toward that point on the screen. Since the camera
@@ -1559,10 +1760,20 @@ function onMapPointerDown(e){
   // emoji). preventDefault() + setPointerCapture below would otherwise
   // swallow the click before it ever fired.
   if(e.target.closest && e.target.closest('.car-emoji')) return;
+  // Same for the landmark pins — a press on one is a tap to open its
+  // card, not a command to drive that way.
+  if(e.target.closest && e.target.closest('.dest-pin')) return;
   e.preventDefault();
   activePointerId = e.pointerId;
   pointerActive = true;
   updatePointerDelta(e);
+  // Check for a double-tap in the same direction — that's what launches
+  // the jet. Done here (on press) so the jet engages the moment the
+  // second tap lands and stays engaged for as long as it's held.
+  const mag = Math.hypot(pointerDX, pointerDY);
+  if(mag >= POINTER_DEADZONE){
+    registerDirectionTap({ x: pointerDX / mag, y: -pointerDY / mag });
+  }
   if(mapContainerEl.setPointerCapture){
     try{ mapContainerEl.setPointerCapture(e.pointerId); }catch(err){ /* not critical if unsupported */ }
   }
@@ -1580,6 +1791,7 @@ function onMapPointerUp(e){
   if(e.pointerId !== undefined && e.pointerId !== activePointerId) return;
   pointerActive = false;
   activePointerId = null;
+  releaseJet(); // jet only lasts as long as the hold
 }
 
 const mapContainerEl = map.getContainer();
@@ -1589,7 +1801,7 @@ mapContainerEl.addEventListener('pointerup', onMapPointerUp);
 mapContainerEl.addEventListener('pointercancel', onMapPointerUp);
 window.addEventListener('pointerup', onMapPointerUp);
 window.addEventListener('pointercancel', onMapPointerUp);
-window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; });
+window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; releaseJet(); });
 
 
 // Combines keyboard and pointer-hold input into one direction, so the
@@ -1623,6 +1835,9 @@ const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
 const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
 const ACCEL = 60;                          // reaches top speed in about half a second
 const FRICTION = 80;                       // near-instant stop when you let go
+const BOAT_MAX_SPEED = ROAD_MAX_SPEED;     // boats match a car's road top speed (128 km/h)
+const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
+const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
 
 let isNearRoad = false;
@@ -1632,8 +1847,14 @@ function checkTerrain(t){
   if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
   lastTerrainCheck = t;
   let nearRoad = false;
+  let overWater = false;
   try{
     const pt = map.project([carLng, carLat]);
+    if(map.getLayer('drive-water')){
+      // Single point, not a box: we want "actually on the water", not
+      // "somewhere near a shoreline".
+      overWater = map.queryRenderedFeatures([pt.x, pt.y], { layers:['drive-water'] }).length > 0;
+    }
     if(map.getLayer('drive-roads')){
       const roadHits = map.queryRenderedFeatures(
         [[pt.x - ROAD_CHECK_PX, pt.y - ROAD_CHECK_PX], [pt.x + ROAD_CHECK_PX, pt.y + ROAD_CHECK_PX]],
@@ -1644,6 +1865,12 @@ function checkTerrain(t){
   } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
 
   isNearRoad = nearRoad;
+  // Swap the avatar as soon as the surface underneath changes. Skipped
+  // while flying — a plane over a lake is still a plane.
+  if(overWater !== isOverWater){
+    isOverWater = overWater;
+    if(!jetActive) applyVehicleIcon();
+  }
 }
 
 function driveLoop(t){
@@ -1660,17 +1887,42 @@ function driveLoop(t){
   lastFrameTime = t;
 
   checkTerrain(t);
-  const maxSpeed = isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED;
-  const accel = ACCEL;
+  // While flying, roads are irrelevant — the jet goes anywhere at full speed.
+  // Flying ignores everything; on water a boat cruises at the car's road
+  // top speed regardless of roads; on land it's road vs off-road.
+  const maxSpeed = jetActive ? JET_MAX_SPEED
+    : isOverWater ? BOAT_MAX_SPEED
+    : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
+  const accel = jetActive ? JET_ACCEL : ACCEL;
 
   const dir = getInputDirection();
 
-  if(dir.x > 0.15 && !facingRight){
+  if(jetActive){
+    // Free 360° rotation: point straight at wherever the finger/keys
+    // are steering. Heading is only updated while there IS input, so
+    // letting go leaves the jet pointing where it was rather than
+    // snapping back to north.
+    if(dir.x !== 0 || dir.y !== 0){
+      const raw = Math.atan2(dir.x, dir.y) * 180 / Math.PI; // -180..180
+      // Accumulate continuously instead of assigning the raw value:
+      // atan2 wraps at ±180°, so steering across due south would jump
+      // from 179 to -179 and CSS would spin the jet 358° the long way
+      // round. Always take the shorter turn.
+      let delta = raw - (jetHeadingDeg % 360);
+      while(delta > 180) delta -= 360;
+      while(delta < -180) delta += 360;
+      jetHeadingDeg += delta;
+      applyFacing();
+    }
+    // Still track left/right so the car lands facing the right way.
+    if(dir.x > 0.15) facingRight = true;
+    else if(dir.x < -0.15) facingRight = false;
+  } else if(dir.x > 0.15 && !facingRight){
     facingRight = true;
-    if(carFlipEl) carFlipEl.style.transform = 'scaleX(-1)';
+    applyFacing();
   } else if(dir.x < -0.15 && facingRight){
     facingRight = false;
-    if(carFlipEl) carFlipEl.style.transform = 'scaleX(1)';
+    applyFacing();
   }
 
   const targetVN = dir.y * maxSpeed;
@@ -1692,14 +1944,21 @@ function driveLoop(t){
   // chain permanently — the car would freeze and never recover, with
   // no way back except a page reload. Keep the loop alive no matter
   // what a single frame does.
+  // Ease the camera toward the current target zoom (pulled back while
+  // flying, street-level otherwise). Done here rather than with an
+  // easeTo, because this loop calls jumpTo every frame and would
+  // otherwise fight any animation the map tried to run itself.
+  driveZoom += (targetDriveZoom - driveZoom) * Math.min(1, dt * 4);
+
   try{
     if(carMarker) carMarker.setLngLat([carLng, carLat]);
-    map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:map.getZoom() });
+    map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:driveZoom });
 
     const speed = Math.hypot(carVelN, carVelE);
     const kmh = Math.round(speed * 3.6);
     driveSpeedo.textContent = kmh;
-    driveHud.classList.toggle('state-boost', isNearRoad && kmh > 0);
+    driveHud.classList.toggle('state-boost', !jetActive && !isOverWater && isNearRoad && kmh > 0);
+    driveHud.classList.toggle('state-boat', !jetActive && isOverWater);
   }catch(e){ console.error('drive frame skipped', e); }
 
   driveRAF = requestAnimationFrame(driveLoop);
