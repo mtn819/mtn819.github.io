@@ -1335,29 +1335,19 @@ let carEmojiEl = null;
 // whichever vehicle was selected before.
 const JET_EMOJI = '✈️';
 const DRIVE_ZOOM = 17.5;   // normal street-level driving
-const JET_ZOOM = 13.2;        // pulled back while flying over ocean
-const SUPER_JET_ZOOM = 9.0;   // pulled way back for the double-tap super jet
+const JET_ZOOM = 13.2;     // pulled back while flying
 const DOUBLE_TAP_MS = 350; // max gap between the two taps
 const JET_DIR_TOLERANCE = 0.5; // dot product: taps must point roughly the same way
 let jetActive = false;
-let jetManual = false; // true when launched by a deliberate double-tap
 let driveZoom = DRIVE_ZOOM;        // the zoom actually applied each frame
 let targetDriveZoom = DRIVE_ZOOM;  // eased toward, so the pull-back is smooth
 let lastTapAt = 0;
 let lastTapDir = { x:0, y:0 };
 
-function engageJet(manual){
-  const wasManual = jetManual;
-  if(manual) jetManual = true;
-  // Double-tapping while already auto-flying over ocean upgrades the
-  // flight to the faster, further-out super jet rather than being
-  // ignored — so pick the zoom before the already-active early return.
-  targetDriveZoom = jetManual ? SUPER_JET_ZOOM : JET_ZOOM;
-  if(jetActive){
-    if(manual && !wasManual) updateImagery();
-    return;
-  }
+function engageJet(){
+  if(jetActive) return;
   jetActive = true;
+  targetDriveZoom = JET_ZOOM;
   if(carEmojiEl){
     carEmojiEl.textContent = JET_EMOJI;
     carEmojiEl.classList.remove('pop');
@@ -1368,23 +1358,7 @@ function engageJet(manual){
   driveHud.classList.add('state-jet');
   updateImagery(); // labelled street map while flying
 }
-// Ends a player-held flight. If the vehicle is over open water there's
-// nothing to land on, so it stays a plane — just no longer "manual",
-// so it will land by itself once back over ground.
-function endManualJet(){
-  jetManual = false;
-  if(!isOverWater){ releaseJet(); return; }
-  // Still over ocean: stay a plane, but drop from the super jet back to
-  // the ordinary ocean cruise — speed and camera both.
-  targetDriveZoom = JET_ZOOM;
-  const speed = Math.hypot(carVelN, carVelE);
-  if(speed > JET_MAX_SPEED){
-    const scale = JET_MAX_SPEED / speed;
-    carVelN *= scale; carVelE *= scale;
-  }
-}
 function releaseJet(){
-  jetManual = false;
   if(!jetActive) return;
   jetActive = false;
   targetDriveZoom = DRIVE_ZOOM;
@@ -1414,7 +1388,7 @@ function registerDirectionTap(dir){
   const quick = (now - lastTapAt) < DOUBLE_TAP_MS;
   const aligned = (dir.x * lastTapDir.x + dir.y * lastTapDir.y) > JET_DIR_TOLERANCE;
   if(quick && aligned){
-    engageJet(true);
+    engageJet();
     lastTapAt = 0; // consume, so a third tap doesn't immediately re-trigger
   } else {
     lastTapAt = now;
@@ -1559,31 +1533,10 @@ function setLocateLoading(on){
   locateGoLabel.textContent = on ? 'Buscando…' : 'Compartir mi ubicación';
 }
 
-// If we can't get a real GPS fix — permission denied, unsupported
-// browser, timeout — just drop the car wherever the map is currently
-// looking rather than bouncing the player back to Explore with an
-// error. Driving somewhere is far better than driving nowhere, and a
-// kid who taps "no" on the permission prompt still gets to play.
-function beginDriveAtCurrentView(){
-  let lng = 0, lat = 20;
-  try{
-    const c = map.getCenter();
-    lng = c.lng; lat = c.lat;
-  }catch(e){ /* fall back to the default centre */ }
-  locateCard.classList.remove('show');
-  beginDriveAt(lng, lat);
-  // Say what happened, without an alert box blocking play. Shown a bit
-  // longer than the usual hint, and it replaces the normal "hold to
-  // drive" toast that beginDriveAt would otherwise have queued.
-  if(typeof showDriveHint === 'function'){
-    showDriveHint('📍 No se pudo obtener tu ubicación; conduciendo en el lugar actual del mapa', 6000);
-  }
-}
-
 locateGoBtn.addEventListener('click', ()=>{
   if(locateGoBtn.disabled) return; // already waiting on a fix
   if(!navigator.geolocation){
-    beginDriveAtCurrentView();
+    alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
     return;
   }
   // Capture the session at request time. getCurrentPosition is async and
@@ -1607,7 +1560,9 @@ locateGoBtn.addEventListener('click', ()=>{
     ()=>{
       setLocateLoading(false);
       if(isStale()) return;
-      beginDriveAtCurrentView();
+      locateCard.classList.remove('show');
+      alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
+      switchMode('explore');
     },
     { enableHighAccuracy:true, timeout:10000 }
   );
@@ -1617,10 +1572,8 @@ function beginDriveAt(lng, lat){
   removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
-  // Fresh terrain state — a new session shouldn't inherit "over water"
-  // or "on a road" from wherever the last one ended. The first
-  // checkTerrain call sets these correctly.
-  isOverWater = false;
+  // Fresh terrain state — a new session shouldn't inherit "on a road"
+  // from wherever the last one ended.
   isNearRoad = false;
   lastTerrainCheck = 0;
 
@@ -1674,25 +1627,12 @@ function beginDriveAt(lng, lat){
 // visibility is toggled off in Explore mode so it doesn't cost tile
 // requests while spinning the globe.
 function ensureRoadLayer(){
-  // Wrapped: road/water detection is only an enhancement. If the
-  // vector source or layers can't be added for any reason, driving must
+  // Wrapped: road detection is only a speed-boost enhancement. If the
+  // vector source or layer can't be added for any reason, driving must
   // still work — never let this take the app down.
   try{
     if(!map.getSource('openmaptiles')){
       map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
-    }
-    if(!map.getLayer('drive-water')){
-      // Ocean only. In the OpenMapTiles schema every polygon derived
-      // from OSM coastline data is class 'ocean', which covers all the
-      // seas too (Mediterranean, Caribbean, Black Sea, Baltic, Gulf of
-      // Mexico...) since they all sit beyond the coastline. Inland
-      // lakes, rivers, ponds and pools are deliberately NOT included —
-      // only genuinely huge water turns the car into a plane.
-      map.addLayer({
-        id:'drive-water', type:'fill', source:'openmaptiles', 'source-layer':'water',
-        filter:['==', ['get','class'], 'ocean'],
-        paint:{ 'fill-color':'#3E9CDC', 'fill-opacity':0.28 }
-      });
     }
     if(!map.getLayer('drive-roads')){
       map.addLayer({
@@ -1701,9 +1641,8 @@ function ensureRoadLayer(){
         paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
       });
     }
-    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'visible');
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'visible');
-  }catch(e){ console.error('road/water layers unavailable — driving still works', e); }
+  }catch(e){ console.error('road layer unavailable — driving still works', e); }
 }
 
 function resumeDrive(){
@@ -1744,7 +1683,7 @@ function onDriveKeyUp(e){
   const k = e.key.toLowerCase();
   keys[k] = false;
   // Once no movement key is held, the jet is released.
-  if(jetActive && !Object.keys(KEY_DIRS).some(key => keys[key])) endManualJet();
+  if(jetActive && !Object.keys(KEY_DIRS).some(key => keys[key])) releaseJet();
 }
 
 // Hold-to-drive: press and hold (finger or mouse) anywhere on the map
@@ -1799,7 +1738,7 @@ function onMapPointerUp(e){
   if(e.pointerId !== undefined && e.pointerId !== activePointerId) return;
   pointerActive = false;
   activePointerId = null;
-  endManualJet(); // held flight ends, but water keeps it airborne
+  releaseJet(); // jet only lasts as long as the hold
 }
 
 const mapContainerEl = map.getContainer();
@@ -1809,7 +1748,7 @@ mapContainerEl.addEventListener('pointerup', onMapPointerUp);
 mapContainerEl.addEventListener('pointercancel', onMapPointerUp);
 window.addEventListener('pointerup', onMapPointerUp);
 window.addEventListener('pointercancel', onMapPointerUp);
-window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; endManualJet(); });
+window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; releaseJet(); });
 
 
 // Combines keyboard and pointer-hold input into one direction, so the
@@ -1841,23 +1780,19 @@ function getInputDirection(){
 // car goes where you point almost immediately instead of drifting.
 const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
 const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
-const JET_MAX_SPEED = 2048 / 3.6;          // m/s auto-flight over ocean (2048 km/h)
-const SUPER_JET_MAX_SPEED = 16384 / 3.6;   // m/s deliberate double-tap flight (16384 km/h)
+const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
 const ACCEL = 60;                          // reaches top speed in about half a second
-const JET_ACCEL = 1400;                    // scaled so the jet winds up in about a second
-const SUPER_JET_ACCEL = JET_ACCEL * 8;     // same wind-up feel at 8x the speed
+const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
 const FRICTION = 80;                       // near-instant stop when you let go
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
 
 let isNearRoad = false;
-let isOverWater = false;
 let lastTerrainCheck = 0;
 
 function checkTerrain(t){
   if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
   lastTerrainCheck = t;
   let nearRoad = false;
-  let overWater = false;
   try{
     const pt = map.project([carLng, carLat]);
     if(map.getLayer('drive-roads')){
@@ -1867,15 +1802,9 @@ function checkTerrain(t){
       );
       nearRoad = roadHits.length > 0;
     }
-    if(map.getLayer('drive-water')){
-      // Single point, not a box: we want "actually over water", not
-      // "somewhere near a shoreline".
-      overWater = map.queryRenderedFeatures([pt.x, pt.y], { layers:['drive-water'] }).length > 0;
-    }
   } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
 
   isNearRoad = nearRoad;
-  isOverWater = overWater;
 }
 
 function driveLoop(t){
@@ -1892,22 +1821,9 @@ function driveLoop(t){
   lastFrameTime = t;
 
   checkTerrain(t);
-  // Over an ocean or lake there's nothing to drive on, so the vehicle
-  // automatically becomes a plane and stays one until it's back over
-  // land. A jet the player launched themselves (double-tap) outranks
-  // this: it stays up until they let go, wherever they are.
-  if(isOverWater && !jetActive){
-    engageJet(false);
-  } else if(!isOverWater && jetActive && !jetManual){
-    releaseJet();
-  }
   // While flying, roads are irrelevant — the jet goes anywhere at full speed.
-  const maxSpeed = jetActive
-    ? (jetManual ? SUPER_JET_MAX_SPEED : JET_MAX_SPEED)
-    : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
-  const accel = jetActive
-    ? (jetManual ? SUPER_JET_ACCEL : JET_ACCEL)
-    : ACCEL;
+  const maxSpeed = jetActive ? JET_MAX_SPEED : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
+  const accel = jetActive ? JET_ACCEL : ACCEL;
 
   const dir = getInputDirection();
 
@@ -2025,13 +1941,9 @@ updatePassportCount();
 // Drive-mode hint toast
 // ---------------------------------------------------------------
 const driveHintEl = document.getElementById('drive-hint');
-const DEFAULT_DRIVE_HINT = '👉 Mantén presionado para conducir';
-let driveHintTimer = null;
-function showDriveHint(message, ms){
-  driveHintEl.textContent = message || DEFAULT_DRIVE_HINT;
+function showDriveHint(){
   driveHintEl.classList.add('show');
-  if(driveHintTimer) clearTimeout(driveHintTimer);
-  driveHintTimer = setTimeout(hideDriveHint, ms || 4000);
+  setTimeout(hideDriveHint, 4000);
 }
 function hideDriveHint(){ driveHintEl.classList.remove('show'); }
 </script>
