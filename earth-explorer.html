@@ -980,10 +980,19 @@ function flyToDestination(d){
   photoPanel.classList.remove('show');
   closeLightbox();
 
-  // Runs exactly once, whichever trigger gets there first. The guard
-  // blocks the entire UI while shown, so arrival must NEVER depend on
-  // a single event firing: if flyTo throws, or moveend is missed, the
-  // timeout still finishes the transition and unblocks everything.
+  // Explicit flight duration so arrival is predictable. Arrival is
+  // primarily driven by the clock, NOT by 'moveend': a moveend left over
+  // from an earlier camera settle (a pinch-zoom, or the tail of a
+  // previous movement) can land the instant the flight starts, which is
+  // what made the description card pop up early and cut the journey
+  // short. A moveend is only accepted once the flight is essentially
+  // over; otherwise it's ignored as a stray.
+  const FLY_MS = 3000;
+  const startedAt = (typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now();
+  const elapsed = ()=> ((typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now()) - startedAt;
+
   let settled = false;
   const arrive = ()=>{
     if(settled) return;
@@ -993,6 +1002,11 @@ function flyToDestination(d){
     document.getElementById('dock-wrap').classList.remove('dimmed');
     showFactCard(d);
   };
+  // Only honour a moveend that arrives when the flight has actually had
+  // time to complete — anything earlier is a stray from a prior move.
+  const arriveIfFlightDone = ()=>{
+    if(elapsed() >= FLY_MS * 0.9) arrive();
+  };
 
   try{
     map.flyTo({
@@ -1000,17 +1014,18 @@ function flyToDestination(d){
       zoom:d.zoom,
       pitch:d.pitch,
       bearing: Math.random()*40-20,
-      speed:0.7,
-      curve:1.4,
+      duration:FLY_MS,
       essential:true
     });
-    map.once('moveend', arrive);
+    map.once('moveend', arriveIfFlightDone);
   }catch(e){
     console.error('flight failed, snapping to destination', e);
     try{ map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch }); }catch(e2){}
     arrive();
+    return;
   }
-  setTimeout(arrive, 5000); // hard backstop
+  setTimeout(arrive, FLY_MS);        // the journey always lasts its full length
+  setTimeout(arrive, FLY_MS + 2000); // hard backstop if anything stalls
 }
 
 // ---------------------------------------------------------------
