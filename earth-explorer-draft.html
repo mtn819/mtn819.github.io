@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>La Expedición del Explorador</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#FBF3DE;
+    --parchment-deep:#F2E4BE;
+    --forest:#1F5C4C;
+    --forest-deep:#123B30;
+    --sunset:#F4802E;
+    --sunset-deep:#D8631A;
+    --sky:#3E9CDC;
+    --ink:#20362F;
+    --stamp-red:#C1443A;
+    --gold:#D9A441;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  *,
+  *::before,
+  *::after {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;
+    font-family:'Nunito',sans-serif;
+    background:var(--forest-deep);
+    color:var(--ink);
+    overflow:hidden;
+  }
+  h1,h2,h3,.display{
+    font-family:'Baloo 2',cursive;
+  }
+
+  #map{
+    position:absolute; inset:0; width:100%; height:100%;
+    touch-action:none;
+  }
+
+  /* subtle vignette so the globe feels like it's floating in a scope */
+  #vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(9,26,21,0.55) 100%);
+    z-index:2;
+  }
+
+  /* ---------- Top bar ---------- */
+  #topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px;
+    z-index:10;
+    pointer-events:none;
+  }
+  #brand{
+    display:flex; align-items:center; gap:10px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:999px;
+    padding:8px 18px 8px 10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.25);
+    pointer-events:auto;
+  }
+  #brand span{
+    font-family:'Baloo 2',cursive;
+    font-weight:800;
+    font-size:18px;
+    color:var(--forest-deep);
+    white-space:nowrap;
+  }
+
+  #passport-btn{
+    pointer-events:auto;
+    display:flex; align-items:center; gap:8px;
+    background:var(--sunset);
+    border:3px solid var(--sunset-deep);
+    color:white;
+    font-family:'Baloo 2',cursive;
+    font-weight:700;
+    font-size:16px;
+    border-radius:999px;
+    padding:10px 18px;
+    cursor:pointer;
+    box-shadow:0 4px 0 var(--sunset-deep);
+    transition:transform .12s ease;
+  }
+  #passport-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--sunset-deep); }
+  #passport-count{
+    background:white; color:var(--sunset-deep);
+    border-radius:999px; font-size:13px; font-weight:800;
+    padding:2px 9px;
+  }
+
+  /* ---------- Destination dock (bottom) ---------- */
+  #dock-wrap{
+    position:absolute; bottom:0; left:0; right:0;
+    z-index:10;
+    padding:14px 14px 16px;
+    pointer-events:none;
+  }
+  #dock-label{
+    font-family:'Baloo 2',cursive;
+    color:var(--parchment);
+    font-size:14px;
+    font-weight:700;
+    margin:0 4px 8px;
+    text-shadow:0 2px 4px rgba(0,0,0,0.5);
+    pointer-events:none;
+  }
+  #dock{
+    display:flex; gap:10px; overflow-x:auto;
+    padding:4px 4px 8px;
+    pointer-events:auto;
+    scrollbar-width:thin;
+  }
+  #dock::-webkit-scrollbar{ height:6px; }
+  #dock::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.3); border-radius:4px; }
+
+  .dest-card{
+    flex:0 0 auto;
+    width:132px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:var(--radius);
+    padding:10px 8px 12px;
+    cursor:pointer;
+    text-align:center;
+    box-shadow:0 4px 0 rgba(0,0,0,0.3);
+    transition:transform .12s ease;
+    position:relative;
+    user-select:none;
+  }
+  .dest-card:hover{ transform:translateY(-3px); }
+  .dest-card:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+  .dest-card .emoji{ font-size:30px; display:block; margin-bottom:4px; }
+  .dest-card .name{
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    color:var(--forest-deep); line-height:1.15;
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    overflow:hidden; text-overflow:ellipsis;
+    overflow-wrap:break-word; word-break:break-word; hyphens:auto;
+    min-height:calc(13px * 1.15 * 2);
+  }
+  .dest-card .country{
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1;
+    overflow:hidden; text-overflow:ellipsis;
+    font-size:9px; font-weight:700; color:var(--sunset-deep);
+    text-transform:uppercase; letter-spacing:0.3px; margin-top:3px; opacity:0.85;
+    overflow-wrap:break-word; word-break:break-word;
+  }
+  .dest-card.visited{ background:var(--forest); }
+  .dest-card.visited .name{ color:var(--parchment); }
+  .dest-card.visited .country{ color:var(--gold); }
+  .dest-card .check{
+    position:absolute; top:-8px; right:-8px;
+    width:24px;height:24px; border-radius:50%;
+    background:var(--gold); border:2px solid var(--forest-deep);
+    display:none; align-items:center; justify-content:center;
+    font-size:13px;
+  }
+  .dest-card.visited .check{ display:flex; }
+
+  /* ---------- Fact card (appears after fly-to) ---------- */
+  #fact-card{
+    position:absolute;
+    left:50%; top:14%;
+    transform:translate(-50%,-20px);
+    width:min(360px, 86vw);
+    background:var(--parchment);
+    border:4px solid var(--forest-deep);
+    border-radius:22px;
+    padding:18px 20px 20px;
+    box-shadow:0 10px 0 rgba(0,0,0,0.28);
+    z-index:20;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  #fact-card.show{
+    opacity:1; transform:translate(-50%,0);
+    pointer-events:auto;
+  }
+  #fact-card .fclose{
+    position:absolute; top:10px; right:12px;
+    background:none;border:none;font-size:20px;
+    cursor:pointer; color:var(--forest-deep); font-weight:800;
+    line-height:1;
+  }
+  #fact-card .femoji{ font-size:40px; display:block; margin-bottom:2px;}
+  #fact-card h2{ margin:0 0 6px; color:var(--forest-deep); font-size:22px; overflow-wrap:break-word; word-break:break-word; hyphens:auto; }
+  #fact-card .fcountry{ font-size:13px; font-weight:800; color:var(--sunset-deep); margin-bottom:10px; }
+  #fact-card p{ margin:0 0 14px; font-size:15px; line-height:1.45; color:var(--ink); }
+  #fact-card .stamp-btn{
+    display:block; width:100%;
+    background:var(--forest); color:var(--parchment);
+    border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:15px;
+    border-radius:999px; padding:10px; cursor:pointer;
+    box-shadow:0 4px 0 var(--forest-deep);
+  }
+  #fact-card .stamp-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
+  #fact-card .stamp-btn.already{ background:var(--parchment-deep); color:var(--forest-deep); cursor:default; box-shadow:0 4px 0 rgba(0,0,0,0.15); }
+
+  /* ---------- Welcome overlay ---------- */
+  #welcome{
+    position:absolute; inset:0; z-index:50;
+    background:radial-gradient(circle at 50% 40%, var(--forest) 0%, var(--forest-deep) 70%);
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    padding:24px;
+  }
+  #welcome-card{
+    max-width:420px;
+  }
+  #welcome .globe-emoji{ font-size:64px; display:block; margin-bottom:6px; animation:bob 2.4s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  #welcome h1{ color:var(--parchment); font-size:34px; margin:0 0 8px; }
+  #welcome p{ color:var(--parchment-deep); font-size:16px; line-height:1.5; margin:0 0 24px; }
+  #start-btn{
+    background:var(--sunset); color:white;
+    border:3px solid var(--sunset-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:19px;
+    border-radius:999px; padding:14px 36px; cursor:pointer;
+    box-shadow:0 5px 0 var(--sunset-deep);
+  }
+  #start-btn:active{ transform:translateY(4px); box-shadow:0 1px 0 var(--sunset-deep); }
+
+  /* ---------- Passport modal ---------- */
+  #passport-modal{
+    position:absolute; inset:0; z-index:60;
+    background:rgba(9,26,21,0.72);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #passport-modal.show{ display:flex; }
+  #passport-book{
+    width:min(420px,92vw);
+    max-height:82vh;
+    overflow-y:auto;
+    background:var(--parchment);
+    border:5px solid var(--forest-deep);
+    border-radius:24px;
+    padding:22px 20px 26px;
+    position:relative;
+  }
+  #passport-book h2{ color:var(--forest-deep); margin:0 0 4px; font-size:24px; }
+  #passport-book .sub{ font-size:13px; color:var(--sunset-deep); font-weight:800; margin-bottom:16px; }
+  .pclose{
+    position:absolute; top:14px; right:16px;
+    background:none;border:none;font-size:24px;cursor:pointer;
+    color:var(--forest-deep); font-weight:800;
+  }
+  #stamp-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+  }
+  .stamp-slot{
+    aspect-ratio:1;
+    border:3px dashed var(--forest);
+    border-radius:14px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    opacity:0.35;
+    text-align:center;
+    padding:4px;
+    overflow:hidden;
+  }
+  .stamp-slot.filled{
+    opacity:1;
+    border-style:solid;
+    border-color:var(--stamp-red);
+    background:#fff8e8;
+    transform:rotate(var(--tilt,-2deg));
+  }
+  .stamp-slot .semoji{ font-size:22px; }
+  .stamp-slot .sname{
+    font-family:'Baloo 2',cursive; font-size:10px; font-weight:700;
+    margin-top:2px; color:var(--forest-deep);
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    overflow:hidden; text-overflow:ellipsis;
+    overflow-wrap:break-word; word-break:break-word; hyphens:auto;
+  }
+  #passport-empty{ text-align:center; color:var(--forest); font-size:14px; margin-top:10px; }
+
+  /* ---------- Toast note (used for the drive-mode hint) ---------- */
+  #drive-hint{
+    position:absolute; left:50%; bottom:96px; transform:translateX(-50%);
+    background:var(--forest-deep); color:var(--parchment);
+    font-size:13px; font-weight:700;
+    padding:8px 16px; border-radius:999px;
+    opacity:0; transition:opacity .4s ease;
+    z-index:15; pointer-events:none;
+    white-space:nowrap;
+  }
+  #drive-hint.show{ opacity:1; }
+
+  /* maplibre attribution styling to stay legible on dark globe */
+  .maplibregl-ctrl-attrib{
+    background:rgba(251,243,222,0.85) !important;
+    border-radius:8px 0 0 0 !important;
+    font-size:9px !important;
+    max-width:150px;
+  }
+  /* Attribution text stays visible (required by the map data licenses),
+     but is fully inert — no tapping through to an outside site from
+     inside the game. */
+  .maplibregl-ctrl-attrib a,
+  .maplibregl-ctrl-attrib-button{
+    pointer-events:none !important;
+    cursor:default !important;
+    text-decoration:none !important;
+  }
+  .maplibregl-ctrl-bottom-right{ z-index:5; }
+
+  @media (max-width:480px){
+    #brand span{ display:none; }
+    .dest-card{ width:108px; }
+  }
+
+  /* ---------- Mode toggle ---------- */
+  #mode-toggle{
+    display:flex; gap:4px;
+    background:rgba(18,59,48,0.55);
+    border:2px solid var(--forest-deep);
+    border-radius:999px;
+    padding:3px;
+    pointer-events:auto;
+  }
+  #mode-toggle button{
+    border:none; background:transparent;
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    padding:7px 14px; border-radius:999px; cursor:pointer;
+    color:var(--parchment);
+  }
+  #mode-toggle button.active{
+    background:var(--sunset); color:white;
+    box-shadow:0 2px 0 var(--sunset-deep);
+  }
+
+  /* ---------- Speedometer (small, bottom-right) ---------- */
+  #drive-hud{
+    position:absolute; bottom:16px; right:14px;
+    z-index:12; display:none;
+    background:rgba(18,59,48,0.72);
+    border:2px solid var(--forest-deep);
+    border-radius:10px;
+    padding:5px 10px;
+    align-items:baseline; gap:4px;
+    font-family:'Baloo 2',cursive;
+    color:var(--parchment);
+    transition:background-color .2s ease, border-color .2s ease;
+  }
+  #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
+  #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
+  #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
+
+  /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
+  .car-flip{ transition:transform .15s ease; }
+  .car-emoji{
+    font-size:30px;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    cursor:pointer;
+    display:block;
+  }
+  @keyframes vehicle-pop{
+    0%{ transform:scale(1); }
+    50%{ transform:scale(1.45); }
+    100%{ transform:scale(1); }
+  }
+  .car-emoji.pop{ animation:vehicle-pop 0.5s ease; }
+
+  /* ---------- Nearby photos: toggle buttons + panel ---------- */
+  .photo-toggle-btn{
+    display:block; width:100%;
+    background:var(--parchment-deep); color:var(--forest-deep);
+    border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    border-radius:999px; padding:8px; cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.18);
+    margin-top:8px;
+  }
+  .photo-toggle-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.18); }
+
+  #drive-photo-btn{
+    position:absolute; bottom:60px; right:14px;
+    z-index:12; display:none;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:999px;
+    padding:8px 14px;
+    font-family:'Baloo 2',cursive;
+    font-weight:700; font-size:13px;
+    color:var(--forest-deep);
+    cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+    transition:transform .12s ease;
+  }
+  #drive-photo-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.28); }
+
+  #photo-panel{
+    position:absolute; top:64px; right:14px;
+    z-index:22; display:none;
+    width:150px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:14px;
+    padding:10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+  }
+  #photo-panel.show{ display:block; }
+  #photo-panel .photo-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:6px;
+  }
+  #photo-panel h3{ margin:0; font-size:12px; color:var(--forest-deep); }
+  .photo-close{
+    background:none; border:none; cursor:pointer;
+    font-size:14px; font-weight:800; color:var(--forest-deep);
+    line-height:1; padding:0 0 0 6px;
+  }
+  #photo-panel .pshots{ display:flex; flex-direction:column; gap:6px; }
+  #photo-panel .pshot-btn{
+    display:block; width:100%; padding:0; margin:0;
+    background:none; border:none; cursor:pointer;
+  }
+  #photo-panel img{
+    width:100%; height:72px; object-fit:cover;
+    border-radius:8px; border:2px solid var(--forest-deep);
+    display:block;
+  }
+  #photo-panel .ploading{ font-size:11px; color:var(--forest); text-align:center; padding:8px 0; }
+  #photo-panel .pcaption{ font-size:9px; color:var(--forest); margin-top:2px; line-height:1.2; }
+
+  /* ---------- Photo lightbox (closeup + carousel) ---------- */
+  #photo-lightbox{
+    position:absolute; inset:0; z-index:80;
+    background:rgba(9,26,21,0.92);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #photo-lightbox.show{ display:flex; }
+  #photo-lightbox .lightbox-body{
+    display:flex; flex-direction:column; align-items:center;
+    max-width:min(600px, 92vw);
+  }
+  #lightbox-img{
+    max-width:100%; max-height:70vh;
+    border-radius:14px; border:3px solid var(--parchment);
+    box-shadow:0 8px 0 rgba(0,0,0,0.35);
+    object-fit:contain;
+    background:var(--forest-deep);
+  }
+  #lightbox-caption{
+    color:var(--parchment); font-size:13px; font-weight:700;
+    text-align:center; margin-top:12px; max-width:100%;
+  }
+  #lightbox-close{
+    position:absolute; top:16px; right:16px;
+    width:40px; height:40px; border-radius:50%;
+    background:var(--parchment); border:3px solid var(--forest-deep);
+    color:var(--forest-deep); font-size:18px; font-weight:800;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 0 rgba(0,0,0,0.28);
+  }
+  #lightbox-close:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.28); }
+  #lightbox-prev, #lightbox-next{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:48px; height:48px; border-radius:50%;
+    background:var(--parchment); border:3px solid var(--forest-deep);
+    color:var(--forest-deep); font-size:24px; font-weight:800;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 0 rgba(0,0,0,0.28);
+  }
+  #lightbox-prev:active, #lightbox-next:active{ transform:translateY(calc(-50% + 2px)); box-shadow:0 1px 0 rgba(0,0,0,0.28); }
+  #lightbox-prev{ left:16px; }
+  #lightbox-next{ right:16px; }
+  #photo-lightbox.single #lightbox-prev,
+  #photo-lightbox.single #lightbox-next{ display:none; }
+
+  /* ---------- Location permission card ---------- */
+  #locate-card{
+    position:absolute; inset:0; z-index:40;
+    background:rgba(9,26,21,0.72);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #locate-card.show{ display:flex; }
+  #locate-inner{
+    max-width:340px; text-align:center;
+    background:var(--parchment);
+    border:4px solid var(--forest-deep);
+    border-radius:22px;
+    padding:22px 22px 24px;
+  }
+  #locate-inner .lemoji{ font-size:44px; display:block; margin-bottom:6px; }
+  #locate-inner h2{ color:var(--forest-deep); margin:0 0 8px; font-size:20px; }
+  #locate-inner p{ margin:0 0 18px; font-size:14px; color:var(--ink); line-height:1.4; }
+  #locate-go{
+    background:var(--sunset); color:white; border:3px solid var(--sunset-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:15px;
+    border-radius:999px; padding:11px 26px; cursor:pointer;
+    box-shadow:0 4px 0 var(--sunset-deep);
+  }
+  #locate-cancel{
+    display:block; margin:10px auto 0; background:none; border:none;
+    color:var(--forest); font-size:12px; text-decoration:underline; cursor:pointer;
+  }
+
+  /* ---------- Milestone celebration (every 8 stamps) ---------- */
+  #milestone-modal{
+    position:absolute; inset:0; z-index:70;
+    background:rgba(9,26,21,0.78);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #milestone-modal.show{ display:flex; }
+  #milestone-inner{
+    max-width:340px; text-align:center;
+    background:var(--parchment);
+    border:5px solid var(--gold);
+    border-radius:24px;
+    padding:26px 24px 24px;
+    box-shadow:0 10px 0 rgba(0,0,0,0.3);
+    animation: milestone-pop .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes milestone-pop{
+    0%{ transform:scale(0.6); opacity:0; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  #milestone-inner .milestone-emoji{
+    font-size:52px; display:block; margin-bottom:8px;
+    animation: milestone-bounce 1.1s ease-in-out infinite;
+  }
+  @keyframes milestone-bounce{
+    0%,100%{ transform:translateY(0) rotate(0deg); }
+    50%{ transform:translateY(-8px) rotate(-6deg); }
+  }
+  #milestone-inner h2{ color:var(--sunset-deep); margin:0 0 6px; font-size:24px; }
+  #milestone-inner p{ margin:0 0 20px; font-size:14px; color:var(--forest-deep); font-weight:700; }
+  #milestone-close{
+    background:var(--forest); color:var(--parchment); border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:15px;
+    border-radius:999px; padding:11px 26px; cursor:pointer;
+    box-shadow:0 4px 0 var(--forest-deep);
+  }
+  #milestone-close:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
+
+  /* ---------- Transition guard: blocks all UI during camera flights ---------- */
+  #transition-guard{
+    position:absolute; inset:0; z-index:25;
+    display:none;
+    pointer-events:auto;
+    background:transparent;
+    cursor:wait;
+  }
+  #transition-guard.show{ display:block; }
+  #topbar.dimmed, #dock-wrap.dimmed{
+    opacity:0.4;
+    transition:opacity .2s ease;
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="vignette"></div>
+
+<div id="topbar">
+  <div id="mode-toggle">
+    <button id="mode-explore-btn" class="active">🌍 Explorar</button>
+    <button id="mode-drive-btn">🚗 Conducir</button>
+  </div>
+  <button id="passport-btn">🪪 Pasaporte <span id="passport-count">0/8</span></button>
+</div>
+
+<div id="drive-hud">
+  <span id="drive-speedo">0</span><span class="unit">km/h</span>
+</div>
+
+<button id="drive-photo-btn">📸 Fotos</button>
+
+<div id="transition-guard"></div>
+
+<div id="locate-card">
+  <div id="locate-inner">
+    <span class="lemoji">📍</span>
+    <h2>¡Conduce cerca de ti!</h2>
+    <p>Esto usa la ubicación de tu dispositivo para poner tu carro en un mapa real de tu vecindario, para que puedas conducir y explorarlo.</p>
+    <button id="locate-go">Compartir mi ubicación</button>
+    <button id="locate-cancel">Ahora no</button>
+  </div>
+</div>
+
+<div id="drive-hint">👉 Mantén presionado para conducir</div>
+
+<div id="fact-card">
+  <button class="fclose" aria-label="Close">✕</button>
+  <span class="femoji">🌍</span>
+  <h2 id="fact-title">Nombre del lugar</h2>
+  <div class="fcountry" id="fact-country">PAÍS</div>
+  <p id="fact-text">Aquí va un dato curioso.</p>
+  <button class="stamp-btn" id="stamp-btn">🎟️ ¡Conseguir sello!</button>
+  <button class="photo-toggle-btn" id="fact-photo-btn">📸 Fotos cercanas</button>
+</div>
+
+<div id="photo-panel">
+  <div class="photo-panel-header">
+    <h3>📸 Fotos cercanas</h3>
+    <button class="photo-close" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="pshots" id="photo-shots"><div class="ploading">Buscando fotos…</div></div>
+</div>
+
+<div id="photo-lightbox">
+  <button id="lightbox-close" aria-label="Cerrar">✕</button>
+  <button id="lightbox-prev" aria-label="Anterior">‹</button>
+  <div class="lightbox-body">
+    <img id="lightbox-img" src="" alt="">
+    <div id="lightbox-caption"></div>
+  </div>
+  <button id="lightbox-next" aria-label="Siguiente">›</button>
+</div>
+
+<div id="dock-wrap">
+  <p id="dock-label">✨ ¡Elige un lugar para volar!</p>
+  <div id="dock"></div>
+</div>
+
+<div id="welcome">
+  <div id="welcome-card">
+    <span class="globe-emoji">🌎</span>
+    <h1>La Expedición del Explorador</h1>
+    <p>Gira el mundo entero, acércate a montañas y ciudades, y colecciona sellos de todos los continentes. ¿Listo para explorar?</p>
+    <button id="start-btn">Empezar a explorar →</button>
+  </div>
+</div>
+
+<div id="passport-modal">
+  <div id="passport-book">
+    <button class="pclose" aria-label="Close">✕</button>
+    <h2>🪪 Mi Pasaporte</h2>
+    <div class="sub" id="passport-sub">0 de 8 sellos conseguidos</div>
+    <div id="stamp-grid"></div>
+    <p id="passport-empty">Vuela a otros lugares y toca "¡Conseguir sello!" para llenar tu pasaporte.</p>
+  </div>
+</div>
+
+<div id="milestone-modal">
+  <div id="milestone-inner">
+    <span class="milestone-emoji">🎉</span>
+    <h2 id="milestone-title">¡Felicidades!</h2>
+    <p id="milestone-sub">Has conseguido 8 sellos</p>
+    <button id="milestone-close">¡Seguir explorando!</button>
+  </div>
+</div>
+
+<script>
+// Set once the map successfully initializes (inside the try block below).
+// Kept outside that block, alongside the start button listener, so both
+// stay usable even if map setup fails.
+let exploreMap = null;
+
+// ---------------------------------------------------------------
+// Attach the welcome/start button FIRST, before anything that
+// touches the map library. If the map fails to load for any
+// reason (slow network, blocked CDN, etc.) the rest of this
+// script may throw — but this listener is already wired up, so
+// "Start exploring" always works and the overlay always dismisses.
+// ---------------------------------------------------------------
+document.getElementById('start-btn').addEventListener('click', ()=>{
+  document.getElementById('welcome').style.display = 'none';
+  // Deliberately leave the camera on the map's default zoomed-out globe
+  // view here — no jump-in. That way the very first flyTo, whenever the
+  // player taps their first destination card, is the moment the journey
+  // actually starts, and it reads as a real "travel somewhere" moment
+  // instead of the opening view already being zoomed in.
+});
+
+// ---------------------------------------------------------------
+// Destinations: each has coords, a kid-friendly fact, and an emoji
+// ---------------------------------------------------------------
+const DESTINATIONS = [
+  { id:'cliffs-moher', name:'Acantilados de Moher', country:'IRLANDA', emoji:'🐦', center:[-9.4276, 52.9715], zoom:13, pitch:55, fact:"Estos acantilados se elevan más de 200 metros sobre el Océano Atlántico, y miles de frailecillos y aves marinas anidan directamente en las paredes de roca." },
+  { id:'angkor-wat', name:'Angkor Wat', country:'CAMBOYA', emoji:'🕍', center:[103.867, 13.4125], zoom:15, pitch:50, fact:"¡Este es el monumento religioso más grande del mundo entero! Se construyó hace casi 900 años y está rodeado por un foso gigante más ancho que una cancha de fútbol." },
+  { id:'antarctica', name:'Antártida', country:'POLO SUR', emoji:'🐧', center:[0.0, -80.0], zoom:4.5, pitch:0, fact:"La Antártida es el lugar más frío de la Tierra, y casi todo el continente está cubierto de hielo grueso. Aquí viven pingüinos — pero los osos polares no, ellos solo viven en el Polo Norte." },
+  { id:'cabo-arch', name:'Arco de Cabo San Lucas', country:'MÉXICO', emoji:'🏖️', center:[-109.6974, 22.8697], zoom:14, pitch:40, fact:"Este arco de roca natural, llamado 'El Arco', está justo donde el Océano Pacífico se encuentra con el Mar de Cortés, y a los lobos marinos les encanta tomar el sol sobre las rocas cercanas." },
+  { id:'tromso-auroras', name:'Auroras Boreales, Tromsø', country:'NORUEGA', emoji:'🌌', center:[18.9553, 69.6492], zoom:10, pitch:10, fact:"¡Esta ciudad está tan al norte que unas auroras de colores — cortinas brillantes de luz verde y morada — suelen bailar en el cielo nocturno, causadas por partículas del sol chocando con nuestra atmósfera!" },
+  { id:'halong-bay', name:'Bahía de Ha Long', country:'VIETNAM', emoji:'⛵', center:[107.048, 20.9101], zoom:10.5, pitch:40, fact:"Casi 2,000 islas altas de piedra caliza se asoman en esta bahía de color verde esmeralda. La leyenda local dice que un dragón cayó al mar aquí y su cuerpo talló todas las islas." },
+  { id:'copper-canyon', name:'Barranca del Cobre', country:'MÉXICO', emoji:'🚂', center:[-107.6, 27.5], zoom:9, pitch:30, fact:"¡Este sistema de cañones es más grande y profundo que el Gran Cañón de Estados Unidos! Un famoso tren recorre su interior, cruzando docenas de puentes y túneles." },
+  { id:'big-ben', name:'Big Ben', country:'REINO UNIDO', emoji:'🕰️', center:[-0.1246, 51.5007], zoom:16, pitch:55, fact:"¡Big Ben es en realidad el nombre de la campana gigante dentro de la torre del reloj, no de la torre misma! La campana pesa casi lo mismo que dos elefantes." },
+  { id:'bora-bora', name:'Bora Bora', country:'POLINESIA FRANCESA', emoji:'🏝️', center:[-151.7415, -16.5004], zoom:12, pitch:30, fact:"Esta isla está rodeada por una laguna de agua turquesa tan clara que puedes ver los peces de colores nadando incluso desde lejos." },
+  { id:'burj-khalifa', name:'Burj Khalifa', country:'EMIRATOS ÁRABES UNIDOS', emoji:'🏙️', center:[55.2744, 25.1972], zoom:14.5, pitch:55, fact:"¡Este es el edificio más alto del mundo entero — tan alto que si estás abajo, a veces ni siquiera puedes ver la punta entre las nubes!" },
+  { id:'panama-canal', name:'Canal de Panamá', country:'PANAMÁ', emoji:'🚢', center:[-79.5967, 8.9936], zoom:14, pitch:40, fact:"Este canal conecta el Océano Atlántico con el Pacífico, ahorrándole a los barcos un viaje de miles de kilómetros alrededor de toda Sudamérica. Unas gigantescas esclusas suben y bajan el nivel del agua para que los barcos puedan pasar." },
+  { id:'venice', name:'Canales de Venecia', country:'ITALIA', emoji:'🚤', center:[12.3155, 45.4408], zoom:13.5, pitch:40, fact:"¡Venecia está construida sobre más de 100 pequeñas islas conectadas por canales en vez de calles — así que en lugar de coches, la gente se mueve en barcos!" },
+  { id:'bryce-canyon', name:'Cañón Bryce', country:'ESTADOS UNIDOS', emoji:'🗿', center:[-112.1871, 37.593], zoom:12, pitch:55, fact:"El Cañón Bryce es famoso por miles de altas y delgadas torres de roca llamadas 'hoodoos'. El agua que se congela y se derrite las talló lentamente en los acantilados durante millones de años." },
+  { id:'antelope-canyon', name:'Cañón del Antílope', country:'ESTADOS UNIDOS', emoji:'🌀', center:[-111.3743, 36.8619], zoom:15, pitch:45, fact:"El viento y el agua de lluvia tallaron estas paredes onduladas en la suave piedra arenisca a lo largo de miles de años, creando patrones que brillan color naranja cuando la luz del sol entra desde arriba." },
+  { id:'colca-canyon', name:'Cañón del Colca', country:'PERÚ', emoji:'🦅', center:[-71.8636, -15.6019], zoom:10, pitch:40, fact:"Este es uno de los cañones más profundos del mundo — ¡más del doble de profundo que el Gran Cañón! Es un lugar perfecto para ver volar a los cóndores andinos, unas de las aves más grandes del mundo." },
+  { id:'cappadocia', name:'Capadocia', country:'TURQUÍA', emoji:'🎈', center:[34.8286, 38.6431], zoom:12, pitch:40, fact:"El paisaje aquí tiene extrañas formaciones rocosas llamadas 'chimeneas de hadas', y por las mañanas cientos de globos aerostáticos de colores flotan sobre el valle." },
+  { id:'bran-castle', name:'Castillo de Bran', country:'RUMANÍA', emoji:'🏰', center:[25.3675, 45.5149], zoom:14.5, pitch:55, fact:"¡Este dramático castillo sobre un acantilado suele relacionarse con la leyenda de Drácula! Está en lo alto de una roca, con torres que parecen sacadas de un cuento de terror." },
+  { id:'neuschwanstein', name:'Castillo de Neuschwanstein', country:'ALEMANIA', emoji:'🏰', center:[10.7498, 47.5576], zoom:14.5, pitch:55, fact:"¡Este castillo de cuento de hadas sobre una colina inspiró la apariencia del Castillo de la Bella Durmiente de Disney! Fue construido para un rey que amaba los cuentos de hadas y las óperas." },
+  { id:'iguazu', name:'Cataratas del Iguazú', country:'ARGENTINA / BRASIL', emoji:'🌊', center:[-54.4367, -25.6953], zoom:12.5, pitch:55, fact:"¡Iguazú no es una sola catarata, sino casi 300 cataratas cayendo juntas! Es tan ancha que quienes la visitan dicen que Niágara parece pequeñita en comparación." },
+  { id:'niagara', name:'Cataratas del Niágara', country:'CANADÁ / EE. UU.', emoji:'💦', center:[-79.0849, 43.0962], zoom:13, pitch:55, fact:"¡Más de 3,000 toneladas de agua caen por las Cataratas del Niágara cada segundo! Unos barcos llamados 'Maid of the Mist' llevan a los visitantes muy cerca del agua rugiente." },
+  { id:'victoria-falls', name:'Cataratas Victoria', country:'ZAMBIA / ZIMBABUE', emoji:'🌊', center:[25.8572, -17.9243], zoom:13, pitch:55, fact:"La gente del lugar la llama 'El humo que truena', porque el agua salpica tan alto que parece humo, y se puede escuchar el rugido desde muy lejos." },
+  { id:'carlsbad-caverns', name:'Cavernas de Carlsbad', country:'ESTADOS UNIDOS', emoji:'🦇', center:[-104.4442, 32.1479], zoom:13, pitch:20, fact:"Muy adentro de la tierra, este sistema de cuevas tiene salas enormes llenas de formaciones de roca que gotean, y cada tarde de verano cientos de miles de murciélagos salen volando de la entrada al atardecer." },
+  { id:'downtown-houston', name:'Centro de Houston', country:'HOUSTON, TEXAS', emoji:'🏙️', center:[-95.3698, 29.7604], zoom:14, pitch:55, fact:"¡El horizonte de Houston tiene algunos de los rascacielos más altos de todo el país, e incluso hay una red de túneles con aire acondicionado bajo el centro de la ciudad para escapar del calor de Texas!" },
+  { id:'chichen-itza', name:'Chichén Itzá', country:'MÉXICO', emoji:'🔺', center:[-88.5678, 20.6843], zoom:15.5, pitch:55, fact:"¡Esta antigua pirámide maya fue construida con tanta precisión que en el equinoccio de primavera y otoño, la luz del sol crea una sombra que parece una serpiente deslizándose por la escalera!" },
+  { id:'forbidden-city', name:'Ciudad Prohibida', country:'CHINA', emoji:'🏯', center:[116.3972, 39.9163], zoom:15, pitch:50, fact:"Durante casi 500 años, este enorme palacio fue el hogar de los emperadores chinos, y la gente común no podía entrar — ¡así fue como obtuvo su nombre!" },
+  { id:'chocolate-hills', name:'Colinas de Chocolate', country:'FILIPINAS', emoji:'🍫', center:[124.1436, 9.8266], zoom:12, pitch:35, fact:"¡Más de mil colinas perfectamente redondeadas cubren este paisaje! En la temporada seca, el pasto se pone café, y por eso parecen miles de montañas de chocolate." },
+  { id:'ngorongoro', name:'Cráter de Ngorongoro', country:'TANZANIA', emoji:'🦏', center:[35.5, -3.2], zoom:10, pitch:30, fact:"Este es un cráter volcánico gigante, tan grande que tiene su propio ecosistema completo adentro, con miles de animales salvajes viviendo dentro de sus paredes todo el año." },
+  { id:'meteor-crater', name:'Cráter del Meteorito', country:'ESTADOS UNIDOS', emoji:'☄️', center:[-111.0225, 35.0275], zoom:13, pitch:35, fact:"¡Este enorme agujero se formó cuando un meteorito chocó contra el desierto de Arizona hace unos 50,000 años! Es tan realista que los astronautas de la NASA entrenaron aquí antes de las misiones a la Luna." },
+  { id:'christ-redeemer', name:'Cristo Redentor', country:'BRASIL', emoji:'✝️', center:[-43.2105, -22.9519], zoom:14.5, pitch:55, fact:"Esta gigantesca estatua está en la cima de una montaña con vista a Río de Janeiro, con los brazos extendidos casi 30 metros — ¡y de hecho le han caído varios rayos!" },
+  { id:'waitomo', name:'Cuevas de Waitomo', country:'NUEVA ZELANDA', emoji:'✨', center:[175.1046, -38.261], zoom:14, pitch:30, fact:"Dentro de estas cuevas viven miles de diminutos gusanos que brillan en la oscuridad, ¡haciendo que el techo de la cueva parezca un cielo lleno de estrellas!" },
+  { id:'amazon-dolphins', name:'Delfines Rosados del Amazonas', country:'BRASIL', emoji:'🐬', center:[-60.0217, -3.1019], zoom:9, pitch:20, fact:"¡El río Amazonas es el hogar de delfines de río que en realidad son de color rosado! Los científicos creen que su color viene de tejido cicatrizado y vasos sanguíneos cerca de la piel." },
+  { id:'sahara', name:'Desierto del Sahara', country:'NORTE DE ÁFRICA', emoji:'🏜️', center:[10.0, 23.0], zoom:5, pitch:20, fact:"¡El Sahara es casi tan grande como todo Estados Unidos! Durante el día puede hacer muchísimo calor, pero de noche la arena se enfría tan rápido que hasta puede sentirse frío." },
+  { id:'devils-tower', name:'Devils Tower', country:'ESTADOS UNIDOS', emoji:'🗿', center:[-104.7146, 44.5902], zoom:13, pitch:50, fact:"Esta enorme roca en forma de tronco se eleva casi 400 metros sobre la pradera. Fue el primer Monumento Nacional de Estados Unidos, ¡y apareció en la película Encuentros Cercanos del Tercer Tipo!" },
+  { id:'sossusvlei', name:'Dunas de Sossusvlei', country:'NAMIBIA', emoji:'🏜️', center:[15.3417, -24.7333], zoom:11, pitch:30, fact:"Estas son algunas de las dunas de arena más altas del mundo, ¡algunas de más de 300 metros! Su color rojizo-anaranjado viene del óxido de hierro en la arena." },
+  { id:'el-boqueron', name:'El Boquerón', country:'EL SALVADOR', emoji:'🌋', center:[-89.2864, 13.7358], zoom:13, pitch:45, fact:"¡El cráter de este volcán es tan enorme — de más de un kilómetro y medio de ancho — que se puede bajar caminando y recorrerlo por un sendero en la selva!" },
+  { id:'colosseum', name:'El Coliseo', country:'ITALIA', emoji:'🏟️', center:[12.4922, 41.8902], zoom:16, pitch:55, fact:"Hace casi 2,000 años, hasta 50,000 personas se reunían en este enorme estadio para ver peleas de gladiadores y otros espectáculos — casi tantas como en un estadio de fútbol moderno." },
+  { id:'matterhorn', name:'El Matterhorn', country:'SUIZA / ITALIA', emoji:'⛰️', center:[7.6586, 45.9763], zoom:12, pitch:60, fact:"¡El pico afilado y triangular del Matterhorn es tan famoso que inspiró la montaña del logo de Disneyland y la forma de las tabletas de chocolate Toblerone!" },
+  { id:'nrg-stadium', name:'Estadio NRG', country:'HOUSTON, TEXAS', emoji:'🤠', center:[-95.4107, 29.6847], zoom:15.5, pitch:45, fact:"Este estadio recibe cada año el Houston Livestock Show and Rodeo — uno de los rodeos más grandes del mundo — y además tiene un techo que se puede abrir y cerrar." },
+  { id:'statue-liberty', name:'Estatua de la Libertad', country:'ESTADOS UNIDOS', emoji:'🗽', center:[-74.0445, 40.6892], zoom:14.5, pitch:50, fact:"La Estatua de la Libertad fue un regalo de Francia a Estados Unidos, y es tan grande que antes la gente podía subir hasta dentro de su antorcha (aunque hoy esa parte está cerrada)." },
+  { id:'perito-moreno', name:'Glaciar Perito Moreno', country:'ARGENTINA', emoji:'🧊', center:[-73.0567, -50.4967], zoom:11, pitch:40, fact:"Este glaciar gigante avanza tanto que a veces se puede ver y escuchar cómo se rompen pedazos de hielo del tamaño de edificios, cayendo al lago con un estruendo enorme." },
+  { id:'blue-hole', name:'Gran Agujero Azul', country:'BELICE', emoji:'🕳️', center:[-87.5347, 17.3158], zoom:13, pitch:20, fact:"¡Este gigantesco círculo azul en el océano es en realidad un sumidero de más de 120 metros de profundidad! Alguna vez fue una cueva seca, pero el techo se derrumbó y el mar la inundó hace miles de años." },
+  { id:'reef', name:'Gran Barrera de Coral', country:'AUSTRALIA', emoji:'🐠', center:[147.6992, -18.2871], zoom:9, pitch:0, fact:"¡Esta es la estructura viva más grande de la Tierra, hecha completamente por pequeños animales llamados corales! Es tan enorme que se puede ver desde el espacio." },
+  { id:'grand-canyon', name:'Gran Cañón', country:'ESTADOS UNIDOS', emoji:'🏞️', center:[-112.1401, 36.0544], zoom:10.5, pitch:65, fact:"El Gran Cañón fue formado por el río Colorado a lo largo de millones y millones de años. ¡Es tan ancho que cruzarlo en coche puede tomar hasta dos horas!" },
+  { id:'gran-cenote', name:'Gran Cenote', country:'MÉXICO', emoji:'💧', center:[-87.4644, 20.2298], zoom:15, pitch:20, fact:"Un cenote es un pozo natural lleno de agua dulce y cristalina. La Península de Yucatán tiene miles de ellos, conectados por ríos subterráneos que corren bajo la selva." },
+  { id:'prismatic-spring', name:'Gran Manantial Prismático', country:'ESTADOS UNIDOS', emoji:'🎨', center:[-110.8383, 44.5251], zoom:15, pitch:55, fact:"¡Este manantial caliente en Yellowstone es el más grande del país, y tiene todos los colores del arcoíris! Los colores vienen de unos organismos diminutos llamados termófilos que aman el calor." },
+  { id:'great-wall', name:'Gran Muralla China', country:'CHINA', emoji:'🧱', center:[116.5704, 40.4319], zoom:14, pitch:55, fact:"¡La Gran Muralla es tan larga que si la estiraras, daría la vuelta a la mayor parte de la Tierra! Se construyó a lo largo de siglos para ayudar a proteger a China de los invasores." },
+  { id:'great-zimbabwe', name:'Gran Zimbabue', country:'ZIMBABUE', emoji:'🏰', center:[30.9337, -20.2678], zoom:15, pitch:45, fact:"¡Esta antigua ciudad de piedra se construyó sin ninguna argamasa que uniera las piedras — solo apilándolas con mucho cuidado y precisión! Y todo el país de Zimbabue lleva su nombre." },
+  { id:'great-sand-dunes', name:'Grandes Dunas de Arena', country:'ESTADOS UNIDOS', emoji:'🏜️', center:[-105.5943, 37.7916], zoom:12, pitch:30, fact:"¡Estas son las dunas de arena más altas de Norteamérica — algunas superan los 230 metros! A los niños les encanta bajarlas deslizándose en trineos especiales para arena." },
+  { id:'guanajuato', name:'Guanajuato', country:'MÉXICO', emoji:'🎨', center:[-101.2574, 21.019], zoom:15, pitch:50, fact:"¡Esta ciudad en las colinas es famosa por sus casas de colores apiladas unas sobre otras, además de una red de túneles subterráneos por donde de verdad circulan los coches!" },
+  { id:'yosemite', name:'Half Dome de Yosemite', country:'ESTADOS UNIDOS', emoji:'🧗', center:[-119.5383, 37.7459], zoom:12, pitch:55, fact:"¡Half Dome parece una cúpula gigante de granito que fue cortada limpiamente por la mitad con un cuchillo enorme! En realidad, fue formada lentamente por glaciares a lo largo de millones de años." },
+  { id:'komodo', name:'Isla de Komodo', country:'INDONESIA', emoji:'🦎', center:[119.489, -8.5455], zoom:11, pitch:30, fact:"¡Esta isla es el hogar del dragón de Komodo — el lagarto más grande de la Tierra, que puede medir hasta 3 metros de largo! Es el único lugar del mundo donde viven en libertad estos lagartos gigantes." },
+  { id:'isla-mujeres', name:'Isla Mujeres', country:'MÉXICO', emoji:'🐠', center:[-86.732, 21.2314], zoom:13, pitch:30, fact:"¡Esta pequeña isla frente a la costa de Cancún tiene una de las aguas turquesas más claras del mundo, perfecta para ver tortugas marinas y peces de colores mientras se hace esnórquel!" },
+  { id:'uros-islands', name:'Islas Flotantes de los Uros', country:'PERÚ / BOLIVIA', emoji:'🛶', center:[-69.089, -15.8402], zoom:13, pitch:20, fact:"¡Esta gente vive en islas flotantes que ellos mismos construyen con juncos que crecen en el lago! Hasta las casas, botes y muebles están hechos del mismo material vegetal." },
+  { id:'galapagos', name:'Islas Galápagos', country:'ECUADOR', emoji:'🐢', center:[-90.9656, -0.7893], zoom:9, pitch:20, fact:"¡Estas islas son famosas por sus tortugas gigantes que pueden vivir más de 100 años! Un científico llamado Charles Darwin estudió aquí a los animales únicos para entender mejor cómo funciona la evolución." },
+  { id:'joya-de-ceren', name:'Joya de Cerén', country:'EL SALVADOR', emoji:'🏺', center:[-89.3597, 13.8309], zoom:15, pitch:40, fact:"¡Este antiguo pueblo agrícola quedó enterrado bajo cenizas volcánicas hace casi 1,400 años, y todo se conservó tan bien que la gente la llama la 'Pompeya de América'!" },
+  { id:'acropolis', name:'La Acrópolis', country:'GRECIA', emoji:'🏛️', center:[23.7264, 37.9715], zoom:15.5, pitch:55, fact:"El templo del Partenón, encima de esta colina, fue construido hace casi 2,500 años en la antigua Atenas, sin herramientas modernas, y sus columnas parecen perfectamente rectas aunque en realidad se curvan un poquito." },
+  { id:'alhambra', name:'La Alhambra', country:'ESPAÑA', emoji:'🕌', center:[-3.5891, 37.176], zoom:15.5, pitch:55, fact:"Este palacio y fortaleza fue construido por gobernantes musulmanes hace casi 700 años, con patios llenos de fuentes, jardines y azulejos con patrones geométricos increíblemente detallados." },
+  { id:'sphinx', name:'La Gran Esfinge', country:'EGIPTO', emoji:'🦁', center:[31.1379, 29.9753], zoom:16, pitch:55, fact:"Esta enorme estatua con cuerpo de león y cabeza humana tiene casi 4,500 años, y nadie sabe con certeza a quién representa su rostro." },
+  { id:'coatepeque', name:'Lago de Coatepeque', country:'EL SALVADOR', emoji:'💦', center:[-89.5333, 13.8667], zoom:12, pitch:25, fact:"Este hermoso lago azul en realidad llena el cráter de un antiguo volcán que colapsó hace miles de años, y a veces brilla débilmente de noche por un plancton diminuto que produce luz propia." },
+  { id:'crater-lake', name:'Lago del Cráter', country:'ESTADOS UNIDOS', emoji:'🔵', center:[-122.1685, 42.9446], zoom:11, pitch:30, fact:"Este lago se formó dentro de un volcán que colapsó hace miles de años. Es el lago más profundo de Estados Unidos, y su agua es de un azul intensísimo porque es increíblemente pura y clara." },
+  { id:'loch-ness', name:'Lago Ness', country:'ESCOCIA', emoji:'🐉', center:[-4.4244, 57.3229], zoom:10, pitch:10, fact:"¡Este lago profundo y oscuro es famoso por las leyendas de 'Nessie', una misteriosa criatura que algunas personas dicen haber visto — aunque nadie ha podido probar que realmente existe!" },
+  { id:'plitvice', name:'Lagos de Plitvice', country:'CROACIA', emoji:'💦', center:[15.6122, 44.8654], zoom:12, pitch:35, fact:"Este parque tiene 16 lagos color turquesa conectados por cascadas, todos unidos por senderos y puentes de madera que pasan justo sobre el agua." },
+  { id:'blue-lagoon', name:'Laguna Azul', country:'ISLANDIA', emoji:'♨️', center:[-22.4495, 63.8804], zoom:14, pitch:30, fact:"Esta laguna geotérmica de color azul lechoso se mantiene tibia todo el año, incluso en los fríos inviernos de Islandia, porque el calor viene de la actividad volcánica bajo tierra." },
+  { id:'jokulsarlon', name:'Laguna Glaciar Jökulsárlón', country:'ISLANDIA', emoji:'🧊', center:[-16.2306, 64.0784], zoom:12, pitch:30, fact:"Enormes trozos de glaciar se desprenden y flotan en esta laguna como esculturas de hielo gigantes, antes de derivar hacia el mar y varar en una playa cercana de arena negra." },
+  { id:'pyramids', name:'Las Grandes Pirámides', country:'EGIPTO', emoji:'🔺', center:[31.1342, 29.9792], zoom:15.5, pitch:55, fact:"Estas pirámides tienen más de 4,500 años y fueron construidas como tumbas gigantes para los faraones egipcios. ¡La más grande fue la estructura más alta de la Tierra durante casi 4,000 años!" },
+  { id:'las-vegas', name:'Las Vegas Strip', country:'ESTADOS UNIDOS', emoji:'🎰', center:[-115.1728, 36.1147], zoom:14, pitch:50, fact:"¡Las Vegas tiene tantas luces brillantes que se pueden ver desde el espacio de noche! Aquí hay hoteles gigantes con forma de pirámide, castillo, ¡y hasta de Torre Eiffel!" },
+  { id:'hollywood', name:'Letrero de Hollywood', country:'ESTADOS UNIDOS', emoji:'🎬', center:[-118.3215, 34.1341], zoom:13.5, pitch:45, fact:"¡Cada letra del letrero de Hollywood mide unos 14 metros de alto! Originalmente se construyó en 1923 como un anuncio para un proyecto de viviendas y decía 'HOLLYWOODLAND'." },
+  { id:'nazca-lines', name:'Líneas de Nazca', country:'PERÚ', emoji:'✏️', center:[-75.13, -14.739], zoom:13, pitch:0, fact:"Hace más de 1,500 años, gente antigua dibujó gigantescas figuras de animales y formas en el desierto — algunas tan grandes que solo se pueden ver completas desde el aire." },
+  { id:'twelve-apostles', name:'Los Doce Apóstoles', country:'AUSTRALIA', emoji:'🌊', center:[143.1042, -38.6619], zoom:12, pitch:50, fact:"Estas gigantescas formaciones de roca se elevan justo desde el océano, junto a la Great Ocean Road de Australia. Las olas las están desgastando poco a poco, así que nuevas rocas se van formando mientras las viejas se derrumban." },
+  { id:'machu-picchu', name:'Machu Picchu', country:'PERÚ', emoji:'🏔️', center:[-72.545, -13.1631], zoom:14.5, pitch:55, fact:"Esta antigua ciudad inca está en lo alto de los Andes, y fue construida sin herramientas de metal ni ruedas — ¡las piedras encajan tan perfecto que no necesitaron argamasa!" },
+  { id:'galveston', name:'Malecón de Galveston', country:'CERCA DE HOUSTON, TEXAS', emoji:'🏖️', center:[-94.7955, 29.2694], zoom:13.5, pitch:25, fact:"Este pueblo playero está en una isla justo al sur de Houston, protegido por un malecón de más de 16 kilómetros construido después de un huracán devastador en 1900 — una de las tormentas más mortales en la historia de EE. UU." },
+  { id:'dead-sea', name:'Mar Muerto', country:'JORDANIA / ISRAEL', emoji:'🧂', center:[35.5, 31.5], zoom:9, pitch:10, fact:"¡El Mar Muerto es tan salado que puedes flotar en la superficie sin ni siquiera intentarlo — es casi imposible hundirse! También es uno de los puntos más bajos de la Tierra." },
+  { id:'milford-sound', name:'Milford Sound', country:'NUEVA ZELANDA', emoji:'🏔️', center:[167.925, -44.6414], zoom:11, pitch:50, fact:"Aquí los acantilados se elevan directamente desde el agua, y llueve tanto que después de cada tormenta aparecen cientos de cascadas temporales en las paredes de roca." },
+  { id:'easter-island', name:'Moáis de la Isla de Pascua', country:'CHILE', emoji:'🗿', center:[-109.3497, -27.1212], zoom:12, pitch:40, fact:"Casi 900 estatuas gigantes de piedra llamadas moáis vigilan esta isla remota. Algunas son tan altas como un edificio de dos pisos, y nadie está del todo seguro de cómo la gente antigua las movió." },
+  { id:'rainbow-mountain', name:'Montaña de Colores (Vinicunca)', country:'PERÚ', emoji:'🌈', center:[-71.3097, -13.8815], zoom:12, pitch:45, fact:"¡Esta montaña tiene franjas de colores como un arcoíris — rojo, amarillo, verde y morado! Los colores vienen de diferentes minerales en la roca que se formaron a lo largo de millones de años." },
+  { id:'table-mountain', name:'Montaña de la Mesa', country:'SUDÁFRICA', emoji:'🌥️', center:[18.4033, -33.9628], zoom:12, pitch:55, fact:"¡Esta montaña tiene la cima completamente plana, como una mesa gigante! Algunos días las nubes pasan por encima y se derraman por los lados como un mantel blanco y esponjoso." },
+  { id:'mount-bromo', name:'Monte Bromo', country:'INDONESIA', emoji:'🌋', center:[112.95, -7.9425], zoom:12, pitch:50, fact:"Este volcán activo todavía echa humo desde su cráter, y quienes lo visitan caminan a través de un 'mar de arena' para llegar hasta el borde y mirar hacia adentro." },
+  { id:'everest', name:'Monte Everest', country:'NEPAL / CHINA', emoji:'🏔️', center:[86.925, 27.9881], zoom:9.5, pitch:60, fact:"¡Esta es la montaña más alta de la Tierra! Su cima está tan alta que los aviones solían volar cerca de ella, y los escaladores necesitan llevar su propio oxígeno para poder respirar allá arriba." },
+  { id:'fuji', name:'Monte Fuji', country:'JAPÓN', emoji:'🗻', center:[138.7274, 35.3606], zoom:11, pitch:60, fact:"El Monte Fuji es un volcán, y su pico nevado y perfectamente formado es una de las vistas de montaña más famosas del mundo. ¡Miles de personas lo escalan cada verano!" },
+  { id:'kilimanjaro', name:'Monte Kilimanjaro', country:'TANZANIA', emoji:'🏔️', center:[37.3556, -3.0674], zoom:10, pitch:55, fact:"El Kilimanjaro es la montaña más alta de África, y aunque está cerca del cálido ecuador, ¡su cima está cubierta de nieve y hielo todo el año!" },
+  { id:'mount-rushmore', name:'Monte Rushmore', country:'ESTADOS UNIDOS', emoji:'🗿', center:[-103.4591, 43.8791], zoom:14, pitch:55, fact:"¡El rostro de cada presidente tallado en esta montaña mide unos 18 metros de alto — como un edificio de seis pisos! Tomó 14 años y cientos de trabajadores tallarlos." },
+  { id:'monument-valley', name:'Monument Valley', country:'ESTADOS UNIDOS', emoji:'🏜️', center:[-110.098, 36.998], zoom:11, pitch:30, fact:"Estas gigantescas torres de arenisca roja que se elevan sobre el desierto han aparecido en incontables películas, y la tierra pertenece a la Nación Navajo." },
+  { id:'san-jacinto', name:'Monumento de San Jacinto', country:'HOUSTON, TEXAS', emoji:'🗽', center:[-95.0814, 29.7508], zoom:14.5, pitch:50, fact:"¡Este monumento es más alto que el Monumento a Washington! Marca el lugar donde se libró la batalla decisiva por la independencia de Texas en 1836." },
+  { id:'houston-museum', name:'Museo de Ciencias Naturales de Houston', country:'HOUSTON, TEXAS', emoji:'🦕', center:[-95.3903, 29.7221], zoom:16, pitch:50, fact:"Este museo tiene esqueletos reales de dinosaurios, un jardín de mariposas gigante por el que puedes caminar, e incluso un planetario que proyecta todo el cielo nocturno en el techo." },
+  { id:'louvre', name:'Museo del Louvre', country:'FRANCIA', emoji:'🖼️', center:[2.3376, 48.8606], zoom:16, pitch:55, fact:"Este es el museo de arte más grande del mundo, ¡y tomaría meses ver cada una de sus obras! La famosa pirámide de vidrio en la entrada tiene solo unas décadas, mucho más nueva que el palacio que la rodea." },
+  { id:'old-faithful', name:'Old Faithful', country:'ESTADOS UNIDOS', emoji:'💦', center:[-110.828, 44.4605], zoom:15, pitch:40, fact:"Este famoso géiser lanza agua hirviendo hasta 55 metros de altura, y hace erupción con tanta puntualidad — casi cada 90 minutos — que le pusieron el nombre 'el Fiel'." },
+  { id:'sydney-opera', name:'Ópera de Sídney', country:'AUSTRALIA', emoji:'🎭', center:[151.2153, -33.8568], zoom:15.5, pitch:50, fact:"¡El techo parece hecho de velas o conchas marinas gigantes! Tardaron más de 14 años en construirla, y más de un millón de baldosas de cerámica cubren su techo blanco y curvo." },
+  { id:'palenque', name:'Palenque', country:'MÉXICO', emoji:'🌴', center:[-92.0475, 17.4849], zoom:14, pitch:45, fact:"Esta ciudad maya está en pleno corazón de la selva, y sus templos solo fueron redescubiertos después de estar cubiertos por árboles y enredaderas durante cientos de años." },
+  { id:'pamukkale', name:'Pamukkale', country:'TURQUÍA', emoji:'❄️', center:[29.1206, 37.9142], zoom:14, pitch:40, fact:"El nombre significa 'castillo de algodón' en turco, porque estas terrazas blancas y escalonadas parecen estar hechas de nieve o algodón, aunque en realidad son de piedra caliza formada por aguas termales." },
+  { id:'buffalo-bayou', name:'Parque Buffalo Bayou', country:'HOUSTON, TEXAS', emoji:'🌳', center:[-95.386, 29.7633], zoom:15, pitch:30, fact:"Este sinuoso parque sigue un arroyo justo por el centro de la ciudad, con senderos para bicicleta, una gran cisterna cubierta de arte, y excelentes vistas del horizonte del centro." },
+  { id:'amboseli', name:'Parque Nacional Amboseli', country:'KENIA', emoji:'🐘', center:[37.26, -2.652], zoom:9, pitch:15, fact:"Desde aquí puedes ver manadas de elefantes caminando con el nevado Monte Kilimanjaro como telón de fondo — una de las vistas de safari más famosas de toda África." },
+  { id:'arches', name:'Parque Nacional Arches', country:'ESTADOS UNIDOS', emoji:'🌉', center:[-109.5925, 38.7331], zoom:12, pitch:45, fact:"Este parque tiene más de 2,000 arcos de piedra natural, más que en cualquier otro lugar del mundo. El viento y el agua fueron esculpiendo la roca poco a poco durante millones de años." },
+  { id:'banff', name:'Parque Nacional de Banff', country:'CANADÁ', emoji:'🏔️', center:[-115.5708, 51.1784], zoom:10, pitch:45, fact:"Los lagos aquí son de un azul turquesa brillante — no por pintura, sino por pequeños trocitos de roca molida por los glaciares, llamados 'harina de roca', flotando en el agua." },
+  { id:'redwoods', name:'Parque Nacional Redwood', country:'ESTADOS UNIDOS', emoji:'🌲', center:[-124.0046, 41.2132], zoom:10, pitch:30, fact:"Estos son los árboles más altos de la Tierra, algunos de más de 100 metros — más alto que una cancha de fútbol puesta de pie — y algunos han estado vivos por más de 2,000 años." },
+  { id:'zion', name:'Parque Nacional Zion', country:'ESTADOS UNIDOS', emoji:'🏞️', center:[-113.0263, 37.2982], zoom:11, pitch:45, fact:"Los altísimos acantilados de roca roja de este parque fueron tallados por un río durante millones de años. Hay un sendero tan angosto entre las paredes que se llama 'The Narrows', porque literalmente caminas dentro del río." },
+  { id:'petra', name:'Petra', country:'JORDANIA', emoji:'🏛️', center:[35.4444, 30.3285], zoom:14.5, pitch:55, fact:"Los edificios de esta antigua ciudad fueron tallados directamente en acantilados de arenisca rosada hace más de 2,000 años. Estuvo perdida para el mundo exterior durante siglos hasta que fue redescubierta en 1812." },
+  { id:'el-tunco', name:'Playa El Tunco', country:'EL SALVADOR', emoji:'🏄', center:[-89.3833, 13.4917], zoom:13, pitch:30, fact:"¡Esta playa de arena negra es uno de los lugares para surfear más famosos de Centroamérica, y su nombre viene de una roca cercana a la orilla que parece un tunquito (cerdito)!" },
+  { id:'whitehaven-beach', name:'Playa Whitehaven', country:'AUSTRALIA', emoji:'🏖️', center:[149.0392, -20.283], zoom:13, pitch:30, fact:"¡La arena de esta playa está hecha de sílice casi pura — es tan fina que no se calienta con el sol y hace un chirrido al caminar sobre ella!" },
+  { id:'golden-gate', name:'Puente Golden Gate', country:'ESTADOS UNIDOS', emoji:'🌉', center:[-122.4783, 37.8199], zoom:13.5, pitch:55, fact:"Este puente está pintado de un color llamado 'naranja internacional' para que resalte contra la niebla que llega a la Bahía de San Francisco casi todos los días." },
+  { id:'tulum', name:'Ruinas de Tulum', country:'MÉXICO', emoji:'🏝️', center:[-87.4297, 20.2114], zoom:15, pitch:50, fact:"¡Tulum es una de las pocas ciudades mayas antiguas construidas justo sobre un acantilado frente al mar — imagina tener vista a la playa hace mil años!" },
+  { id:'sagrada-familia', name:'Sagrada Familia', country:'ESPAÑA', emoji:'⛪', center:[2.1744, 41.4036], zoom:16, pitch:55, fact:"¡Esta gran iglesia lleva construyéndose desde 1882 — más de 140 años! — y se espera que finalmente esté terminada muy pronto, con torres inspiradas en árboles y montañas." },
+  { id:'salar-uyuni', name:'Salar de Uyuni', country:'BOLIVIA', emoji:'🪞', center:[-67.4891, -20.1338], zoom:9, pitch:15, fact:"¡Este es el salar más grande de la Tierra — tan plano y brillante que, después de llover, se convierte en un espejo gigante que refleja todo el cielo!" },
+  { id:'angel-falls', name:'Salto Ángel', country:'VENEZUELA', emoji:'💧', center:[-62.5359, 5.9701], zoom:11, pitch:50, fact:"¡Esta es la cascada más alta del mundo! El agua cae desde tan alto (más de 900 metros) que buena parte se convierte en neblina antes de llegar abajo." },
+  { id:'santorini', name:'Santorini', country:'GRECIA', emoji:'🏝️', center:[25.3963, 36.3932], zoom:12.5, pitch:40, fact:"Las casas blancas con techos azul brillante de esta isla están sobre el borde de un volcán gigante que hizo erupción hace miles de años, formando la dramática forma curva de la isla." },
+  { id:'amazon', name:'Selva Amazónica', country:'BRASIL', emoji:'🌳', center:[-62.2159, -3.4653], zoom:6.2, pitch:30, fact:"El Amazonas produce tanto oxígeno que la gente la llama 'el pulmón del planeta'. Es el hogar de millones de tipos de plantas, insectos y animales — ¡más que en cualquier otro lugar de la Tierra!" },
+  { id:'serengeti', name:'Serengeti', country:'TANZANIA', emoji:'🦁', center:[34.8333, -2.3333], zoom:7, pitch:10, fact:"Cada año, más de un millón de ñus y cebras migran a través del Serengeti en uno de los viajes de animales más grandes de la Tierra, con leones y guepardos siguiéndolos de cerca." },
+  { id:'space-center-houston', name:'Space Center Houston', country:'HOUSTON, TEXAS', emoji:'🚀', center:[-95.0949, 29.5518], zoom:15, pitch:55, fact:"¡Aquí está el Control de Misión de los astronautas de la NASA! Todas las misiones espaciales tripuladas se dirigen desde este lugar, y puedes ver un cohete Saturno V de verdad acostado de lado — más largo que una cancha de fútbol americano." },
+  { id:'space-needle', name:'Space Needle', country:'ESTADOS UNIDOS', emoji:'🛰️', center:[-122.3493, 47.6205], zoom:15, pitch:50, fact:"Esta torre se construyó para la Feria Mundial de 1962 para mostrar cómo podría ser el futuro, y puede resistir vientos de hasta 320 kilómetros por hora, además de terremotos." },
+  { id:'stonehenge', name:'Stonehenge', country:'REINO UNIDO', emoji:'🗿', center:[-1.8262, 51.1789], zoom:14.5, pitch:40, fact:"Nadie sabe con certeza por qué la gente antigua construyó este círculo de piedras gigantes hace más de 4,500 años — ¡algunas fueron arrastradas desde más de 240 kilómetros de distancia sin ninguna máquina!" },
+  { id:'suchitoto', name:'Suchitoto', country:'EL SALVADOR', emoji:'🏘️', center:[-89.0261, 13.9384], zoom:15, pitch:45, fact:"Este encantador pueblo colonial tiene calles empedradas y edificios blancos, y tiene vista a un enorme lago que se formó cuando se represó un río cercano." },
+  { id:'taj-mahal', name:'Taj Mahal', country:'INDIA', emoji:'🕌', center:[78.0421, 27.1751], zoom:15.5, pitch:55, fact:"Un emperador construyó este hermoso edificio de mármol blanco como tumba para su esposa, y le tomó a más de 20,000 trabajadores más de 20 años terminarlo." },
+  { id:'tazumal', name:'Tazumal', country:'EL SALVADOR', emoji:'🗿', center:[-89.6739, 13.9764], zoom:15, pitch:45, fact:"Tazumal es uno de los sitios mayas mejor conservados de Centroamérica, con una pirámide escalonada que la gente ha podido visitar y subir durante siglos." },
+  { id:'teotihuacan', name:'Teotihuacán', country:'MÉXICO', emoji:'🌞', center:[-98.8438, 19.6925], zoom:14.5, pitch:45, fact:"La Pirámide del Sol aquí es una de las pirámides más grandes jamás construidas en el mundo, y la antigua ciudad a su alrededor llegó a tener más de 100,000 habitantes." },
+  { id:'bali-terraces', name:'Terrazas de Arroz de Tegalalang', country:'INDONESIA', emoji:'🌾', center:[115.2794, -8.431], zoom:14, pitch:40, fact:"Los agricultores tallaron estos campos de arroz verde esmeralda en la ladera como escaleras gigantes de color verde, usando un sistema de riego centenario para regar cada nivel." },
+  { id:'cn-tower', name:'Torre CN', country:'CANADÁ', emoji:'🗼', center:[-79.3871, 43.6426], zoom:15.5, pitch:55, fact:"¡Esta torre fue el edificio más alto del mundo durante más de 30 años! Tiene un piso de vidrio transparente a 342 metros de altura donde puedes pararte y ver el suelo bajo tus pies." },
+  { id:'pisa-tower', name:'Torre de Pisa', country:'ITALIA', emoji:'🗼', center:[10.3966, 43.723], zoom:16, pitch:55, fact:"¡Esta torre ha estado inclinada desde que aún la estaban construyendo hace casi 850 años, porque se levantó sobre un terreno blando y desnivelado! Los ingenieros han trabajado mucho para asegurarse de que no se caiga." },
+  { id:'eiffel-tower', name:'Torre Eiffel', country:'FRANCIA', emoji:'🗼', center:[2.2945, 48.8584], zoom:15.5, pitch:55, fact:"¡La Torre Eiffel solo iba a estar en pie 20 años antes de ser derribada! Hoy la gente la ama, pero cuando se construyó en 1889, muchos parisinos pensaban que era fea." },
+  { id:'torres-paine', name:'Torres del Paine', country:'CHILE', emoji:'🗻', center:[-73.0392, -50.9423], zoom:10, pitch:55, fact:"Estas tres torres de granito en la Patagonia fueron talladas por antiguos glaciares, y excursionistas de todo el mundo viajan solo para ver su forma dramática y afilada." },
+  { id:'tower-bridge', name:'Tower Bridge', country:'REINO UNIDO', emoji:'🌉', center:[-0.0754, 51.5055], zoom:15.5, pitch:55, fact:"Aunque mucha gente confunde este puente con el London Bridge, es un puente completamente diferente. Sus dos secciones centrales se pueden levantar para dejar pasar barcos grandes por el río Támesis." },
+  { id:'uluru', name:'Uluru (Ayers Rock)', country:'AUSTRALIA', emoji:'🪨', center:[131.0369, -25.3444], zoom:12, pitch:45, fact:"¡Uluru es una gigantesca roca de arenisca que cambia de color a lo largo del día — puede verse naranja, roja o hasta morada según cómo le pegue el sol!" },
+  { id:'death-valley', name:'Valle de la Muerte', country:'ESTADOS UNIDOS', emoji:'🌡️', center:[-117.0794, 36.5054], zoom:9, pitch:20, fact:"¡Este es uno de los lugares más calurosos de la Tierra — una vez llegó a 57°C! También es uno de los puntos más bajos de Norteamérica, muy por debajo del nivel del mar." },
+  { id:'varanasi', name:'Varanasi', country:'INDIA', emoji:'🛕', center:[83.006, 25.3176], zoom:14, pitch:40, fact:"Esta es una de las ciudades habitadas más antiguas del mundo, construida a orillas del río Ganges, considerado sagrado por millones de personas." },
+  { id:'arenal-volcano', name:'Volcán Arenal', country:'COSTA RICA', emoji:'🌋', center:[-84.703, 10.463], zoom:12, pitch:50, fact:"Este volcán con forma perfecta de cono estuvo activo por más de 40 años seguidos, y todavía hoy hay aguas termales calentadas naturalmente por el calor del volcán cerca de su base." },
+  { id:'santa-ana-volcano', name:'Volcán de Santa Ana', country:'EL SALVADOR', emoji:'🌋', center:[-89.63, 13.8536], zoom:12, pitch:50, fact:"El volcán más alto de El Salvador tiene una impresionante laguna de cráter color verde turquesa echando vapor en la cima — quienes lo escalan pueden asomarse directamente al cráter." },
+  { id:'wadi-rum', name:'Wadi Rum', country:'JORDANIA', emoji:'🏜️', center:[35.416, 29.575], zoom:11, pitch:30, fact:"Este desierto de arena roja y montañas de roca es tan parecido a Marte que se ha usado para filmar varias películas espaciales." },
+  { id:'xochimilco', name:'Xochimilco', country:'MÉXICO', emoji:'🛶', center:[-99.1039, 19.2825], zoom:14, pitch:20, fact:"Estos coloridos jardines flotantes son lo último que queda de una enorme red de canales sobre la que se construyó originalmente la Ciudad de México, cuando era una ciudad isla." },
+  { id:'zhangjiajie', name:'Zhangjiajie', country:'CHINA', emoji:'🌲', center:[110.47, 29.326], zoom:11, pitch:55, fact:"¡Estos delgados y altísimos pilares de piedra inspiraron las montañas flotantes de la película Avatar! Algunos se elevan más de 900 metros sobre el bosque." },
+  { id:'houston-zoo', name:'Zoológico de Houston', country:'HOUSTON, TEXAS', emoji:'🦒', center:[-95.3903, 29.7159], zoom:16, pitch:30, fact:"El Zoológico de Houston tiene miles de animales, incluyendo jirafas, elefantes y una enorme exhibición interior de selva tropical llena de jaguares y aves de colores." },
+];
+
+// Stamps are kept in memory only, for this session — no localStorage.
+// That keeps updates to the app simple: everyone always gets a clean
+// slate instead of carrying over a stale set of collected ids across
+// versions of the game.
+let collected = new Set();
+let activeDest = null;
+
+// ---------------------------------------------------------------
+// Map setup — free raster tiles, no API key required.
+// OSM for the base globe; MapLibre's built-in globe projection
+// gives the "spin the whole Earth" feeling.
+// Everything below is wrapped in try/catch so that if the map
+// library or a tile source fails to load, the welcome screen,
+// start button, and passport still work — the app degrades
+// instead of breaking outright.
+// ---------------------------------------------------------------
+try{
+
+const map = new maplibregl.Map({
+  container:'map',
+  style:{
+    version:8,
+    sources:{
+      'osm':{
+        type:'raster',
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize:256,
+        attribution:'© OpenStreetMap contributors'
+      },
+      'satellite':{
+        type:'raster',
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize:256,
+        attribution:'Esri World Imagery'
+      }
+    },
+    layers:[
+      { id:'osm-layer', type:'raster', source:'osm' }
+    ]
+  },
+  center:[0, 20],
+  zoom:1.6,
+  pitch:0,
+  attributionControl:{ compact:false }
+});
+exploreMap = map;
+
+map.on('load', ()=>{
+  try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
+  map.setFog({});
+});
+
+map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
+map.dragRotate.enable();
+map.touchZoomRotate.enable();
+map.touchPitch.enable();
+
+// Swap to satellite imagery automatically once zoomed in close,
+// so kids see real photo detail on landmarks, and OSM lines/labels
+// when zoomed out for a friendly, readable globe.
+let usingSatellite = false;
+map.on('zoom', ()=>{
+  const z = map.getZoom();
+  if(z > 7.5 && !usingSatellite){
+    if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
+    map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
+    usingSatellite = true;
+  } else if(z <= 7.5 && usingSatellite){
+    if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
+    map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
+    usingSatellite = false;
+  }
+});
+
+// ---------------------------------------------------------------
+// Landmark markers
+// ---------------------------------------------------------------
+DESTINATIONS.forEach(d=>{
+  const el = document.createElement('div');
+  el.textContent = d.emoji;
+  el.style.fontSize = '26px';
+  el.style.cursor = 'pointer';
+  el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
+  el.title = d.name;
+  el.addEventListener('click', ()=> flyToDestination(d));
+  new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
+});
+
+const transitionGuard = document.getElementById('transition-guard');
+function flyToDestination(d){
+  if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
+  activeDest = d;
+  transitionGuard.classList.add('show');
+  document.getElementById('topbar').classList.add('dimmed');
+  document.getElementById('dock-wrap').classList.add('dimmed');
+  factCard.classList.remove('show');
+  photoPanel.classList.remove('show');
+  closeLightbox();
+  // Fixed, explicit duration instead of speed/curve — paired with a
+  // matching setTimeout below instead of a 'moveend' listener. Relying
+  // on 'moveend' was racy: a leftover moveend from drive mode's
+  // per-frame jumpTo calls could get consumed by this listener and
+  // end the "flight" instantly, before the camera had actually
+  // arrived — that's what was causing stuck cameras and popups
+  // appearing with no travel animation.
+  const FLY_DURATION = 3200;
+  map.flyTo({
+    center:d.center,
+    zoom:d.zoom,
+    pitch:d.pitch,
+    bearing: Math.random()*40-20,
+    duration:FLY_DURATION,
+    essential:true
+  });
+  setTimeout(()=>{
+    transitionGuard.classList.remove('show');
+    document.getElementById('topbar').classList.remove('dimmed');
+    document.getElementById('dock-wrap').classList.remove('dimmed');
+    showFactCard(d);
+  }, FLY_DURATION);
+}
+
+// ---------------------------------------------------------------
+// Destination dock (bottom scroller)
+// ---------------------------------------------------------------
+const dock = document.getElementById('dock');
+function renderDock(){
+  dock.innerHTML = '';
+  DESTINATIONS.forEach(d=>{
+    const card = document.createElement('div');
+    card.className = 'dest-card' + (collected.has(d.id) ? ' visited' : '');
+    card.innerHTML = `<span class="check">✓</span><span class="emoji">${d.emoji}</span><span class="name">${d.name}</span><span class="country">${d.country}</span>`;
+    card.addEventListener('click', ()=> flyToDestination(d));
+    dock.appendChild(card);
+  });
+}
+renderDock();
+
+// ---------------------------------------------------------------
+// Fact card
+// ---------------------------------------------------------------
+const factCard = document.getElementById('fact-card');
+const factTitle = document.getElementById('fact-title');
+const factCountry = document.getElementById('fact-country');
+const factText = document.getElementById('fact-text');
+const stampBtn = document.getElementById('stamp-btn');
+const femoji = document.querySelector('#fact-card .femoji');
+
+function showFactCard(d){
+  femoji.textContent = d.emoji;
+  factTitle.textContent = d.name;
+  factCountry.textContent = d.country;
+  factText.textContent = d.fact;
+  updateStampBtn(d);
+  factCard.classList.add('show');
+  photoPanel.classList.remove('show');
+  closeLightbox();
+}
+function updateStampBtn(d){
+  if(collected.has(d.id)){
+    stampBtn.textContent = '✓ ¡Sello conseguido!';
+    stampBtn.classList.add('already');
+  } else {
+    stampBtn.textContent = '🎟️ ¡Conseguir sello!';
+    stampBtn.classList.remove('already');
+  }
+}
+document.querySelector('#fact-card .fclose').addEventListener('click', ()=>{
+  factCard.classList.remove('show');
+  photoPanel.classList.remove('show');
+  closeLightbox();
+});
+stampBtn.addEventListener('click', ()=>{
+  if(!activeDest || collected.has(activeDest.id)) return;
+  collected.add(activeDest.id);
+  updateStampBtn(activeDest);
+  renderDock();
+  updatePassportCount();
+  celebrateStamp();
+  maybeShowMilestone();
+});
+
+function celebrateStamp(){
+  stampBtn.style.transform = 'scale(1.08)';
+  setTimeout(()=> stampBtn.style.transform = '', 180);
+}
+
+// One escalating title per 8-stamp milestone, up to all 128 destinations.
+const MILESTONE_TITLES = [
+  '¡Explorador Novato!',
+  '¡Viajero Curioso!',
+  '¡Aventurero Audaz!',
+  '¡Trotamundos!',
+  '¡Explorador Experto!',
+  '¡Viajero Legendario!',
+  '¡Maestro de Mapas!',
+  '¡Conquistador de Continentes!',
+  '¡Leyenda Viajera!',
+  '¡Explorador Supremo!',
+  '¡Campeón del Globo!',
+  '¡Maestro Explorador!',
+  '¡Embajador del Mundo!',
+  '¡Héroe de la Aventura!',
+  '¡Leyenda del Planeta!',
+  '¡Explorador Definitivo!'
+];
+const milestoneModal = document.getElementById('milestone-modal');
+const milestoneTitle = document.getElementById('milestone-title');
+const milestoneSub = document.getElementById('milestone-sub');
+document.getElementById('milestone-close').addEventListener('click', ()=>{
+  milestoneModal.classList.remove('show');
+});
+
+function maybeShowMilestone(){
+  const n = collected.size;
+  if(n === 0 || n % 8 !== 0) return;
+  const tier = Math.min(n / 8, MILESTONE_TITLES.length) - 1;
+  milestoneTitle.textContent = MILESTONE_TITLES[tier];
+  milestoneSub.textContent = `Has conseguido ${n} de ${DESTINATIONS.length} sellos`;
+  milestoneModal.classList.add('show');
+}
+
+// =================================================================
+// NEARBY PHOTOS — shared by both Explore and Drive mode
+// On-demand only: fetching happens when the button is tapped, not
+// continuously, so driving doesn't hammer the API every few seconds.
+// Uses Wikimedia Commons' free, keyless geosearch API — real geotagged
+// photos near whatever coordinates are passed in.
+// =================================================================
+const photoPanel = document.getElementById('photo-panel');
+const photoShots = document.getElementById('photo-shots');
+let photoPanelLat = null, photoPanelLng = null;
+
+// Lightbox: closeup view with prev/next, opened by tapping a thumbnail.
+const photoLightbox = document.getElementById('photo-lightbox');
+const lightboxImg = document.getElementById('lightbox-img');
+const lightboxCaption = document.getElementById('lightbox-caption');
+let currentPhotos = [];
+let currentPhotoIndex = 0;
+
+function openLightbox(index){
+  currentPhotoIndex = index;
+  photoLightbox.classList.toggle('single', currentPhotos.length <= 1);
+  updateLightboxImage();
+  photoLightbox.classList.add('show');
+}
+function updateLightboxImage(){
+  const p = currentPhotos[currentPhotoIndex];
+  if(!p) return;
+  lightboxImg.src = p.url;
+  lightboxImg.alt = p.caption;
+  lightboxCaption.textContent = p.caption;
+}
+function closeLightbox(){ photoLightbox.classList.remove('show'); }
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-prev').addEventListener('click', ()=>{
+  currentPhotoIndex = (currentPhotoIndex - 1 + currentPhotos.length) % currentPhotos.length;
+  updateLightboxImage();
+});
+document.getElementById('lightbox-next').addEventListener('click', ()=>{
+  currentPhotoIndex = (currentPhotoIndex + 1) % currentPhotos.length;
+  updateLightboxImage();
+});
+photoLightbox.addEventListener('click', (e)=>{ if(e.target === photoLightbox) closeLightbox(); });
+
+function togglePhotoPanel(lat, lng){
+  const alreadyShowingHere = photoPanel.classList.contains('show') && lat === photoPanelLat && lng === photoPanelLng;
+  if(alreadyShowingHere){
+    photoPanel.classList.remove('show');
+  closeLightbox();
+    return;
+  }
+  photoPanel.classList.add('show');
+  fetchNearbyPhotos(lat, lng);
+}
+
+async function fetchNearbyPhotos(lat, lng){
+  photoPanelLat = lat; photoPanelLng = lng;
+  currentPhotos = [];
+  photoShots.innerHTML = '<div class="ploading">Buscando fotos…</div>';
+  try{
+    const geoUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=4000&gsnamespace=6&gslimit=8&format=json&origin=*`;
+    const geoRes = await fetch(geoUrl);
+    const geoData = await geoRes.json();
+    const results = (geoData.query && geoData.query.geosearch) || [];
+    if(results.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No hay fotos cerca todavía.</div>';
+      return;
+    }
+    const titles = results.slice(0, 4).map(r => r.title).join('|');
+    const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*`;
+    const infoRes = await fetch(infoUrl);
+    const infoData = await infoRes.json();
+    const pages = (infoData.query && infoData.query.pages) || {};
+    const shots = Object.values(pages)
+      .filter(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl)
+      .slice(0, 3);
+    if(shots.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No hay fotos cerca todavía.</div>';
+      return;
+    }
+    photoShots.innerHTML = '';
+    currentPhotos = shots.map(p=>({
+      url: p.imageinfo[0].thumburl,
+      caption: p.title.replace(/^File:/, '').replace(/\.[a-zA-Z]+$/, '').replace(/_/g, ' ').slice(0, 60)
+    }));
+    currentPhotos.forEach((p, i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'pshot-btn';
+      btn.setAttribute('aria-label', 'Ver foto de cerca');
+      const img = document.createElement('img');
+      img.src = p.url;
+      img.alt = p.caption;
+      img.loading = 'lazy';
+      const cap = document.createElement('div');
+      cap.className = 'pcaption';
+      cap.textContent = p.caption;
+      btn.appendChild(img);
+      btn.appendChild(cap);
+      btn.addEventListener('click', ()=> openLightbox(i));
+      photoShots.appendChild(btn);
+    });
+  } catch(err){
+    console.error('Nearby photos fetch failed', err);
+    photoShots.innerHTML = '<div class="ploading">No se pudieron cargar las fotos.</div>';
+  }
+}
+
+document.querySelector('.photo-close').addEventListener('click', ()=>{
+  photoPanel.classList.remove('show');
+  closeLightbox();
+});
+document.getElementById('fact-photo-btn').addEventListener('click', ()=>{
+  if(!activeDest) return;
+  togglePhotoPanel(activeDest.center[1], activeDest.center[0]);
+});
+
+// =================================================================
+// DRIVE MODE
+// Uses the browser's built-in geolocation (device location, granted
+// by the user) to drop a car on a real map near them, driven with
+// arrow keys / WASD. "Nearby photos" come from Wikimedia Commons'
+// free, keyless geosearch API — real geotagged photos near wherever
+// the car currently is.
+// =================================================================
+const modeExploreBtn = document.getElementById('mode-explore-btn');
+const modeDriveBtn = document.getElementById('mode-drive-btn');
+const driveHud = document.getElementById('drive-hud');
+const driveSpeedo = document.getElementById('drive-speedo');
+const locateCard = document.getElementById('locate-card');
+const drivePhotoBtn = document.getElementById('drive-photo-btn');
+drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
+
+// The exact camera the map opens with — Explore mode always returns to
+// precisely this, every time, so switching modes can never leave the
+// globe in some in-between state.
+const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
+
+let currentMode = 'explore';
+let carMarker = null;
+let carFlipEl = null;
+const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
+let vehicleIndex = 0;
+let facingRight = false; // vehicle emojis default to facing left
+let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
+const keys = {};
+let driveRAF = null;
+let lastFrameTime = null;
+
+function metersPerDegLng(lat){ return 111320 * Math.cos(lat * Math.PI / 180); }
+const METERS_PER_DEG_LAT = 111320;
+
+// Removes the car marker from the map entirely, if one exists. Called
+// whenever leaving Drive mode AND right before creating a new one, so
+// there is never a moment where two car markers can both exist.
+function removeCarMarker(){
+  if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; }
+}
+
+function switchMode(next){
+  if(next === currentMode) return;
+  currentMode = next;
+  modeExploreBtn.classList.toggle('active', next === 'explore');
+  modeDriveBtn.classList.toggle('active', next === 'drive');
+
+  if(next === 'explore'){
+    stopDrive();
+    removeCarMarker();
+    document.getElementById('dock-wrap').style.display = '';
+    driveHud.style.display = 'none';
+    driveHud.classList.remove('state-boost');
+    drivePhotoBtn.style.display = 'none';
+    photoPanel.classList.remove('show');
+  closeLightbox();
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+    map.dragRotate.enable();
+    map.dragPan.enable();
+    // Always reset to the exact same zoomed-out globe view the app
+    // opens with — never resume wherever driving last left the camera.
+    // Fixed duration + matching setTimeout (not a 'moveend' listener —
+    // see the note in flyToDestination for why that was unreliable
+    // right after leaving Drive mode specifically).
+    const RESET_DURATION = 2200;
+    transitionGuard.classList.add('show');
+    document.getElementById('topbar').classList.add('dimmed');
+    document.getElementById('dock-wrap').classList.add('dimmed');
+    map.flyTo({ ...DEFAULT_EXPLORE_VIEW, duration:RESET_DURATION, essential:true });
+    setTimeout(()=>{
+      transitionGuard.classList.remove('show');
+      document.getElementById('topbar').classList.remove('dimmed');
+      document.getElementById('dock-wrap').classList.remove('dimmed');
+    }, RESET_DURATION);
+  } else {
+    // Entering Drive mode is always treated like the very first time:
+    // drop any old marker and re-ask for the current location, rather
+    // than trying to "resume" a previous session. That's what was
+    // causing a second, stale car to appear at the old spot.
+    removeCarMarker();
+    document.getElementById('dock-wrap').style.display = 'none';
+    factCard.classList.remove('show');
+    photoPanel.classList.remove('show');
+  closeLightbox();
+    locateCard.classList.add('show');
+  }
+}
+modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
+modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
+
+document.getElementById('locate-cancel').addEventListener('click', ()=>{
+  locateCard.classList.remove('show');
+  switchMode('explore');
+});
+document.getElementById('locate-go').addEventListener('click', ()=>{
+  if(!navigator.geolocation){
+    alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      locateCard.classList.remove('show');
+      beginDriveAt(pos.coords.longitude, pos.coords.latitude);
+    },
+    ()=>{
+      locateCard.classList.remove('show');
+      alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
+      switchMode('explore');
+    },
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+});
+
+function beginDriveAt(lng, lat){
+  removeCarMarker(); // guarantee there is never more than one car
+  carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
+  facingRight = false;
+
+  // Structure: outer (MapLibre owns its transform for map positioning —
+  // never set transform on this one directly) > flip (persistent
+  // left/right facing, our transform) > emoji (textContent + the
+  // temporary pop animation on click). Nesting like this lets the flip
+  // and the pop animation each own their own transform without fighting.
+  const outer = document.createElement('div');
+  const flip = document.createElement('div');
+  flip.className = 'car-flip';
+  const emoji = document.createElement('div');
+  emoji.className = 'car-emoji';
+  emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
+  flip.appendChild(emoji);
+  outer.appendChild(flip);
+
+  emoji.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
+    emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
+    emoji.classList.remove('pop');
+    void emoji.offsetWidth; // restart the animation even on rapid re-clicks
+    emoji.classList.add('pop');
+  });
+
+  carMarker = new maplibregl.Marker({ element:outer })
+    .setLngLat([carLng, carLat]).addTo(map);
+  carFlipEl = flip;
+
+  driveHud.style.display = 'flex';
+  drivePhotoBtn.style.display = 'block';
+  map.dragRotate.disable();
+  map.dragPan.disable(); // so a held drag steers the car instead of panning the map
+  map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
+  ensureRoadLayer();
+  resumeDrive();
+  if(typeof showDriveHint === 'function') showDriveHint();
+}
+
+// Free, keyless vector road data from OpenFreeMap (OpenStreetMap-based,
+// no API key, no limits) so the car can tell whether it's near a road.
+// Added once, only used while driving — see switchMode() for how
+// visibility is toggled off in Explore mode so it doesn't cost tile
+// requests while spinning the globe.
+function ensureRoadLayer(){
+  if(!map.getSource('openmaptiles')){
+    map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
+  }
+  if(!map.getLayer('drive-roads')){
+    map.addLayer({
+      id:'drive-roads', type:'line', source:'openmaptiles', 'source-layer':'transportation',
+      minzoom:10,
+      paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
+    });
+  }
+  map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+}
+
+function resumeDrive(){
+  window.addEventListener('keydown', onDriveKeyDown);
+  window.addEventListener('keyup', onDriveKeyUp);
+  lastFrameTime = null;
+  driveRAF = requestAnimationFrame(driveLoop);
+}
+function stopDrive(){
+  window.removeEventListener('keydown', onDriveKeyDown);
+  window.removeEventListener('keyup', onDriveKeyUp);
+  if(driveRAF) cancelAnimationFrame(driveRAF);
+  driveRAF = null;
+  pointerActive = false;
+  activePointerId = null;
+}
+function onDriveKeyDown(e){
+  keys[e.key.toLowerCase()] = true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+}
+function onDriveKeyUp(e){ keys[e.key.toLowerCase()] = false; }
+
+// Hold-to-drive: press and hold (finger or mouse) anywhere on the map
+// and the car heads toward that point on the screen. Since the camera
+// always stays centered on the car, "toward the touch point" is just
+// the direction from the middle of the screen to wherever the pointer
+// is. Only active in Drive mode, and ignores presses that start on a
+// map control (like the zoom buttons) so those still work normally.
+//
+// Uses pointer capture + a tracked pointerId so the hold survives the
+// finger sliding near screen edges, a second stray touch landing
+// elsewhere, or the browser trying to treat it as a scroll/pan
+// gesture — all things that were making the hold drop out randomly.
+let pointerActive = false, pointerDX = 0, pointerDY = 0;
+let activePointerId = null;
+const POINTER_DEADZONE = 12; // px — avoids jitter right at screen center
+
+function onMapPointerDown(e){
+  if(currentMode !== 'drive') return;
+  if(activePointerId !== null) return; // already tracking a hold — ignore extra touches
+  if(e.target.closest && e.target.closest('.maplibregl-ctrl')) return;
+  e.preventDefault();
+  activePointerId = e.pointerId;
+  pointerActive = true;
+  updatePointerDelta(e);
+  if(mapContainerEl.setPointerCapture){
+    try{ mapContainerEl.setPointerCapture(e.pointerId); }catch(err){ /* not critical if unsupported */ }
+  }
+}
+function updatePointerDelta(e){
+  pointerDX = e.clientX - window.innerWidth / 2;
+  pointerDY = e.clientY - window.innerHeight / 2;
+}
+function onMapPointerMove(e){
+  if(!pointerActive || e.pointerId !== activePointerId) return;
+  e.preventDefault();
+  updatePointerDelta(e);
+}
+function onMapPointerUp(e){
+  if(e.pointerId !== undefined && e.pointerId !== activePointerId) return;
+  pointerActive = false;
+  activePointerId = null;
+}
+
+const mapContainerEl = map.getContainer();
+mapContainerEl.addEventListener('pointerdown', onMapPointerDown);
+mapContainerEl.addEventListener('pointermove', onMapPointerMove);
+mapContainerEl.addEventListener('pointerup', onMapPointerUp);
+mapContainerEl.addEventListener('pointercancel', onMapPointerUp);
+window.addEventListener('pointerup', onMapPointerUp);
+window.addEventListener('pointercancel', onMapPointerUp);
+window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; });
+
+
+// Combines keyboard and pointer-hold input into one direction, so the
+// physics below doesn't need to know which one is active. Pointer
+// takes priority whenever it's active.
+function getInputDirection(){
+  if(pointerActive){
+    const mag = Math.hypot(pointerDX, pointerDY);
+    if(mag < POINTER_DEADZONE) return { x:0, y:0 };
+    return { x: pointerDX / mag, y: -pointerDY / mag };
+  }
+  const north = (keys['arrowup'] || keys['w']) ? 1 : 0;
+  const south = (keys['arrowdown'] || keys['s']) ? 1 : 0;
+  const west = (keys['arrowleft'] || keys['a']) ? 1 : 0;
+  const east = (keys['arrowright'] || keys['d']) ? 1 : 0;
+  let x = east - west, y = north - south;
+  const mag = Math.hypot(x, y);
+  if(mag > 1){ x /= mag; y /= mag; }
+  return { x, y };
+}
+
+// Translation-only driving: each arrow/WASD direction pushes the car
+// straight north/south/east/west (map-relative, not car-relative) —
+// no turning or heading to manage. Holding two directions at once
+// (e.g. up + right) drives diagonally. Speed gets a big boost while
+// hugging a road — up to 256 km/h, race-car territory.
+const BASE_MAX_SPEED = 10;           // m/s off-road (~36 km/h)
+const ROAD_MAX_SPEED = 256 / 3.6;    // m/s on a road (256 km/h)
+const ACCEL_OFFROAD = 10;
+const ACCEL_ROAD = 28;               // faster ramp-up so reaching 256 km/h feels earned, not tedious
+const FRICTION = 40;
+const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
+
+let isNearRoad = false;
+let lastTerrainCheck = 0;
+
+function checkTerrain(t){
+  if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
+  lastTerrainCheck = t;
+  let nearRoad = false;
+  try{
+    const pt = map.project([carLng, carLat]);
+    if(map.getLayer('drive-roads')){
+      const roadHits = map.queryRenderedFeatures(
+        [[pt.x - ROAD_CHECK_PX, pt.y - ROAD_CHECK_PX], [pt.x + ROAD_CHECK_PX, pt.y + ROAD_CHECK_PX]],
+        { layers:['drive-roads'] }
+      );
+      nearRoad = roadHits.length > 0;
+    }
+  } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
+
+  isNearRoad = nearRoad;
+}
+
+function driveLoop(t){
+  if(lastFrameTime === null) lastFrameTime = t;
+  const dt = Math.min((t - lastFrameTime) / 1000, 0.1);
+  lastFrameTime = t;
+
+  checkTerrain(t);
+  const maxSpeed = isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED;
+  const accel = isNearRoad ? ACCEL_ROAD : ACCEL_OFFROAD;
+
+  const dir = getInputDirection();
+
+  if(dir.x > 0.15 && !facingRight){
+    facingRight = true;
+    if(carFlipEl) carFlipEl.style.transform = 'scaleX(-1)';
+  } else if(dir.x < -0.15 && facingRight){
+    facingRight = false;
+    if(carFlipEl) carFlipEl.style.transform = 'scaleX(1)';
+  }
+
+  const targetVN = dir.y * maxSpeed;
+  const targetVE = dir.x * maxSpeed;
+
+  const anyInput = dir.x !== 0 || dir.y !== 0;
+  if(anyInput){
+    carVelN += Math.sign(targetVN - carVelN) * Math.min(Math.abs(targetVN - carVelN), accel * dt);
+    carVelE += Math.sign(targetVE - carVelE) * Math.min(Math.abs(targetVE - carVelE), accel * dt);
+  } else {
+    carVelN -= Math.sign(carVelN) * Math.min(Math.abs(carVelN), FRICTION * dt);
+    carVelE -= Math.sign(carVelE) * Math.min(Math.abs(carVelE), FRICTION * dt);
+  }
+
+  carLat += (carVelN * dt) / METERS_PER_DEG_LAT;
+  carLng += (carVelE * dt) / metersPerDegLng(carLat);
+
+  if(carMarker) carMarker.setLngLat([carLng, carLat]);
+  map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:map.getZoom() });
+
+  const speed = Math.hypot(carVelN, carVelE);
+  const kmh = Math.round(speed * 3.6);
+  driveSpeedo.textContent = kmh;
+  driveHud.classList.toggle('state-boost', isNearRoad && kmh > 0);
+
+  driveRAF = requestAnimationFrame(driveLoop);
+}
+
+} catch(mapError){
+  // Map failed to initialize (blocked CDN, offline, etc.) — log it,
+  // but let the rest of the page (welcome screen, passport) keep working.
+  console.error('Earth Expedition: map failed to load —', mapError);
+  const dockLabel = document.getElementById('dock-label');
+  if(dockLabel) dockLabel.textContent = "⚠️ El mapa no pudo cargar — revisa tu conexión a internet y actualiza la página.";
+}
+
+// ---------------------------------------------------------------
+// Passport modal
+// ---------------------------------------------------------------
+const passportModal = document.getElementById('passport-modal');
+const passportBtn = document.getElementById('passport-btn');
+const passportCountEl = document.getElementById('passport-count');
+const passportSub = document.getElementById('passport-sub');
+const stampGrid = document.getElementById('stamp-grid');
+const passportEmpty = document.getElementById('passport-empty');
+
+function updatePassportCount(){
+  passportCountEl.textContent = `${collected.size}/${DESTINATIONS.length}`;
+}
+function renderPassport(){
+  stampGrid.innerHTML = '';
+  DESTINATIONS.forEach((d,i)=>{
+    const slot = document.createElement('div');
+    slot.className = 'stamp-slot' + (collected.has(d.id) ? ' filled' : '');
+    slot.style.setProperty('--tilt', `${(i%2===0?-1:1) * (2+ (i%3))}deg`);
+    slot.innerHTML = collected.has(d.id)
+      ? `<span class="semoji">${d.emoji}</span><span class="sname">${d.name}</span>`
+      : `<span class="semoji" style="opacity:.4">${d.emoji}</span><span class="sname">?</span>`;
+    stampGrid.appendChild(slot);
+  });
+  passportSub.textContent = `${collected.size} de ${DESTINATIONS.length} sellos conseguidos`;
+  passportEmpty.style.display = collected.size === 0 ? 'block' : 'none';
+}
+passportBtn.addEventListener('click', ()=>{
+  renderPassport();
+  passportModal.classList.add('show');
+});
+document.querySelector('.pclose').addEventListener('click', ()=> passportModal.classList.remove('show'));
+passportModal.addEventListener('click', (e)=>{ if(e.target === passportModal) passportModal.classList.remove('show'); });
+
+updatePassportCount();
+
+// ---------------------------------------------------------------
+// Drive-mode hint toast
+// ---------------------------------------------------------------
+const driveHintEl = document.getElementById('drive-hint');
+function showDriveHint(){
+  driveHintEl.classList.add('show');
+  setTimeout(hideDriveHint, 4000);
+}
+function hideDriveHint(){ driveHintEl.classList.remove('show'); }
+</script>
+</body>
+</html>
