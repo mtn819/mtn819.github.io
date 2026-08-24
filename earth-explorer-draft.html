@@ -557,20 +557,6 @@
     box-shadow:0 4px 0 var(--forest-deep);
   }
   #milestone-close:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
-
-  /* ---------- Transition guard: blocks all UI during camera flights ---------- */
-  #transition-guard{
-    position:absolute; inset:0; z-index:25;
-    display:none;
-    pointer-events:auto;
-    background:transparent;
-    cursor:wait;
-  }
-  #transition-guard.show{ display:block; }
-  #topbar.dimmed, #dock-wrap.dimmed{
-    opacity:0.4;
-    transition:opacity .2s ease;
-  }
 </style>
 </head>
 <body>
@@ -591,8 +577,6 @@
 </div>
 
 <button id="drive-photo-btn">📸 Fotos</button>
-
-<div id="transition-guard"></div>
 
 <div id="locate-card">
   <div id="locate-inner">
@@ -912,46 +896,16 @@ DESTINATIONS.forEach(d=>{
   new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
 });
 
-const transitionGuard = document.getElementById('transition-guard');
 function flyToDestination(d){
-  if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
   activeDest = d;
-  transitionGuard.classList.add('show');
-  document.getElementById('topbar').classList.add('dimmed');
-  document.getElementById('dock-wrap').classList.add('dimmed');
   factCard.classList.remove('show');
   photoPanel.classList.remove('show');
   closeLightbox();
-  // Fixed, explicit duration instead of speed/curve — paired with a
-  // matching setTimeout below instead of a 'moveend' listener. Relying
-  // on 'moveend' was racy: a leftover moveend from drive mode's
-  // per-frame jumpTo calls could get consumed by this listener and
-  // end the "flight" instantly, before the camera had actually
-  // arrived — that's what was causing stuck cameras and popups
-  // appearing with no travel animation.
-  const FLY_DURATION = 3200;
-  const bearing = Math.random()*40-20;
-  map.flyTo({
-    center:d.center,
-    zoom:d.zoom,
-    pitch:d.pitch,
-    bearing,
-    duration:FLY_DURATION,
-    essential:true
-  });
-  setTimeout(()=>{
-    // Force-snap to the exact intended final camera state, regardless
-    // of whether the animated flyTo actually finished. If the browser
-    // throttled or paused the animation for any reason (backgrounded
-    // tab, a dropped frame, a GC pause) this timer still fires on
-    // schedule — without this forced jumpTo, that mismatch is exactly
-    // what left the camera stuck mid-flight.
-    map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch, bearing });
-    transitionGuard.classList.remove('show');
-    document.getElementById('topbar').classList.remove('dimmed');
-    document.getElementById('dock-wrap').classList.remove('dimmed');
-    showFactCard(d);
-  }, FLY_DURATION);
+  // Instant jump, no animation — every destination change behaves
+  // like the very first view of the map. No transition means no
+  // transition-duration mismatch to ever get stuck in.
+  map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch, bearing:0 });
+  showFactCard(d);
 }
 
 // ---------------------------------------------------------------
@@ -1237,24 +1191,11 @@ function switchMode(next){
     map.dragPan.enable();
     // Always reset to the exact same zoomed-out globe view the app
     // opens with — never resume wherever driving last left the camera.
-    // Fixed duration + matching setTimeout (not a 'moveend' listener —
-    // see the note in flyToDestination for why that was unreliable
-    // right after leaving Drive mode specifically).
-    const RESET_DURATION = 2200;
-    transitionGuard.classList.add('show');
-    document.getElementById('topbar').classList.add('dimmed');
-    document.getElementById('dock-wrap').classList.add('dimmed');
-    map.flyTo({ ...DEFAULT_EXPLORE_VIEW, duration:RESET_DURATION, essential:true });
-    setTimeout(()=>{
-      // Force-snap to the default view regardless of whether the
-      // animated flyTo actually finished — same reasoning as in
-      // flyToDestination. This is what makes repeated Drive<->Explore
-      // switching unable to ever leave the camera stuck somewhere odd.
-      map.jumpTo(DEFAULT_EXPLORE_VIEW);
-      transitionGuard.classList.remove('show');
-      document.getElementById('topbar').classList.remove('dimmed');
-      document.getElementById('dock-wrap').classList.remove('dimmed');
-    }, RESET_DURATION);
+    // Instant jump, no animation: this is the same "every change is
+    // like the first view" approach used for destination changes, and
+    // it's what removes the transition-duration mismatch entirely
+    // rather than trying to paper over it.
+    map.jumpTo(DEFAULT_EXPLORE_VIEW);
   } else {
     // Entering Drive mode is always treated like the very first time:
     // drop any old marker and re-ask for the current location, rather
