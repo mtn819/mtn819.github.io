@@ -859,27 +859,31 @@ map.on('load', ()=>{
   try{ map.setFog({}); }catch(e){ /* fog isn't supported on every build/projection combo — purely cosmetic, skip it */ }
 });
 
-const navControl = new maplibregl.NavigationControl({ visualizePitch:true });
-map.addControl(navControl, 'top-right');
 map.dragRotate.enable();
 map.touchZoomRotate.enable();
 map.touchPitch.enable();
 
 // Swap to satellite imagery automatically once zoomed in close,
 // so kids see real photo detail on landmarks, and OSM lines/labels
-// when zoomed out for a friendly, readable globe.
+// when zoomed out for a friendly, readable globe. Driven off actual
+// layer presence (map.getLayer checks) rather than trusting a tracked
+// boolean to stay in sync — addLayer throws "Layer already exists" if
+// called on a layer that's already there, which is exactly the kind
+// of uncaught exception that could silently abort whatever code runs
+// right after a jumpTo/flyTo that crosses the zoom threshold.
 let usingSatellite = false;
 map.on('zoom', ()=>{
   const z = map.getZoom();
-  if(z > 7.5 && !usingSatellite){
+  const wantSatellite = z > 7.5;
+  if(wantSatellite === usingSatellite) return;
+  if(wantSatellite){
     if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
-    map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
-    usingSatellite = true;
-  } else if(z <= 7.5 && usingSatellite){
+    if(!map.getLayer('sat-layer')) map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
+  } else {
     if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
-    map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
-    usingSatellite = false;
+    if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
   }
+  usingSatellite = wantSatellite;
 });
 
 // ---------------------------------------------------------------
@@ -1180,13 +1184,20 @@ function switchMode(next){
     drivePhotoBtn.style.display = 'none';
     photoPanel.classList.remove('show');
     closeLightbox();
+    currentPhotos = [];
+    currentPhotoIndex = 0;
     // Fully remove the road-detection layer/source (not just hide it) —
     // leaving it merely hidden let loaded vector tiles pile up in GPU
     // memory across every drive session in a play sitting, which is
     // what was eventually causing WebGL buffer/context errors after
     // extended driving. ensureRoadLayer() recreates it fresh next time.
     removeRoadLayer();
-    map.addControl(navControl, 'top-right');
+    // Leftover car state shouldn't linger while parked in Explore —
+    // it gets set fresh again in beginDriveAt anyway, but zeroing it
+    // here too means there's no stale position/speed sitting around
+    // between sessions even for a moment.
+    carLng = 0; carLat = 0; carVelN = 0; carVelE = 0;
+    isNearRoad = false;
     map.dragRotate.enable();
     map.dragPan.enable();
     // Always reset to the exact same zoomed-out globe view the app
@@ -1202,11 +1213,13 @@ function switchMode(next){
     // than trying to "resume" a previous session. That's what was
     // causing a second, stale car to appear at the old spot.
     removeCarMarker();
+    activeDest = null;
     document.getElementById('dock-wrap').style.display = 'none';
     factCard.classList.remove('show');
     photoPanel.classList.remove('show');
     closeLightbox();
-    map.removeControl(navControl);
+    currentPhotos = [];
+    currentPhotoIndex = 0;
     locateCard.classList.add('show');
   }
 }
@@ -1240,6 +1253,12 @@ function beginDriveAt(lng, lat){
   removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
+  // Fresh road-detection state — a new session shouldn't inherit an
+  // "already near a road" speed boost left over from wherever the
+  // last drive session ended.
+  isNearRoad = false;
+  lastTerrainCheck = 0;
+  Object.keys(keys).forEach(k => delete keys[k]);
 
   // Structure: outer (MapLibre owns its transform for map positioning —
   // never set transform on this one directly) > flip (persistent
@@ -1315,6 +1334,15 @@ function stopDrive(){
   driveRAF = null;
   pointerActive = false;
   activePointerId = null;
+  pointerDX = 0;
+  pointerDY = 0;
+  // If a key was still physically held down the instant we stopped
+  // listening for keyup, its flag would otherwise stay stuck "true"
+  // forever — making a future drive session start moving on its own
+  // with no input. Clear every tracked key on the way out.
+  Object.keys(keys).forEach(k => delete keys[k]);
+  carVelN = 0;
+  carVelE = 0;
 }
 function onDriveKeyDown(e){
   keys[e.key.toLowerCase()] = true;
