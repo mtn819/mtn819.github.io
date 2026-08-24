@@ -930,15 +930,23 @@ function flyToDestination(d){
   // arrived — that's what was causing stuck cameras and popups
   // appearing with no travel animation.
   const FLY_DURATION = 3200;
+  const bearing = Math.random()*40-20;
   map.flyTo({
     center:d.center,
     zoom:d.zoom,
     pitch:d.pitch,
-    bearing: Math.random()*40-20,
+    bearing,
     duration:FLY_DURATION,
     essential:true
   });
   setTimeout(()=>{
+    // Force-snap to the exact intended final camera state, regardless
+    // of whether the animated flyTo actually finished. If the browser
+    // throttled or paused the animation for any reason (backgrounded
+    // tab, a dropped frame, a GC pause) this timer still fires on
+    // schedule — without this forced jumpTo, that mismatch is exactly
+    // what left the camera stuck mid-flight.
+    map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch, bearing });
     transitionGuard.classList.remove('show');
     document.getElementById('topbar').classList.remove('dimmed');
     document.getElementById('dock-wrap').classList.remove('dimmed');
@@ -1238,6 +1246,11 @@ function switchMode(next){
     document.getElementById('dock-wrap').classList.add('dimmed');
     map.flyTo({ ...DEFAULT_EXPLORE_VIEW, duration:RESET_DURATION, essential:true });
     setTimeout(()=>{
+      // Force-snap to the default view regardless of whether the
+      // animated flyTo actually finished — same reasoning as in
+      // flyToDestination. This is what makes repeated Drive<->Explore
+      // switching unable to ever leave the camera stuck somewhere odd.
+      map.jumpTo(DEFAULT_EXPLORE_VIEW);
       transitionGuard.classList.remove('show');
       document.getElementById('topbar').classList.remove('dimmed');
       document.getElementById('dock-wrap').classList.remove('dimmed');
