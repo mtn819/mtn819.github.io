@@ -1332,6 +1332,7 @@ function engageJet(){
     void carEmojiEl.offsetWidth;
     carEmojiEl.classList.add('pop');
   }
+  applyFacing(); // jet points the opposite way by default — re-mirror now
   driveHud.classList.add('state-jet');
 }
 function releaseJet(){
@@ -1349,6 +1350,7 @@ function releaseJet(){
   }
   // Back to whichever vehicle the player had chosen before taking off.
   if(carEmojiEl) carEmojiEl.textContent = VEHICLE_EMOJIS[vehicleIndex];
+  applyFacing(); // back to car-style mirroring
   driveHud.classList.remove('state-jet');
 }
 
@@ -1372,6 +1374,17 @@ function registerDirectionTap(dir){
 const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
 let vehicleIndex = 0;
 let facingRight = false; // vehicle emojis default to facing left
+
+// The car emojis (🚗🛻🚙🚓🐎) point LEFT by default, but the jet (✈️)
+// points RIGHT — so the mirror needed to make each face a given
+// direction is the opposite of the other. Centralized here so both the
+// steering code and the jet engage/release path stay consistent.
+function applyFacing(){
+  if(!carFlipEl) return;
+  const facesRightByDefault = jetActive;
+  const mirror = (facingRight !== facesRightByDefault);
+  carFlipEl.style.transform = mirror ? 'scaleX(-1)' : 'scaleX(1)';
+}
 let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
 const keys = {};
 let driveRAF = null;
@@ -1762,10 +1775,10 @@ function driveLoop(t){
 
   if(dir.x > 0.15 && !facingRight){
     facingRight = true;
-    if(carFlipEl) carFlipEl.style.transform = 'scaleX(-1)';
+    applyFacing();
   } else if(dir.x < -0.15 && facingRight){
     facingRight = false;
-    if(carFlipEl) carFlipEl.style.transform = 'scaleX(1)';
+    applyFacing();
   }
 
   const targetVN = dir.y * maxSpeed;
