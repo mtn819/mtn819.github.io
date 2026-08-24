@@ -376,6 +376,8 @@
   #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
+  #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
+  #drive-hud.state-boat{ background:rgba(45,120,173,0.85); border-color:#215a83; }
 
   /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
   /* Short transition so the car's left/right flip and the jet's
@@ -1317,6 +1319,21 @@ let carEmojiEl = null;
 // the speed is actually readable. Releasing drops straight back to
 // whichever vehicle was selected before.
 const JET_EMOJI = '✈️';
+const BOAT_EMOJI = '⛵';
+let isOverWater = false; // on a lake/sea/ocean, so the car becomes a boat
+
+// Single source of truth for the avatar. Three things can decide it, so
+// they're resolved in priority order here rather than scattered around:
+// flying beats floating, floating beats the chosen land vehicle.
+function applyVehicleIcon(){
+  if(!carEmojiEl) return;
+  carEmojiEl.textContent = jetActive ? JET_EMOJI
+    : isOverWater ? BOAT_EMOJI
+    : VEHICLE_EMOJIS[vehicleIndex];
+  carEmojiEl.classList.remove('pop');
+  void carEmojiEl.offsetWidth; // restart the pop animation on rapid changes
+  carEmojiEl.classList.add('pop');
+}
 const DRIVE_ZOOM = 17.5;   // normal street-level driving
 const JET_ZOOM = 13.2;     // pulled back while flying
 const DOUBLE_TAP_MS = 350; // max gap between the two taps
@@ -1331,12 +1348,7 @@ function engageJet(){
   if(jetActive) return;
   jetActive = true;
   targetDriveZoom = JET_ZOOM;
-  if(carEmojiEl){
-    carEmojiEl.textContent = JET_EMOJI;
-    carEmojiEl.classList.remove('pop');
-    void carEmojiEl.offsetWidth;
-    carEmojiEl.classList.add('pop');
-  }
+  applyVehicleIcon();
   applyFacing(); // jet points the opposite way by default — re-mirror now
   driveHud.classList.add('state-jet');
 }
@@ -1353,8 +1365,8 @@ function releaseJet(){
     carVelN *= scale;
     carVelE *= scale;
   }
-  // Back to whichever vehicle the player had chosen before taking off.
-  if(carEmojiEl) carEmojiEl.textContent = VEHICLE_EMOJIS[vehicleIndex];
+  // Back to the boat if we're over water, otherwise the chosen vehicle.
+  applyVehicleIcon();
   applyFacing(); // back to car-style mirroring
   driveHud.classList.remove('state-jet');
 }
@@ -1378,8 +1390,9 @@ function registerDirectionTap(dir){
 }
 let facingRight = false; // vehicle emojis default to facing left
 
-// The car emojis (🚗🛻🚙🚓🐎) point LEFT by default and only ever get
-// mirrored left/right. The jet is different: it rotates freely through
+// The car emojis (🚗🛻🚙🚓🐎) and the boat (⛵) all point LEFT by
+// default and only ever get mirrored left/right. The jet is different:
+// it rotates freely through
 // 360° to point exactly where you're steering. ✈️ is drawn pointing
 // up-and-to-the-right (about 45° / north-east) in most emoji fonts, so
 // that offset is subtracted to get a true heading. Tweak this single
@@ -1540,6 +1553,7 @@ function beginDriveAt(lng, lat){
   removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
+  isOverWater = false; // first checkTerrain sets this correctly
 
   // Structure: outer (MapLibre owns its transform for map positioning —
   // never set transform on this one directly) > flip (persistent
@@ -1558,12 +1572,9 @@ function beginDriveAt(lng, lat){
   emoji.addEventListener('click', (e)=>{
     e.stopPropagation();
     vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
-    // While flying, keep showing the jet — the newly picked vehicle
-    // appears when the jet is released.
-    if(!jetActive) emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
-    emoji.classList.remove('pop');
-    void emoji.offsetWidth; // restart the animation even on rapid re-clicks
-    emoji.classList.add('pop');
+    // While flying or afloat the jet/boat stays on screen — the newly
+    // picked vehicle appears once back on land.
+    applyVehicleIcon();
   });
 
   carMarker = new maplibregl.Marker({ element:outer })
@@ -1591,12 +1602,29 @@ function beginDriveAt(lng, lat){
 // visibility is toggled off in Explore mode so it doesn't cost tile
 // requests while spinning the globe.
 function ensureRoadLayer(){
-  // Wrapped: road detection is only a speed-boost enhancement. If the
-  // vector source or layer can't be added for any reason, driving must
-  // still work — never let this take the app down.
+  // Wrapped: road/water detection is only an enhancement. If the vector
+  // source or layers can't be added for any reason, driving must still
+  // work — never let this take the app down.
   try{
     if(!map.getSource('openmaptiles')){
       map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
+    }
+    if(!map.getLayer('drive-water')){
+      // Lakes, seas and oceans. In the OpenMapTiles schema every polygon
+      // built from OSM coastline data is class 'ocean', which covers all
+      // the seas too (Mediterranean, Caribbean, Baltic...) since they sit
+      // beyond the coastline; 'lake' covers inland water. Rivers, ponds,
+      // docks and swimming pools are excluded so crossing a creek or a
+      // back garden doesn't turn the car into a boat.
+      //
+      // Drawn with a visible tint on purpose: queryRenderedFeatures only
+      // reports layers that actually render, and it doubles as a clear
+      // "this is water" cue for a kid.
+      map.addLayer({
+        id:'drive-water', type:'fill', source:'openmaptiles', 'source-layer':'water',
+        filter:['match', ['get','class'], ['ocean','lake'], true, false],
+        paint:{ 'fill-color':'#3E9CDC', 'fill-opacity':0.25 }
+      });
     }
     if(!map.getLayer('drive-roads')){
       map.addLayer({
@@ -1605,8 +1633,9 @@ function ensureRoadLayer(){
         paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
       });
     }
+    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'visible');
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'visible');
-  }catch(e){ console.error('road layer unavailable — driving still works', e); }
+  }catch(e){ console.error('road/water layers unavailable — driving still works', e); }
 }
 
 function resumeDrive(){
@@ -1624,6 +1653,7 @@ function stopDrive(){
   activePointerId = null;
   releaseJet();       // never leave a session mid-flight
   lastTapAt = 0;      // don't let a tap from a previous session pair up
+  isOverWater = false;
   Object.keys(keys).forEach(k => delete keys[k]);
 }
 // Maps a movement key to its direction vector, for double-tap detection.
@@ -1746,6 +1776,7 @@ const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
 const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
 const ACCEL = 60;                          // reaches top speed in about half a second
 const FRICTION = 80;                       // near-instant stop when you let go
+const BOAT_MAX_SPEED = ROAD_MAX_SPEED;     // boats match a car's road top speed (128 km/h)
 const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
 const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
@@ -1757,8 +1788,14 @@ function checkTerrain(t){
   if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
   lastTerrainCheck = t;
   let nearRoad = false;
+  let overWater = false;
   try{
     const pt = map.project([carLng, carLat]);
+    if(map.getLayer('drive-water')){
+      // Single point, not a box: we want "actually on the water", not
+      // "somewhere near a shoreline".
+      overWater = map.queryRenderedFeatures([pt.x, pt.y], { layers:['drive-water'] }).length > 0;
+    }
     if(map.getLayer('drive-roads')){
       const roadHits = map.queryRenderedFeatures(
         [[pt.x - ROAD_CHECK_PX, pt.y - ROAD_CHECK_PX], [pt.x + ROAD_CHECK_PX, pt.y + ROAD_CHECK_PX]],
@@ -1769,6 +1806,12 @@ function checkTerrain(t){
   } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
 
   isNearRoad = nearRoad;
+  // Swap the avatar as soon as the surface underneath changes. Skipped
+  // while flying — a plane over a lake is still a plane.
+  if(overWater !== isOverWater){
+    isOverWater = overWater;
+    if(!jetActive) applyVehicleIcon();
+  }
 }
 
 function driveLoop(t){
@@ -1786,7 +1829,11 @@ function driveLoop(t){
 
   checkTerrain(t);
   // While flying, roads are irrelevant — the jet goes anywhere at full speed.
-  const maxSpeed = jetActive ? JET_MAX_SPEED : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
+  // Flying ignores everything; on water a boat cruises at the car's road
+  // top speed regardless of roads; on land it's road vs off-road.
+  const maxSpeed = jetActive ? JET_MAX_SPEED
+    : isOverWater ? BOAT_MAX_SPEED
+    : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
   const accel = jetActive ? JET_ACCEL : ACCEL;
 
   const dir = getInputDirection();
@@ -1851,7 +1898,8 @@ function driveLoop(t){
     const speed = Math.hypot(carVelN, carVelE);
     const kmh = Math.round(speed * 3.6);
     driveSpeedo.textContent = kmh;
-    driveHud.classList.toggle('state-boost', !jetActive && isNearRoad && kmh > 0);
+    driveHud.classList.toggle('state-boost', !jetActive && !isOverWater && isNearRoad && kmh > 0);
+    driveHud.classList.toggle('state-boat', !jetActive && isOverWater);
   }catch(e){ console.error('drive frame skipped', e); }
 
   driveRAF = requestAnimationFrame(driveLoop);
