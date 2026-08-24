@@ -305,6 +305,19 @@
   #drive-hint.show{ opacity:1; }
 
   /* maplibre attribution styling to stay legible on dark globe */
+  /* Absolute guarantee that no built-in map control buttons (+/-,
+     compass, geolocate, fullscreen) can ever appear in either mode,
+     regardless of what might add them. Attribution is exempt below
+     because the map data licenses require it to stay visible. */
+  .maplibregl-ctrl-group,
+  .maplibregl-ctrl button:not(.maplibregl-ctrl-attrib-button),
+  .maplibregl-ctrl-zoom-in,
+  .maplibregl-ctrl-zoom-out,
+  .maplibregl-ctrl-compass,
+  .maplibregl-ctrl-geolocate,
+  .maplibregl-ctrl-fullscreen{
+    display:none !important;
+  }
   .maplibregl-ctrl-attrib{
     background:rgba(251,243,222,0.85) !important;
     border-radius:8px 0 0 0 !important;
@@ -363,6 +376,7 @@
   #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
+  #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
 
   /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
   .car-flip{ transition:transform .15s ease; }
@@ -431,7 +445,7 @@
   #photo-panel .pshots{ display:flex; flex-direction:column; gap:6px; }
   #photo-panel .pshot-btn{
     display:block; width:100%; padding:0; margin:0;
-    background:none; border:none; cursor:pointer;
+    background:none; border:none; cursor:zoom-in;
   }
   #photo-panel img{
     width:100%; height:72px; object-fit:cover;
@@ -444,7 +458,7 @@
   /* ---------- Photo lightbox (closeup + carousel) ---------- */
   #photo-lightbox{
     position:absolute; inset:0; z-index:80;
-    background:rgba(9,26,21,0.92);
+    background:rgba(9,26,21,0.93);
     display:none;
     align-items:center; justify-content:center;
     padding:20px;
@@ -452,41 +466,47 @@
   #photo-lightbox.show{ display:flex; }
   #photo-lightbox .lightbox-body{
     display:flex; flex-direction:column; align-items:center;
-    max-width:min(600px, 92vw);
+    max-width:min(640px, 88vw);
   }
   #lightbox-img{
-    max-width:100%; max-height:70vh;
+    max-width:100%; max-height:68vh;
     border-radius:14px; border:3px solid var(--parchment);
     box-shadow:0 8px 0 rgba(0,0,0,0.35);
-    object-fit:contain;
-    background:var(--forest-deep);
+    object-fit:contain; background:var(--forest-deep);
   }
   #lightbox-caption{
     color:var(--parchment); font-size:13px; font-weight:700;
-    text-align:center; margin-top:12px; max-width:100%;
+    text-align:center; margin-top:12px;
+    overflow-wrap:break-word; word-break:break-word;
+  }
+  #lightbox-counter{
+    color:var(--parchment-deep); font-size:11px; font-weight:700;
+    margin-top:6px; opacity:0.8;
   }
   #lightbox-close{
     position:absolute; top:16px; right:16px;
-    width:40px; height:40px; border-radius:50%;
+    width:42px; height:42px; border-radius:50%;
     background:var(--parchment); border:3px solid var(--forest-deep);
     color:var(--forest-deep); font-size:18px; font-weight:800;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
-    box-shadow:0 3px 0 rgba(0,0,0,0.28);
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
   }
-  #lightbox-close:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.28); }
+  #lightbox-close:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
   #lightbox-prev, #lightbox-next{
     position:absolute; top:50%; transform:translateY(-50%);
-    width:48px; height:48px; border-radius:50%;
+    width:50px; height:50px; border-radius:50%;
     background:var(--parchment); border:3px solid var(--forest-deep);
-    color:var(--forest-deep); font-size:24px; font-weight:800;
+    color:var(--forest-deep); font-size:26px; font-weight:800;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
-    box-shadow:0 3px 0 rgba(0,0,0,0.28);
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+    line-height:1; padding-bottom:4px;
   }
-  #lightbox-prev:active, #lightbox-next:active{ transform:translateY(calc(-50% + 2px)); box-shadow:0 1px 0 rgba(0,0,0,0.28); }
-  #lightbox-prev{ left:16px; }
-  #lightbox-next{ right:16px; }
+  #lightbox-prev:active, #lightbox-next:active{ transform:translateY(calc(-50% + 2px)); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+  #lightbox-prev{ left:14px; }
+  #lightbox-next{ right:14px; }
   #photo-lightbox.single #lightbox-prev,
-  #photo-lightbox.single #lightbox-next{ display:none; }
+  #photo-lightbox.single #lightbox-next,
+  #photo-lightbox.single #lightbox-counter{ display:none; }
 
   /* ---------- Location permission card ---------- */
   #locate-card{
@@ -512,7 +532,29 @@
     font-family:'Baloo 2',cursive; font-weight:800; font-size:15px;
     border-radius:999px; padding:11px 26px; cursor:pointer;
     box-shadow:0 4px 0 var(--sunset-deep);
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-width:220px; min-height:46px;
   }
+  /* While waiting on the browser's location prompt / GPS fix, which can
+     take several seconds. Without this the button looks unresponsive
+     and invites repeat taps. */
+  #locate-go.loading{
+    background:var(--parchment-deep);
+    color:var(--forest-deep);
+    border-color:var(--forest-deep);
+    box-shadow:0 4px 0 rgba(0,0,0,0.18);
+    cursor:wait;
+  }
+  #locate-spinner{
+    display:none;
+    width:16px; height:16px; flex-shrink:0;
+    border:3px solid rgba(18,59,48,0.25);
+    border-top-color:var(--forest-deep);
+    border-radius:50%;
+    animation:locate-spin 0.7s linear infinite;
+  }
+  #locate-go.loading #locate-spinner{ display:block; }
+  @keyframes locate-spin{ to{ transform:rotate(360deg); } }
   #locate-cancel{
     display:block; margin:10px auto 0; background:none; border:none;
     color:var(--forest); font-size:12px; text-decoration:underline; cursor:pointer;
@@ -557,6 +599,28 @@
     box-shadow:0 4px 0 var(--forest-deep);
   }
   #milestone-close:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
+
+  /* ---------- Transition guard: blocks all UI during camera flights ---------- */
+  #transition-guard{
+    position:absolute; inset:0; z-index:25;
+    display:none;
+    pointer-events:auto;
+    background:transparent;
+    cursor:wait;
+  }
+  #transition-guard.show{ display:block; }
+  /* Applied to the top bar and destination dock while a camera
+     transition is in progress. Fades AND desaturates so the buttons
+     read as genuinely disabled rather than just dim, and swaps the
+     cursor so a click that's about to be swallowed looks intentional. */
+  #topbar.dimmed, #dock-wrap.dimmed{
+    opacity:0.4;
+    filter:grayscale(70%);
+    transition:opacity .2s ease, filter .2s ease;
+  }
+  #topbar.dimmed button, #dock-wrap.dimmed .dest-card{
+    cursor:not-allowed;
+  }
 </style>
 </head>
 <body>
@@ -578,12 +642,14 @@
 
 <button id="drive-photo-btn">📸 Fotos</button>
 
+<div id="transition-guard"></div>
+
 <div id="locate-card">
   <div id="locate-inner">
     <span class="lemoji">📍</span>
     <h2>¡Conduce cerca de ti!</h2>
     <p>Esto usa la ubicación de tu dispositivo para poner tu carro en un mapa real de tu vecindario, para que puedas conducir y explorarlo.</p>
-    <button id="locate-go">Compartir mi ubicación</button>
+    <button id="locate-go"><span id="locate-spinner"></span><span id="locate-go-label">Compartir mi ubicación</span></button>
     <button id="locate-cancel">Ahora no</button>
   </div>
 </div>
@@ -614,6 +680,7 @@
   <div class="lightbox-body">
     <img id="lightbox-img" src="" alt="">
     <div id="lightbox-caption"></div>
+    <div id="lightbox-counter"></div>
   </div>
   <button id="lightbox-next" aria-label="Siguiente">›</button>
 </div>
@@ -652,6 +719,11 @@
 </div>
 
 <script>
+// Set once the map successfully initializes (inside the try block below).
+// Kept outside that block, alongside the start button listener, so both
+// stay usable even if map setup fails.
+let exploreMap = null;
+
 // ---------------------------------------------------------------
 // Attach the welcome/start button FIRST, before anything that
 // touches the map library. If the map fails to load for any
@@ -811,17 +883,8 @@ let activeDest = null;
 
 // ---------------------------------------------------------------
 // Map setup — free raster tiles, no API key required.
-// Every mode switch tears the whole MapLibre instance down and
-// builds a brand new one from scratch (see destroyCurrentMap /
-// createFreshMap), rather than trying to reuse and carefully reset
-// one long-lived instance. A freshly constructed map cannot possibly
-// carry over any internal state — layers, sources, tile cache,
-// event listener bookkeeping — from a previous session, which is
-// what kept causing the Drive->Explore transition to break in subtle
-// ways no matter how carefully individual pieces of state were reset
-// by hand. The only things that persist across a mode switch are our
-// own plain JS variables, which we reset explicitly — except the
-// stamp collection, which is the one deliberate exception.
+// OSM for the base globe; MapLibre's built-in globe projection
+// gives the "spin the whole Earth" feeling.
 // Everything below is wrapped in try/catch so that if the map
 // library or a tile source fails to load, the welcome screen,
 // start button, and passport still work — the app degrades
@@ -829,104 +892,141 @@ let activeDest = null;
 // ---------------------------------------------------------------
 try{
 
-const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
-
-function createFreshMap(viewState){
-  const m = new maplibregl.Map({
-    container:'map',
-    style:{
-      version:8,
-      sources:{
-        'osm':{
-          type:'raster',
-          tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-          tileSize:256,
-          attribution:'© OpenStreetMap contributors'
-        },
-        'satellite':{
-          type:'raster',
-          tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-          tileSize:256,
-          attribution:'Esri World Imagery'
-        }
+const map = new maplibregl.Map({
+  container:'map',
+  style:{
+    version:8,
+    sources:{
+      'osm':{
+        type:'raster',
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize:256,
+        attribution:'© OpenStreetMap contributors'
       },
-      layers:[
-        { id:'osm-layer', type:'raster', source:'osm' }
-      ]
+      'satellite':{
+        type:'raster',
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize:256,
+        attribution:'Esri World Imagery'
+      }
     },
-    center:viewState.center,
-    zoom:viewState.zoom,
-    pitch:viewState.pitch,
-    bearing:viewState.bearing || 0,
-    attributionControl:{ compact:false }
-  });
+    layers:[
+      { id:'osm-layer', type:'raster', source:'osm' }
+    ]
+  },
+  center:[0, 20],
+  zoom:1.6,
+  pitch:0,
+  attributionControl:{ compact:false }
+});
+exploreMap = map;
 
-  m.on('load', ()=>{
-    try{ m.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
-    try{ m.setFog({}); }catch(e){ /* fog isn't supported on every build/projection combo — purely cosmetic, skip it */ }
-  });
+map.on('load', ()=>{
+  try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
+  try{ map.setFog({}); }catch(e){ /* not supported on every build/projection — purely cosmetic */ }
+});
 
-  m.dragRotate.enable();
-  m.touchZoomRotate.enable();
-  m.touchPitch.enable();
+// Deliberately not adding NavigationControl (the built-in +/- zoom
+// buttons) at all, in either mode — pinch/scroll zoom still works.
+map.dragRotate.enable();
+map.touchZoomRotate.enable();
+map.touchPitch.enable();
 
-  // Swap to satellite imagery automatically once zoomed in close, so
-  // kids see real photo detail on landmarks, and OSM lines/labels
-  // when zoomed out for a friendly, readable globe. usingSatellite is
-  // a closure-local variable private to THIS map instance — it can
-  // never desync from a previous session's leftover state, because
-  // there's no way for it to leak across instances.
-  let usingSatellite = false;
-  m.on('zoom', ()=>{
-    const z = m.getZoom();
-    const wantSatellite = z > 7.5;
+// Swap to satellite imagery automatically once zoomed in close, so
+// kids see real photo detail on landmarks, and OSM lines/labels when
+// zoomed out. Driven off what's ACTUALLY on the map rather than a
+// tracked boolean, and wrapped in try/catch: addLayer throws
+// "Layer already exists" if called twice, and this fires on every
+// camera move — an exception here would abort whatever code triggered
+// the move (a destination jump, a mode switch), which is exactly the
+// kind of thing that made the app appear to randomly break.
+let usingSatellite = false;
+map.on('zoom', ()=>{
+  try{
+    const wantSatellite = map.getZoom() > 7.5;
     if(wantSatellite === usingSatellite) return;
     if(wantSatellite){
-      if(m.getLayer('osm-layer')) m.removeLayer('osm-layer');
-      if(!m.getLayer('sat-layer')) m.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
+      if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
+      if(!map.getLayer('sat-layer')) map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
     } else {
-      if(m.getLayer('sat-layer')) m.removeLayer('sat-layer');
-      if(!m.getLayer('osm-layer')) m.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
+      if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
+      if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
     }
     usingSatellite = wantSatellite;
-  });
+  }catch(e){ console.error('imagery swap skipped', e); }
+});
 
-  return m;
-}
+// ---------------------------------------------------------------
+// Landmark markers
+// ---------------------------------------------------------------
+DESTINATIONS.forEach(d=>{
+  const el = document.createElement('div');
+  el.textContent = d.emoji;
+  el.style.fontSize = '26px';
+  el.style.cursor = 'pointer';
+  el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
+  el.title = d.name;
+  el.addEventListener('click', ()=> flyToDestination(d));
+  new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
+});
 
-function destroyCurrentMap(){
-  if(map){
-    try{ map.remove(); }catch(e){ console.error('Error tearing down previous map instance', e); }
-    map = null;
-  }
-}
-
-function addDestinationMarkers(){
-  DESTINATIONS.forEach(d=>{
-    const el = document.createElement('div');
-    el.textContent = d.emoji;
-    el.style.fontSize = '26px';
-    el.style.cursor = 'pointer';
-    el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
-    el.title = d.name;
-    el.addEventListener('click', ()=> flyToDestination(d));
-    new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
-  });
-}
-
-let map = createFreshMap(DEFAULT_EXPLORE_VIEW);
-addDestinationMarkers();
-
+const transitionGuard = document.getElementById('transition-guard');
 function flyToDestination(d){
+  if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
   activeDest = d;
+  transitionGuard.classList.add('show');
+  document.getElementById('topbar').classList.add('dimmed');
+  document.getElementById('dock-wrap').classList.add('dimmed');
   factCard.classList.remove('show');
   photoPanel.classList.remove('show');
   closeLightbox();
-  // Instant jump, no animation — every destination change behaves
-  // like the very first view of the map. No transition means no
-  // transition-duration mismatch to ever get stuck in.
-  map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch, bearing:0 });
-  showFactCard(d);
+
+  // Explicit flight duration so arrival is predictable. Arrival is
+  // primarily driven by the clock, NOT by 'moveend': a moveend left over
+  // from an earlier camera settle (a pinch-zoom, or the tail of a
+  // previous movement) can land the instant the flight starts, which is
+  // what made the description card pop up early and cut the journey
+  // short. A moveend is only accepted once the flight is essentially
+  // over; otherwise it's ignored as a stray.
+  const FLY_MS = 3000;
+  const startedAt = (typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now();
+  const elapsed = ()=> ((typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now()) - startedAt;
+
+  let settled = false;
+  const arrive = ()=>{
+    if(settled) return;
+    settled = true;
+    transitionGuard.classList.remove('show');
+    document.getElementById('topbar').classList.remove('dimmed');
+    document.getElementById('dock-wrap').classList.remove('dimmed');
+    showFactCard(d);
+  };
+  // Only honour a moveend that arrives when the flight has actually had
+  // time to complete — anything earlier is a stray from a prior move.
+  const arriveIfFlightDone = ()=>{
+    if(elapsed() >= FLY_MS * 0.9) arrive();
+  };
+
+  try{
+    map.flyTo({
+      center:d.center,
+      zoom:d.zoom,
+      pitch:d.pitch,
+      bearing: Math.random()*40-20,
+      duration:FLY_MS,
+      essential:true
+    });
+    map.once('moveend', arriveIfFlightDone);
+  }catch(e){
+    console.error('flight failed, snapping to destination', e);
+    try{ map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch }); }catch(e2){}
+    arrive();
+    return;
+  }
+  setTimeout(arrive, FLY_MS);        // the journey always lasts its full length
+  setTimeout(arrive, FLY_MS + 2000); // hard backstop if anything stalls
 }
 
 // ---------------------------------------------------------------
@@ -994,23 +1094,40 @@ function celebrateStamp(){
   setTimeout(()=> stampBtn.style.transform = '', 180);
 }
 
-// One escalating title per 8-stamp milestone, up to all 128 destinations.
+// One escalating title per 4-stamp milestone. 128 destinations / 4 = 32
+// milestones, so there are 32 titles — each one distinct, no repeats.
 const MILESTONE_TITLES = [
   '¡Explorador Novato!',
   '¡Viajero Curioso!',
   '¡Aventurero Audaz!',
   '¡Trotamundos!',
+  '¡Buscador de Tesoros!',
+  '¡Cazador de Mapas!',
+  '¡Explorador Valiente!',
+  '¡Navegante Intrépido!',
   '¡Explorador Experto!',
   '¡Viajero Legendario!',
   '¡Maestro de Mapas!',
   '¡Conquistador de Continentes!',
+  '¡Descubridor de Mundos!',
+  '¡Piloto de Aventuras!',
+  '¡Guardián del Globo!',
+  '¡Capitán de Expediciones!',
   '¡Leyenda Viajera!',
   '¡Explorador Supremo!',
   '¡Campeón del Globo!',
   '¡Maestro Explorador!',
+  '¡Sabio de los Continentes!',
+  '¡Titán de los Viajes!',
+  '¡Coleccionista de Horizontes!',
+  '¡Emperador de los Mapas!',
   '¡Embajador del Mundo!',
   '¡Héroe de la Aventura!',
   '¡Leyenda del Planeta!',
+  '¡Maravilla Viajera!',
+  '¡Gran Maestro Explorador!',
+  '¡Guardián de la Tierra!',
+  '¡Leyenda Inmortal!',
   '¡Explorador Definitivo!'
 ];
 const milestoneModal = document.getElementById('milestone-modal');
@@ -1022,8 +1139,8 @@ document.getElementById('milestone-close').addEventListener('click', ()=>{
 
 function maybeShowMilestone(){
   const n = collected.size;
-  if(n === 0 || n % 8 !== 0) return;
-  const tier = Math.min(n / 8, MILESTONE_TITLES.length) - 1;
+  if(n === 0 || n % 4 !== 0) return;
+  const tier = Math.min(n / 4, MILESTONE_TITLES.length) - 1;
   milestoneTitle.textContent = MILESTONE_TITLES[tier];
   milestoneSub.textContent = `Has conseguido ${n} de ${DESTINATIONS.length} sellos`;
   milestoneModal.classList.add('show');
@@ -1040,43 +1157,52 @@ const photoPanel = document.getElementById('photo-panel');
 const photoShots = document.getElementById('photo-shots');
 let photoPanelLat = null, photoPanelLng = null;
 
-// Lightbox: closeup view with prev/next, opened by tapping a thumbnail.
+// ---- Lightbox: tap a thumbnail for a closeup with prev/next ----
 const photoLightbox = document.getElementById('photo-lightbox');
 const lightboxImg = document.getElementById('lightbox-img');
 const lightboxCaption = document.getElementById('lightbox-caption');
+const lightboxCounter = document.getElementById('lightbox-counter');
 let currentPhotos = [];
 let currentPhotoIndex = 0;
 
-function openLightbox(index){
-  currentPhotoIndex = index;
+function openLightbox(i){
+  if(!currentPhotos.length) return;
+  currentPhotoIndex = i;
   photoLightbox.classList.toggle('single', currentPhotos.length <= 1);
-  updateLightboxImage();
+  updateLightbox();
   photoLightbox.classList.add('show');
 }
-function updateLightboxImage(){
+function updateLightbox(){
   const p = currentPhotos[currentPhotoIndex];
   if(!p) return;
   lightboxImg.src = p.url;
   lightboxImg.alt = p.caption;
   lightboxCaption.textContent = p.caption;
+  lightboxCounter.textContent = `${currentPhotoIndex + 1} / ${currentPhotos.length}`;
+}
+function stepLightbox(delta){
+  if(!currentPhotos.length) return;
+  currentPhotoIndex = (currentPhotoIndex + delta + currentPhotos.length) % currentPhotos.length;
+  updateLightbox();
 }
 function closeLightbox(){ photoLightbox.classList.remove('show'); }
+
 document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
-document.getElementById('lightbox-prev').addEventListener('click', ()=>{
-  currentPhotoIndex = (currentPhotoIndex - 1 + currentPhotos.length) % currentPhotos.length;
-  updateLightboxImage();
-});
-document.getElementById('lightbox-next').addEventListener('click', ()=>{
-  currentPhotoIndex = (currentPhotoIndex + 1) % currentPhotos.length;
-  updateLightboxImage();
-});
+document.getElementById('lightbox-prev').addEventListener('click', ()=> stepLightbox(-1));
+document.getElementById('lightbox-next').addEventListener('click', ()=> stepLightbox(1));
 photoLightbox.addEventListener('click', (e)=>{ if(e.target === photoLightbox) closeLightbox(); });
+window.addEventListener('keydown', (e)=>{
+  if(!photoLightbox.classList.contains('show')) return;
+  if(e.key === 'Escape') closeLightbox();
+  else if(e.key === 'ArrowLeft') stepLightbox(-1);
+  else if(e.key === 'ArrowRight') stepLightbox(1);
+});
 
 function togglePhotoPanel(lat, lng){
   const alreadyShowingHere = photoPanel.classList.contains('show') && lat === photoPanelLat && lng === photoPanelLng;
   if(alreadyShowingHere){
     photoPanel.classList.remove('show');
-  closeLightbox();
+    closeLightbox();
     return;
   }
   photoPanel.classList.add('show');
@@ -1086,6 +1212,7 @@ function togglePhotoPanel(lat, lng){
 async function fetchNearbyPhotos(lat, lng){
   photoPanelLat = lat; photoPanelLng = lng;
   currentPhotos = [];
+  closeLightbox();
   photoShots.innerHTML = '<div class="ploading">Buscando fotos…</div>';
   try{
     const geoUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=4000&gsnamespace=6&gslimit=8&format=json&origin=*`;
@@ -1097,6 +1224,8 @@ async function fetchNearbyPhotos(lat, lng){
       return;
     }
     const titles = results.slice(0, 4).map(r => r.title).join('|');
+    // 1000px wide so the lightbox closeup is actually sharp rather than
+    // a blown-up thumbnail; the small previews just scale it down.
     const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*`;
     const infoRes = await fetch(infoUrl);
     const infoData = await infoRes.json();
@@ -1108,11 +1237,11 @@ async function fetchNearbyPhotos(lat, lng){
       photoShots.innerHTML = '<div class="ploading">No hay fotos cerca todavía.</div>';
       return;
     }
-    photoShots.innerHTML = '';
     currentPhotos = shots.map(p=>({
       url: p.imageinfo[0].thumburl,
       caption: p.title.replace(/^File:/, '').replace(/\.[a-zA-Z]+$/, '').replace(/_/g, ' ').slice(0, 60)
     }));
+    photoShots.innerHTML = '';
     currentPhotos.forEach((p, i)=>{
       const btn = document.createElement('button');
       btn.className = 'pshot-btn';
@@ -1160,9 +1289,86 @@ const locateCard = document.getElementById('locate-card');
 const drivePhotoBtn = document.getElementById('drive-photo-btn');
 drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
 
+// The exact camera the map opens with — Explore mode always returns to
+// precisely this, every time, so switching modes can never leave the
+// globe in some in-between state.
+const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
+
 let currentMode = 'explore';
+// Incremented on EVERY mode switch. Any async work started under an
+// older session (most importantly the geolocation request, which can
+// take many seconds to resolve) compares its captured value against
+// this and bails out if it's stale. Without this, a geolocation
+// callback could land *after* the user had already returned to
+// Explore and start the drive loop anyway — see switchMode/locate-go.
+let modeSession = 0;
 let carMarker = null;
 let carFlipEl = null;
+let carEmojiEl = null;
+
+// ---- Jet mode ----------------------------------------------------
+// Double-tap a direction and HOLD: the car becomes a jet that flies
+// anywhere at 2048 km/h ignoring roads, with the camera pulled back so
+// the speed is actually readable. Releasing drops straight back to
+// whichever vehicle was selected before.
+const JET_EMOJI = '✈️';
+const DRIVE_ZOOM = 17.5;   // normal street-level driving
+const JET_ZOOM = 13.2;     // pulled back while flying
+const DOUBLE_TAP_MS = 350; // max gap between the two taps
+const JET_DIR_TOLERANCE = 0.5; // dot product: taps must point roughly the same way
+let jetActive = false;
+let driveZoom = DRIVE_ZOOM;        // the zoom actually applied each frame
+let targetDriveZoom = DRIVE_ZOOM;  // eased toward, so the pull-back is smooth
+let lastTapAt = 0;
+let lastTapDir = { x:0, y:0 };
+
+function engageJet(){
+  if(jetActive) return;
+  jetActive = true;
+  targetDriveZoom = JET_ZOOM;
+  if(carEmojiEl){
+    carEmojiEl.textContent = JET_EMOJI;
+    carEmojiEl.classList.remove('pop');
+    void carEmojiEl.offsetWidth;
+    carEmojiEl.classList.add('pop');
+  }
+  driveHud.classList.add('state-jet');
+}
+function releaseJet(){
+  if(!jetActive) return;
+  jetActive = false;
+  targetDriveZoom = DRIVE_ZOOM;
+  // Landing: shed the jet's velocity immediately rather than coasting
+  // at 2000+ km/h for several seconds while friction catches up. Keeps
+  // the direction, just clamps the speed back to what a car can do.
+  const speed = Math.hypot(carVelN, carVelE);
+  if(speed > ROAD_MAX_SPEED){
+    const scale = ROAD_MAX_SPEED / speed;
+    carVelN *= scale;
+    carVelE *= scale;
+  }
+  // Back to whichever vehicle the player had chosen before taking off.
+  if(carEmojiEl) carEmojiEl.textContent = VEHICLE_EMOJIS[vehicleIndex];
+  driveHud.classList.remove('state-jet');
+}
+
+// A tap counts as a double-tap only if it lands soon after the last one
+// AND points in roughly the same direction — so tapping left then right
+// doesn't accidentally launch the jet sideways.
+function registerDirectionTap(dir){
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  const mag = Math.hypot(dir.x, dir.y);
+  if(mag === 0) return; // no direction, nothing to double-tap
+  const quick = (now - lastTapAt) < DOUBLE_TAP_MS;
+  const aligned = (dir.x * lastTapDir.x + dir.y * lastTapDir.y) > JET_DIR_TOLERANCE;
+  if(quick && aligned){
+    engageJet();
+    lastTapAt = 0; // consume, so a third tap doesn't immediately re-trigger
+  } else {
+    lastTapAt = now;
+    lastTapDir = dir;
+  }
+}
 const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
 let vehicleIndex = 0;
 let facingRight = false; // vehicle emojis default to facing left
@@ -1174,50 +1380,77 @@ let lastFrameTime = null;
 function metersPerDegLng(lat){ return 111320 * Math.cos(lat * Math.PI / 180); }
 const METERS_PER_DEG_LAT = 111320;
 
+// Removes the car marker from the map entirely, if one exists. Called
+// whenever leaving Drive mode AND right before creating a new one, so
+// there is never a moment where two car markers can both exist.
+function removeCarMarker(){
+  if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; carEmojiEl = null; }
+}
+
 function switchMode(next){
   if(next === currentMode) return;
   currentMode = next;
+  modeSession++; // invalidate any async work started under the old mode
   modeExploreBtn.classList.toggle('active', next === 'explore');
   modeDriveBtn.classList.toggle('active', next === 'drive');
 
   if(next === 'explore'){
     stopDrive();
-    // The car marker lived on the drive map instance, which is about
-    // to be destroyed entirely along with everything else on it.
-    carMarker = null;
-    carFlipEl = null;
+    removeCarMarker();
     document.getElementById('dock-wrap').style.display = '';
     driveHud.style.display = 'none';
     driveHud.classList.remove('state-boost');
     drivePhotoBtn.style.display = 'none';
     photoPanel.classList.remove('show');
     closeLightbox();
-    currentPhotos = [];
-    currentPhotoIndex = 0;
-    // Leftover car state shouldn't linger while parked in Explore.
-    carLng = 0; carLat = 0; carVelN = 0; carVelE = 0;
-    isNearRoad = false;
-    // Full teardown + brand new map instance — not a camera reset on
-    // the same map. This is the "every change is like a new load"
-    // approach: a freshly constructed MapLibre map cannot carry over
-    // any internal state (layers, sources, tile cache, listener
-    // bookkeeping) from the drive session, which is what kept making
-    // this transition break in ways that were different every time.
-    destroyCurrentMap();
-    map = createFreshMap(DEFAULT_EXPLORE_VIEW);
-    addDestinationMarkers();
+    // Raise the guard (and grey out the controls it's blocking) BEFORE
+    // touching the map, so it also covers a synchronous map failure —
+    // and so the disabled buttons visibly read as disabled rather than
+    // just silently not responding.
+    transitionGuard.classList.add('show');
+    document.getElementById('topbar').classList.add('dimmed');
+    document.getElementById('dock-wrap').classList.add('dimmed');
+
+    // Runs exactly once, whichever trigger arrives first. The guard
+    // blocks the whole UI, so releasing it must never depend on a
+    // single event firing.
+    let settled = false;
+    const clearGuard = ()=>{
+      if(settled) return;
+      settled = true;
+      transitionGuard.classList.remove('show');
+      document.getElementById('topbar').classList.remove('dimmed');
+      document.getElementById('dock-wrap').classList.remove('dimmed');
+    };
+
+    // All map calls isolated: the UI state above is already correct, and
+    // a map-level failure must never abort the switch partway and leave
+    // the app half in one mode and half in the other.
+    try{
+      if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+      map.dragRotate.enable();
+      map.dragPan.enable();
+      // Always reset to the exact same zoomed-out globe view the app
+      // opens with — never resume wherever driving last left the camera.
+      map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
+      map.once('moveend', clearGuard);
+    }catch(e){
+      console.error('map reset failed, forcing camera home', e);
+      try{ map.jumpTo(DEFAULT_EXPLORE_VIEW); }catch(e2){}
+      clearGuard();
+    }
+    setTimeout(clearGuard, 4000); // hard backstop
   } else {
     // Entering Drive mode is always treated like the very first time:
-    // re-ask for the current location rather than trying to "resume"
-    // a previous session. The actual map rebuild for driving happens
-    // in beginDriveAt() once we have real coordinates to center on.
-    activeDest = null;
+    // drop any old marker and re-ask for the current location, rather
+    // than trying to "resume" a previous session. That's what was
+    // causing a second, stale car to appear at the old spot.
+    removeCarMarker();
     document.getElementById('dock-wrap').style.display = 'none';
     factCard.classList.remove('show');
     photoPanel.classList.remove('show');
     closeLightbox();
-    currentPhotos = [];
-    currentPhotoIndex = 0;
+    setLocateLoading(false); // fresh card, never inherit a stuck "Buscando…"
     locateCard.classList.add('show');
   }
 }
@@ -1225,20 +1458,45 @@ modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
 modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
 
 document.getElementById('locate-cancel').addEventListener('click', ()=>{
+  setLocateLoading(false);
   locateCard.classList.remove('show');
   switchMode('explore');
 });
-document.getElementById('locate-go').addEventListener('click', ()=>{
+const locateGoBtn = document.getElementById('locate-go');
+const locateGoLabel = document.getElementById('locate-go-label');
+function setLocateLoading(on){
+  locateGoBtn.classList.toggle('loading', on);
+  locateGoBtn.disabled = on;
+  locateGoLabel.textContent = on ? 'Buscando…' : 'Compartir mi ubicación';
+}
+
+locateGoBtn.addEventListener('click', ()=>{
+  if(locateGoBtn.disabled) return; // already waiting on a fix
   if(!navigator.geolocation){
     alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
     return;
   }
+  // Capture the session at request time. getCurrentPosition is async and
+  // can take many seconds; if the user taps "Explorar" or "Ahora no"
+  // while it's still pending, this callback must NOT start driving.
+  // (That was the transition bug: a late callback would kick off the
+  // drive loop while the UI said Explore, and the loop re-centers the
+  // camera on the car every single frame — pinning the view "in one
+  // area" and making destination clicks look like they did nothing,
+  // because the loop overwrote the camera on the very next frame.)
+  const requestSession = modeSession;
+  const isStale = ()=> requestSession !== modeSession || currentMode !== 'drive';
+  setLocateLoading(true);
   navigator.geolocation.getCurrentPosition(
     (pos)=>{
+      setLocateLoading(false);
+      if(isStale()) return;
       locateCard.classList.remove('show');
       beginDriveAt(pos.coords.longitude, pos.coords.latitude);
     },
     ()=>{
+      setLocateLoading(false);
+      if(isStale()) return;
       locateCard.classList.remove('show');
       alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
       switchMode('explore');
@@ -1248,24 +1506,9 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
 });
 
 function beginDriveAt(lng, lat){
+  removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
-  // Fresh road-detection state — a new session shouldn't inherit an
-  // "already near a road" speed boost left over from wherever the
-  // last drive session ended.
-  isNearRoad = false;
-  lastTerrainCheck = 0;
-  Object.keys(keys).forEach(k => delete keys[k]);
-
-  // Brand new map instance for driving too — same "every change is a
-  // new load" approach as the Explore-side rebuild. The old (Explore)
-  // map, its ~130 landmark markers, and everything else about it are
-  // fully torn down here, not just visually swapped out.
-  destroyCurrentMap();
-  map = createFreshMap({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
-  map.dragRotate.disable();
-  map.dragPan.disable(); // so a held drag steers the car instead of panning the map
-  map.on('load', ()=> ensureRoadLayer());
 
   // Structure: outer (MapLibre owns its transform for map positioning —
   // never set transform on this one directly) > flip (persistent
@@ -1284,7 +1527,9 @@ function beginDriveAt(lng, lat){
   emoji.addEventListener('click', (e)=>{
     e.stopPropagation();
     vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
-    emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
+    // While flying, keep showing the jet — the newly picked vehicle
+    // appears when the jet is released.
+    if(!jetActive) emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
     emoji.classList.remove('pop');
     void emoji.offsetWidth; // restart the animation even on rapid re-clicks
     emoji.classList.add('pop');
@@ -1293,30 +1538,44 @@ function beginDriveAt(lng, lat){
   carMarker = new maplibregl.Marker({ element:outer })
     .setLngLat([carLng, carLat]).addTo(map);
   carFlipEl = flip;
+  carEmojiEl = emoji;
 
   driveHud.style.display = 'flex';
   drivePhotoBtn.style.display = 'block';
+  driveZoom = DRIVE_ZOOM;
+  targetDriveZoom = DRIVE_ZOOM;
+  try{
+    map.dragRotate.disable();
+    map.dragPan.disable(); // so a held drag steers the car instead of panning the map
+    map.jumpTo({ center:[carLng, carLat], zoom:DRIVE_ZOOM, pitch:45, bearing:0 });
+  }catch(e){ console.error('drive camera setup issue', e); }
+  ensureRoadLayer();
   resumeDrive();
   if(typeof showDriveHint === 'function') showDriveHint();
 }
 
 // Free, keyless vector road data from OpenFreeMap (OpenStreetMap-based,
 // no API key, no limits) so the car can tell whether it's near a road.
-// Added once the fresh drive map's style has finished loading. No
-// explicit teardown needed anymore — when the whole map instance is
-// destroyed on the way back to Explore, this goes with it.
+// Added once, only used while driving — see switchMode() for how
+// visibility is toggled off in Explore mode so it doesn't cost tile
+// requests while spinning the globe.
 function ensureRoadLayer(){
-  if(!map.getSource('openmaptiles')){
-    map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
-  }
-  if(!map.getLayer('drive-roads')){
-    map.addLayer({
-      id:'drive-roads', type:'line', source:'openmaptiles', 'source-layer':'transportation',
-      minzoom:10,
-      paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
-    });
-  }
-  map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+  // Wrapped: road detection is only a speed-boost enhancement. If the
+  // vector source or layer can't be added for any reason, driving must
+  // still work — never let this take the app down.
+  try{
+    if(!map.getSource('openmaptiles')){
+      map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
+    }
+    if(!map.getLayer('drive-roads')){
+      map.addLayer({
+        id:'drive-roads', type:'line', source:'openmaptiles', 'source-layer':'transportation',
+        minzoom:10,
+        paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
+      });
+    }
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+  }catch(e){ console.error('road layer unavailable — driving still works', e); }
 }
 
 function resumeDrive(){
@@ -1332,21 +1591,33 @@ function stopDrive(){
   driveRAF = null;
   pointerActive = false;
   activePointerId = null;
-  pointerDX = 0;
-  pointerDY = 0;
-  // If a key was still physically held down the instant we stopped
-  // listening for keyup, its flag would otherwise stay stuck "true"
-  // forever — making a future drive session start moving on its own
-  // with no input. Clear every tracked key on the way out.
+  releaseJet();       // never leave a session mid-flight
+  lastTapAt = 0;      // don't let a tap from a previous session pair up
   Object.keys(keys).forEach(k => delete keys[k]);
-  carVelN = 0;
-  carVelE = 0;
 }
+// Maps a movement key to its direction vector, for double-tap detection.
+const KEY_DIRS = {
+  arrowup:{x:0,y:1},    w:{x:0,y:1},
+  arrowdown:{x:0,y:-1}, s:{x:0,y:-1},
+  arrowleft:{x:-1,y:0}, a:{x:-1,y:0},
+  arrowright:{x:1,y:0}, d:{x:1,y:0}
+};
 function onDriveKeyDown(e){
-  keys[e.key.toLowerCase()] = true;
-  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  const k = e.key.toLowerCase();
+  // Holding a key fires keydown over and over (autorepeat). Only treat
+  // it as a tap on the initial press, or every repeat would instantly
+  // look like a double-tap.
+  const isFreshPress = !keys[k];
+  keys[k] = true;
+  if(isFreshPress && KEY_DIRS[k]) registerDirectionTap(KEY_DIRS[k]);
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 }
-function onDriveKeyUp(e){ keys[e.key.toLowerCase()] = false; }
+function onDriveKeyUp(e){
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  // Once no movement key is held, the jet is released.
+  if(jetActive && !Object.keys(KEY_DIRS).some(key => keys[key])) releaseJet();
+}
 
 // Hold-to-drive: press and hold (finger or mouse) anywhere on the map
 // and the car heads toward that point on the screen. Since the camera
@@ -1367,16 +1638,22 @@ function onMapPointerDown(e){
   if(currentMode !== 'drive') return;
   if(activePointerId !== null) return; // already tracking a hold — ignore extra touches
   if(e.target.closest && e.target.closest('.maplibregl-ctrl')) return;
-  // Don't hijack a press that starts directly on the car — that needs
-  // to reach its own click handler (cycling the vehicle emoji). Without
-  // this, preventDefault()+setPointerCapture below would swallow the
-  // click before it ever fired, which is why clicking the car to
-  // change vehicles wasn't working.
+  // Don't hijack a press that lands on the car itself — that press needs
+  // to reach the car's own click handler (which cycles the vehicle
+  // emoji). preventDefault() + setPointerCapture below would otherwise
+  // swallow the click before it ever fired.
   if(e.target.closest && e.target.closest('.car-emoji')) return;
   e.preventDefault();
   activePointerId = e.pointerId;
   pointerActive = true;
   updatePointerDelta(e);
+  // Check for a double-tap in the same direction — that's what launches
+  // the jet. Done here (on press) so the jet engages the moment the
+  // second tap lands and stays engaged for as long as it's held.
+  const mag = Math.hypot(pointerDX, pointerDY);
+  if(mag >= POINTER_DEADZONE){
+    registerDirectionTap({ x: pointerDX / mag, y: -pointerDY / mag });
+  }
   if(mapContainerEl.setPointerCapture){
     try{ mapContainerEl.setPointerCapture(e.pointerId); }catch(err){ /* not critical if unsupported */ }
   }
@@ -1394,20 +1671,17 @@ function onMapPointerUp(e){
   if(e.pointerId !== undefined && e.pointerId !== activePointerId) return;
   pointerActive = false;
   activePointerId = null;
+  releaseJet(); // jet only lasts as long as the hold
 }
 
-// Captured directly from the DOM (not via map.getContainer()) so it
-// stays the same stable element across every map teardown/rebuild —
-// MapLibre uses this pre-existing div as its container rather than
-// creating its own, so it's never destroyed when a map instance is.
-const mapContainerEl = document.getElementById('map');
+const mapContainerEl = map.getContainer();
 mapContainerEl.addEventListener('pointerdown', onMapPointerDown);
 mapContainerEl.addEventListener('pointermove', onMapPointerMove);
 mapContainerEl.addEventListener('pointerup', onMapPointerUp);
 mapContainerEl.addEventListener('pointercancel', onMapPointerUp);
 window.addEventListener('pointerup', onMapPointerUp);
 window.addEventListener('pointercancel', onMapPointerUp);
-window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; });
+window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; releaseJet(); });
 
 
 // Combines keyboard and pointer-hold input into one direction, so the
@@ -1432,20 +1706,24 @@ function getInputDirection(){
 // Translation-only driving: each arrow/WASD direction pushes the car
 // straight north/south/east/west (map-relative, not car-relative) —
 // no turning or heading to manage. Holding two directions at once
-// (e.g. up + right) drives diagonally. Speed gets a big boost while
-// hugging a road — up to 256 km/h, race-car territory.
-const BASE_MAX_SPEED = 10;           // m/s off-road (~36 km/h)
-const ROAD_MAX_SPEED = 256 / 3.6;    // m/s on a road (256 km/h)
-const ACCEL_OFFROAD = 10;
-const ACCEL_ROAD = 28;               // faster ramp-up so reaching 256 km/h feels earned, not tedious
-const FRICTION = 40;
+// (e.g. up + right) drives diagonally.
+//
+// Tuned to be forgiving for a kid: one top speed on roads, exactly
+// half that off-road, and acceleration/braking quick enough that the
+// car goes where you point almost immediately instead of drifting.
+const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
+const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
+const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
+const ACCEL = 60;                          // reaches top speed in about half a second
+const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
+const FRICTION = 80;                       // near-instant stop when you let go
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
 
 let isNearRoad = false;
 let lastTerrainCheck = 0;
 
 function checkTerrain(t){
-  if(t - lastTerrainCheck < 300) return; // throttle — a couple times a second is plenty, and lighter on the GPU over a long drive
+  if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
   lastTerrainCheck = t;
   let nearRoad = false;
   try{
@@ -1463,13 +1741,22 @@ function checkTerrain(t){
 }
 
 function driveLoop(t){
+  // Hard safety net: this loop calls map.jumpTo() every frame, so if it
+  // ever survives into Explore mode it pins the camera and makes the
+  // whole app look broken. Never let it run outside Drive mode, no
+  // matter how it got started.
+  if(currentMode !== 'drive' || !carMarker){
+    driveRAF = null;
+    return;
+  }
   if(lastFrameTime === null) lastFrameTime = t;
   const dt = Math.min((t - lastFrameTime) / 1000, 0.1);
   lastFrameTime = t;
 
   checkTerrain(t);
-  const maxSpeed = isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED;
-  const accel = isNearRoad ? ACCEL_ROAD : ACCEL_OFFROAD;
+  // While flying, roads are irrelevant — the jet goes anywhere at full speed.
+  const maxSpeed = jetActive ? JET_MAX_SPEED : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
+  const accel = jetActive ? JET_ACCEL : ACCEL;
 
   const dir = getInputDirection();
 
@@ -1496,13 +1783,25 @@ function driveLoop(t){
   carLat += (carVelN * dt) / METERS_PER_DEG_LAT;
   carLng += (carVelE * dt) / metersPerDegLng(carLat);
 
-  if(carMarker) carMarker.setLngLat([carLng, carLat]);
-  map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:map.getZoom() });
+  // Ease the camera toward the current target zoom (pulled back while
+  // flying, street-level otherwise). Done here rather than with an
+  // easeTo, because this loop calls jumpTo every frame and would
+  // otherwise fight any animation the map tried to run itself.
+  driveZoom += (targetDriveZoom - driveZoom) * Math.min(1, dt * 4);
 
-  const speed = Math.hypot(carVelN, carVelE);
-  const kmh = Math.round(speed * 3.6);
-  driveSpeedo.textContent = kmh;
-  driveHud.classList.toggle('state-boost', isNearRoad && kmh > 0);
+  // A throw anywhere in here would break the requestAnimationFrame
+  // chain permanently — the car would freeze and never recover, with
+  // no way back except a page reload. Keep the loop alive no matter
+  // what a single frame does.
+  try{
+    if(carMarker) carMarker.setLngLat([carLng, carLat]);
+    map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:driveZoom });
+
+    const speed = Math.hypot(carVelN, carVelE);
+    const kmh = Math.round(speed * 3.6);
+    driveSpeedo.textContent = kmh;
+    driveHud.classList.toggle('state-boost', !jetActive && isNearRoad && kmh > 0);
+  }catch(e){ console.error('drive frame skipped', e); }
 
   driveRAF = requestAnimationFrame(driveLoop);
 }
