@@ -709,11 +709,11 @@
 </div>
 
 <div id="welcome">
-  <!-- Stamped by deploy.sh with the git short hash of the commit this
-       build came from, so it's obvious at a glance whether the page
-       actually reloaded. Shows 37ab263 when opened
-       straight from the repo without going through deploy.sh. -->
-  <div id="build-tag">37ab263</div>
+  <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
+       it's obvious at a glance whether a reload actually picked up a new
+       build. Shows 1787611202456 when opened straight from the
+       repo without going through deploy.sh. -->
+  <div id="build-tag">1787611202456</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -1004,6 +1004,22 @@ DESTINATIONS.forEach(d=>{
 const transitionGuard = document.getElementById('transition-guard');
 function flyToDestination(d){
   if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
+
+  // The landmark pins stay clickable while driving. Tapping one there
+  // has to fully leave Drive mode FIRST, because the drive loop calls
+  // map.jumpTo() every single frame to keep the camera on the vehicle —
+  // leaving it running would have it yanking the camera back 60x a
+  // second while the flight tries to move it, which is what made this
+  // feel so laggy from Drive mode.
+  const fromDrive = (currentMode === 'drive');
+  if(fromDrive){
+    currentMode = 'explore';
+    modeSession++; // invalidate any pending geolocation request
+    modeExploreBtn.classList.add('active');
+    modeDriveBtn.classList.remove('active');
+    exitDriveState();
+  }
+
   activeDest = d;
   transitionGuard.classList.add('show');
   document.getElementById('topbar').classList.add('dimmed');
@@ -1019,7 +1035,20 @@ function flyToDestination(d){
   // what made the description card pop up early and cut the journey
   // short. A moveend is only accepted once the flight is essentially
   // over; otherwise it's ignored as a stray.
-  const FLY_MS = 3000;
+  // From Explore the long flight IS the point — it's the journey across
+  // the globe. From Drive mode it's just a jump out of the neighbourhood,
+  // so go straight there and show the card immediately rather than
+  // making the player sit through three seconds of travel.
+  const FLY_MS = fromDrive ? 0 : 3000;
+  if(FLY_MS === 0){
+    try{ map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch, bearing:0 }); }
+    catch(e){ console.error('jump to destination failed', e); }
+    transitionGuard.classList.remove('show');
+    document.getElementById('topbar').classList.remove('dimmed');
+    document.getElementById('dock-wrap').classList.remove('dimmed');
+    showFactCard(d);
+    return;
+  }
   const startedAt = (typeof performance !== 'undefined' && performance.now)
     ? performance.now() : Date.now();
   const elapsed = ()=> ((typeof performance !== 'undefined' && performance.now)
@@ -1451,6 +1480,33 @@ function removeCarMarker(){
   if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; carEmojiEl = null; }
 }
 
+// Everything needed to leave Drive mode EXCEPT moving the camera.
+// Shared by switchMode (which then flies home) and by clicking a
+// landmark while driving (which jumps to that landmark instead).
+function exitDriveState(){
+  stopDrive();
+  removeCarMarker();
+  document.getElementById('dock-wrap').style.display = '';
+  driveHud.style.display = 'none';
+  driveHud.classList.remove('state-boost');
+  driveHud.classList.remove('state-jet');
+  driveHud.classList.remove('state-boat');
+  drivePhotoBtn.style.display = 'none';
+  photoPanel.classList.remove('show');
+  closeLightbox();
+  // The passport is an Explore-mode feature (stamps are earned by
+  // visiting destinations, which only exist in Explore) — bring it
+  // back now that driving is over.
+  passportBtn.style.display = '';
+  try{
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'none');
+    map.dragRotate.enable();
+    map.dragPan.enable();
+  }catch(e){ console.error('drive teardown issue', e); }
+  updateImagery(); // jetActive is false now, so pick the normal base layer
+}
+
 function switchMode(next){
   if(next === currentMode) return;
   currentMode = next;
@@ -1459,18 +1515,7 @@ function switchMode(next){
   modeDriveBtn.classList.toggle('active', next === 'drive');
 
   if(next === 'explore'){
-    stopDrive();
-    removeCarMarker();
-    document.getElementById('dock-wrap').style.display = '';
-    driveHud.style.display = 'none';
-    driveHud.classList.remove('state-boost');
-    drivePhotoBtn.style.display = 'none';
-    photoPanel.classList.remove('show');
-    closeLightbox();
-    // The passport is an Explore-mode feature (stamps are earned by
-    // visiting destinations, which only exist in Explore) — bring it
-    // back now that driving is over.
-    passportBtn.style.display = '';
+    exitDriveState();
     // Raise the guard (and grey out the controls it's blocking) BEFORE
     // touching the map, so it also covers a synchronous map failure —
     // and so the disabled buttons visibly read as disabled rather than
@@ -1495,9 +1540,6 @@ function switchMode(next){
     // a map-level failure must never abort the switch partway and leave
     // the app half in one mode and half in the other.
     try{
-      if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
-      map.dragRotate.enable();
-      map.dragPan.enable();
       // Always reset to the exact same zoomed-out globe view the app
       // opens with — never resume wherever driving last left the camera.
       map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
