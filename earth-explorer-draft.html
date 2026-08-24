@@ -711,9 +711,9 @@
 <div id="welcome">
   <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
        it's obvious at a glance whether a reload actually picked up a new
-       build. Shows 1787611683639 when opened straight from the
+       build. Shows 1787611683639A when opened straight from the
        repo without going through deploy.sh. -->
-  <div id="build-tag">1787611683639</div>
+  <div id="build-tag">1787611683639A</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -1034,7 +1034,7 @@ function flyToDestination(d){
   // what made the description card pop up early and cut the journey
   // short. A moveend is only accepted once the flight is essentially
   // over; otherwise it's ignored as a stray.
-  const FLY_MS = 3000;
+  const FLY_MS = 6000;
   const startedAt = (typeof performance !== 'undefined' && performance.now)
     ? performance.now() : Date.now();
   const elapsed = ()=> ((typeof performance !== 'undefined' && performance.now)
