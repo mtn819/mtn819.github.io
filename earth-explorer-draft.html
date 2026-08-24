@@ -652,11 +652,6 @@
 </div>
 
 <script>
-// Set once the map successfully initializes (inside the try block below).
-// Kept outside that block, alongside the start button listener, so both
-// stay usable even if map setup fails.
-let exploreMap = null;
-
 // ---------------------------------------------------------------
 // Attach the welcome/start button FIRST, before anything that
 // touches the map library. If the map fails to load for any
@@ -816,8 +811,17 @@ let activeDest = null;
 
 // ---------------------------------------------------------------
 // Map setup — free raster tiles, no API key required.
-// OSM for the base globe; MapLibre's built-in globe projection
-// gives the "spin the whole Earth" feeling.
+// Every mode switch tears the whole MapLibre instance down and
+// builds a brand new one from scratch (see destroyCurrentMap /
+// createFreshMap), rather than trying to reuse and carefully reset
+// one long-lived instance. A freshly constructed map cannot possibly
+// carry over any internal state — layers, sources, tile cache,
+// event listener bookkeeping — from a previous session, which is
+// what kept causing the Drive->Explore transition to break in subtle
+// ways no matter how carefully individual pieces of state were reset
+// by hand. The only things that persist across a mode switch are our
+// own plain JS variables, which we reset explicitly — except the
+// stamp collection, which is the one deliberate exception.
 // Everything below is wrapped in try/catch so that if the map
 // library or a tile source fails to load, the welcome screen,
 // start button, and passport still work — the app degrades
@@ -825,80 +829,93 @@ let activeDest = null;
 // ---------------------------------------------------------------
 try{
 
-const map = new maplibregl.Map({
-  container:'map',
-  style:{
-    version:8,
-    sources:{
-      'osm':{
-        type:'raster',
-        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        tileSize:256,
-        attribution:'© OpenStreetMap contributors'
+const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
+
+function createFreshMap(viewState){
+  const m = new maplibregl.Map({
+    container:'map',
+    style:{
+      version:8,
+      sources:{
+        'osm':{
+          type:'raster',
+          tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tileSize:256,
+          attribution:'© OpenStreetMap contributors'
+        },
+        'satellite':{
+          type:'raster',
+          tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+          tileSize:256,
+          attribution:'Esri World Imagery'
+        }
       },
-      'satellite':{
-        type:'raster',
-        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-        tileSize:256,
-        attribution:'Esri World Imagery'
-      }
+      layers:[
+        { id:'osm-layer', type:'raster', source:'osm' }
+      ]
     },
-    layers:[
-      { id:'osm-layer', type:'raster', source:'osm' }
-    ]
-  },
-  center:[0, 20],
-  zoom:1.6,
-  pitch:0,
-  attributionControl:{ compact:false }
-});
-exploreMap = map;
+    center:viewState.center,
+    zoom:viewState.zoom,
+    pitch:viewState.pitch,
+    bearing:viewState.bearing || 0,
+    attributionControl:{ compact:false }
+  });
 
-map.on('load', ()=>{
-  try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
-  try{ map.setFog({}); }catch(e){ /* fog isn't supported on every build/projection combo — purely cosmetic, skip it */ }
-});
+  m.on('load', ()=>{
+    try{ m.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
+    try{ m.setFog({}); }catch(e){ /* fog isn't supported on every build/projection combo — purely cosmetic, skip it */ }
+  });
 
-map.dragRotate.enable();
-map.touchZoomRotate.enable();
-map.touchPitch.enable();
+  m.dragRotate.enable();
+  m.touchZoomRotate.enable();
+  m.touchPitch.enable();
 
-// Swap to satellite imagery automatically once zoomed in close,
-// so kids see real photo detail on landmarks, and OSM lines/labels
-// when zoomed out for a friendly, readable globe. Driven off actual
-// layer presence (map.getLayer checks) rather than trusting a tracked
-// boolean to stay in sync — addLayer throws "Layer already exists" if
-// called on a layer that's already there, which is exactly the kind
-// of uncaught exception that could silently abort whatever code runs
-// right after a jumpTo/flyTo that crosses the zoom threshold.
-let usingSatellite = false;
-map.on('zoom', ()=>{
-  const z = map.getZoom();
-  const wantSatellite = z > 7.5;
-  if(wantSatellite === usingSatellite) return;
-  if(wantSatellite){
-    if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
-    if(!map.getLayer('sat-layer')) map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
-  } else {
-    if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
-    if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
+  // Swap to satellite imagery automatically once zoomed in close, so
+  // kids see real photo detail on landmarks, and OSM lines/labels
+  // when zoomed out for a friendly, readable globe. usingSatellite is
+  // a closure-local variable private to THIS map instance — it can
+  // never desync from a previous session's leftover state, because
+  // there's no way for it to leak across instances.
+  let usingSatellite = false;
+  m.on('zoom', ()=>{
+    const z = m.getZoom();
+    const wantSatellite = z > 7.5;
+    if(wantSatellite === usingSatellite) return;
+    if(wantSatellite){
+      if(m.getLayer('osm-layer')) m.removeLayer('osm-layer');
+      if(!m.getLayer('sat-layer')) m.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
+    } else {
+      if(m.getLayer('sat-layer')) m.removeLayer('sat-layer');
+      if(!m.getLayer('osm-layer')) m.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
+    }
+    usingSatellite = wantSatellite;
+  });
+
+  return m;
+}
+
+function destroyCurrentMap(){
+  if(map){
+    try{ map.remove(); }catch(e){ console.error('Error tearing down previous map instance', e); }
+    map = null;
   }
-  usingSatellite = wantSatellite;
-});
+}
 
-// ---------------------------------------------------------------
-// Landmark markers
-// ---------------------------------------------------------------
-DESTINATIONS.forEach(d=>{
-  const el = document.createElement('div');
-  el.textContent = d.emoji;
-  el.style.fontSize = '26px';
-  el.style.cursor = 'pointer';
-  el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
-  el.title = d.name;
-  el.addEventListener('click', ()=> flyToDestination(d));
-  new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
-});
+function addDestinationMarkers(){
+  DESTINATIONS.forEach(d=>{
+    const el = document.createElement('div');
+    el.textContent = d.emoji;
+    el.style.fontSize = '26px';
+    el.style.cursor = 'pointer';
+    el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
+    el.title = d.name;
+    el.addEventListener('click', ()=> flyToDestination(d));
+    new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
+  });
+}
+
+let map = createFreshMap(DEFAULT_EXPLORE_VIEW);
+addDestinationMarkers();
 
 function flyToDestination(d){
   activeDest = d;
@@ -1143,11 +1160,6 @@ const locateCard = document.getElementById('locate-card');
 const drivePhotoBtn = document.getElementById('drive-photo-btn');
 drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
 
-// The exact camera the map opens with — Explore mode always returns to
-// precisely this, every time, so switching modes can never leave the
-// globe in some in-between state.
-const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
-
 let currentMode = 'explore';
 let carMarker = null;
 let carFlipEl = null;
@@ -1162,13 +1174,6 @@ let lastFrameTime = null;
 function metersPerDegLng(lat){ return 111320 * Math.cos(lat * Math.PI / 180); }
 const METERS_PER_DEG_LAT = 111320;
 
-// Removes the car marker from the map entirely, if one exists. Called
-// whenever leaving Drive mode AND right before creating a new one, so
-// there is never a moment where two car markers can both exist.
-function removeCarMarker(){
-  if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; }
-}
-
 function switchMode(next){
   if(next === currentMode) return;
   currentMode = next;
@@ -1177,7 +1182,10 @@ function switchMode(next){
 
   if(next === 'explore'){
     stopDrive();
-    removeCarMarker();
+    // The car marker lived on the drive map instance, which is about
+    // to be destroyed entirely along with everything else on it.
+    carMarker = null;
+    carFlipEl = null;
     document.getElementById('dock-wrap').style.display = '';
     driveHud.style.display = 'none';
     driveHud.classList.remove('state-boost');
@@ -1186,33 +1194,23 @@ function switchMode(next){
     closeLightbox();
     currentPhotos = [];
     currentPhotoIndex = 0;
-    // Fully remove the road-detection layer/source (not just hide it) —
-    // leaving it merely hidden let loaded vector tiles pile up in GPU
-    // memory across every drive session in a play sitting, which is
-    // what was eventually causing WebGL buffer/context errors after
-    // extended driving. ensureRoadLayer() recreates it fresh next time.
-    removeRoadLayer();
-    // Leftover car state shouldn't linger while parked in Explore —
-    // it gets set fresh again in beginDriveAt anyway, but zeroing it
-    // here too means there's no stale position/speed sitting around
-    // between sessions even for a moment.
+    // Leftover car state shouldn't linger while parked in Explore.
     carLng = 0; carLat = 0; carVelN = 0; carVelE = 0;
     isNearRoad = false;
-    map.dragRotate.enable();
-    map.dragPan.enable();
-    // Always reset to the exact same zoomed-out globe view the app
-    // opens with — never resume wherever driving last left the camera.
-    // Instant jump, no animation: this is the same "every change is
-    // like the first view" approach used for destination changes, and
-    // it's what removes the transition-duration mismatch entirely
-    // rather than trying to paper over it.
-    map.jumpTo(DEFAULT_EXPLORE_VIEW);
+    // Full teardown + brand new map instance — not a camera reset on
+    // the same map. This is the "every change is like a new load"
+    // approach: a freshly constructed MapLibre map cannot carry over
+    // any internal state (layers, sources, tile cache, listener
+    // bookkeeping) from the drive session, which is what kept making
+    // this transition break in ways that were different every time.
+    destroyCurrentMap();
+    map = createFreshMap(DEFAULT_EXPLORE_VIEW);
+    addDestinationMarkers();
   } else {
     // Entering Drive mode is always treated like the very first time:
-    // drop any old marker and re-ask for the current location, rather
-    // than trying to "resume" a previous session. That's what was
-    // causing a second, stale car to appear at the old spot.
-    removeCarMarker();
+    // re-ask for the current location rather than trying to "resume"
+    // a previous session. The actual map rebuild for driving happens
+    // in beginDriveAt() once we have real coordinates to center on.
     activeDest = null;
     document.getElementById('dock-wrap').style.display = 'none';
     factCard.classList.remove('show');
@@ -1250,7 +1248,6 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
 });
 
 function beginDriveAt(lng, lat){
-  removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
   // Fresh road-detection state — a new session shouldn't inherit an
@@ -1259,6 +1256,16 @@ function beginDriveAt(lng, lat){
   isNearRoad = false;
   lastTerrainCheck = 0;
   Object.keys(keys).forEach(k => delete keys[k]);
+
+  // Brand new map instance for driving too — same "every change is a
+  // new load" approach as the Explore-side rebuild. The old (Explore)
+  // map, its ~130 landmark markers, and everything else about it are
+  // fully torn down here, not just visually swapped out.
+  destroyCurrentMap();
+  map = createFreshMap({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
+  map.dragRotate.disable();
+  map.dragPan.disable(); // so a held drag steers the car instead of panning the map
+  map.on('load', ()=> ensureRoadLayer());
 
   // Structure: outer (MapLibre owns its transform for map positioning —
   // never set transform on this one directly) > flip (persistent
@@ -1289,20 +1296,15 @@ function beginDriveAt(lng, lat){
 
   driveHud.style.display = 'flex';
   drivePhotoBtn.style.display = 'block';
-  map.dragRotate.disable();
-  map.dragPan.disable(); // so a held drag steers the car instead of panning the map
-  map.jumpTo({ center:[carLng, carLat], zoom:17.5, pitch:45, bearing:0 });
-  ensureRoadLayer();
   resumeDrive();
   if(typeof showDriveHint === 'function') showDriveHint();
 }
 
 // Free, keyless vector road data from OpenFreeMap (OpenStreetMap-based,
 // no API key, no limits) so the car can tell whether it's near a road.
-// Created fresh each time driving starts, and fully torn down (see
-// removeRoadLayer, called from switchMode) each time it ends — not
-// just hidden — so loaded vector tiles don't accumulate in GPU memory
-// across a long play session.
+// Added once the fresh drive map's style has finished loading. No
+// explicit teardown needed anymore — when the whole map instance is
+// destroyed on the way back to Explore, this goes with it.
 function ensureRoadLayer(){
   if(!map.getSource('openmaptiles')){
     map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
@@ -1315,10 +1317,6 @@ function ensureRoadLayer(){
     });
   }
   map.setLayoutProperty('drive-roads', 'visibility', 'visible');
-}
-function removeRoadLayer(){
-  if(map.getLayer('drive-roads')) map.removeLayer('drive-roads');
-  if(map.getSource('openmaptiles')) map.removeSource('openmaptiles');
 }
 
 function resumeDrive(){
@@ -1369,6 +1367,12 @@ function onMapPointerDown(e){
   if(currentMode !== 'drive') return;
   if(activePointerId !== null) return; // already tracking a hold — ignore extra touches
   if(e.target.closest && e.target.closest('.maplibregl-ctrl')) return;
+  // Don't hijack a press that starts directly on the car — that needs
+  // to reach its own click handler (cycling the vehicle emoji). Without
+  // this, preventDefault()+setPointerCapture below would swallow the
+  // click before it ever fired, which is why clicking the car to
+  // change vehicles wasn't working.
+  if(e.target.closest && e.target.closest('.car-emoji')) return;
   e.preventDefault();
   activePointerId = e.pointerId;
   pointerActive = true;
@@ -1392,7 +1396,11 @@ function onMapPointerUp(e){
   activePointerId = null;
 }
 
-const mapContainerEl = map.getContainer();
+// Captured directly from the DOM (not via map.getContainer()) so it
+// stays the same stable element across every map teardown/rebuild —
+// MapLibre uses this pre-existing div as its container rather than
+// creating its own, so it's never destroyed when a map instance is.
+const mapContainerEl = document.getElementById('map');
 mapContainerEl.addEventListener('pointerdown', onMapPointerDown);
 mapContainerEl.addEventListener('pointermove', onMapPointerMove);
 mapContainerEl.addEventListener('pointerup', onMapPointerUp);
