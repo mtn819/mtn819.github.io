@@ -711,9 +711,9 @@
 <div id="welcome">
   <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
        it's obvious at a glance whether a reload actually picked up a new
-       build. Shows 1787611202456 when opened straight from the
+       build. Shows 1787611683639 when opened straight from the
        repo without going through deploy.sh. -->
-  <div id="build-tag">1787611202456</div>
+  <div id="build-tag">1787611683639</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -996,6 +996,7 @@ DESTINATIONS.forEach(d=>{
   el.style.fontSize = '26px';
   el.style.cursor = 'pointer';
   el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
+  el.className = 'dest-pin';
   el.title = d.name;
   el.addEventListener('click', ()=> flyToDestination(d));
   new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
@@ -1005,19 +1006,17 @@ const transitionGuard = document.getElementById('transition-guard');
 function flyToDestination(d){
   if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
 
-  // The landmark pins stay clickable while driving. Tapping one there
-  // has to fully leave Drive mode FIRST, because the drive loop calls
-  // map.jumpTo() every single frame to keep the camera on the vehicle —
-  // leaving it running would have it yanking the camera back 60x a
-  // second while the flight tries to move it, which is what made this
-  // feel so laggy from Drive mode.
-  const fromDrive = (currentMode === 'drive');
-  if(fromDrive){
-    currentMode = 'explore';
-    modeSession++; // invalidate any pending geolocation request
-    modeExploreBtn.classList.add('active');
-    modeDriveBtn.classList.remove('active');
-    exitDriveState();
+  // Tapping a landmark pin while driving just opens its card — you stay
+  // in Drive mode, right where you are. Deliberately no camera move at
+  // all: the drive loop is still running and re-centres on the vehicle
+  // every frame, so anything we did to the camera here would be undone
+  // on the next frame anyway (that fight was the old source of lag).
+  if(currentMode === 'drive'){
+    activeDest = d;
+    photoPanel.classList.remove('show');
+    closeLightbox();
+    showFactCard(d);
+    return;
   }
 
   activeDest = d;
@@ -1035,20 +1034,7 @@ function flyToDestination(d){
   // what made the description card pop up early and cut the journey
   // short. A moveend is only accepted once the flight is essentially
   // over; otherwise it's ignored as a stray.
-  // From Explore the long flight IS the point — it's the journey across
-  // the globe. From Drive mode it's just a jump out of the neighbourhood,
-  // so go straight there and show the card immediately rather than
-  // making the player sit through three seconds of travel.
-  const FLY_MS = fromDrive ? 0 : 3000;
-  if(FLY_MS === 0){
-    try{ map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch, bearing:0 }); }
-    catch(e){ console.error('jump to destination failed', e); }
-    transitionGuard.classList.remove('show');
-    document.getElementById('topbar').classList.remove('dimmed');
-    document.getElementById('dock-wrap').classList.remove('dimmed');
-    showFactCard(d);
-    return;
-  }
+  const FLY_MS = 3000;
   const startedAt = (typeof performance !== 'undefined' && performance.now)
     ? performance.now() : Date.now();
   const elapsed = ()=> ((typeof performance !== 'undefined' && performance.now)
@@ -1774,6 +1760,9 @@ function onMapPointerDown(e){
   // emoji). preventDefault() + setPointerCapture below would otherwise
   // swallow the click before it ever fired.
   if(e.target.closest && e.target.closest('.car-emoji')) return;
+  // Same for the landmark pins — a press on one is a tap to open its
+  // card, not a command to drive that way.
+  if(e.target.closest && e.target.closest('.dest-pin')) return;
   e.preventDefault();
   activePointerId = e.pointerId;
   pointerActive = true;
