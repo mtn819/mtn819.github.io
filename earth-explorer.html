@@ -531,7 +531,29 @@
     font-family:'Baloo 2',cursive; font-weight:800; font-size:15px;
     border-radius:999px; padding:11px 26px; cursor:pointer;
     box-shadow:0 4px 0 var(--sunset-deep);
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-width:220px; min-height:46px;
   }
+  /* While waiting on the browser's location prompt / GPS fix, which can
+     take several seconds. Without this the button looks unresponsive
+     and invites repeat taps. */
+  #locate-go.loading{
+    background:var(--parchment-deep);
+    color:var(--forest-deep);
+    border-color:var(--forest-deep);
+    box-shadow:0 4px 0 rgba(0,0,0,0.18);
+    cursor:wait;
+  }
+  #locate-spinner{
+    display:none;
+    width:16px; height:16px; flex-shrink:0;
+    border:3px solid rgba(18,59,48,0.25);
+    border-top-color:var(--forest-deep);
+    border-radius:50%;
+    animation:locate-spin 0.7s linear infinite;
+  }
+  #locate-go.loading #locate-spinner{ display:block; }
+  @keyframes locate-spin{ to{ transform:rotate(360deg); } }
   #locate-cancel{
     display:block; margin:10px auto 0; background:none; border:none;
     color:var(--forest); font-size:12px; text-decoration:underline; cursor:pointer;
@@ -626,7 +648,7 @@
     <span class="lemoji">📍</span>
     <h2>¡Conduce cerca de ti!</h2>
     <p>Esto usa la ubicación de tu dispositivo para poner tu carro en un mapa real de tu vecindario, para que puedas conducir y explorarlo.</p>
-    <button id="locate-go">Compartir mi ubicación</button>
+    <button id="locate-go"><span id="locate-spinner"></span><span id="locate-go-label">Compartir mi ubicación</span></button>
     <button id="locate-cancel">Ahora no</button>
   </div>
 </div>
@@ -1347,6 +1369,7 @@ function switchMode(next){
     factCard.classList.remove('show');
     photoPanel.classList.remove('show');
     closeLightbox();
+    setLocateLoading(false); // fresh card, never inherit a stuck "Buscando…"
     locateCard.classList.add('show');
   }
 }
@@ -1354,10 +1377,20 @@ modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
 modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
 
 document.getElementById('locate-cancel').addEventListener('click', ()=>{
+  setLocateLoading(false);
   locateCard.classList.remove('show');
   switchMode('explore');
 });
-document.getElementById('locate-go').addEventListener('click', ()=>{
+const locateGoBtn = document.getElementById('locate-go');
+const locateGoLabel = document.getElementById('locate-go-label');
+function setLocateLoading(on){
+  locateGoBtn.classList.toggle('loading', on);
+  locateGoBtn.disabled = on;
+  locateGoLabel.textContent = on ? 'Buscando…' : 'Compartir mi ubicación';
+}
+
+locateGoBtn.addEventListener('click', ()=>{
+  if(locateGoBtn.disabled) return; // already waiting on a fix
   if(!navigator.geolocation){
     alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
     return;
@@ -1372,13 +1405,16 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
   // because the loop overwrote the camera on the very next frame.)
   const requestSession = modeSession;
   const isStale = ()=> requestSession !== modeSession || currentMode !== 'drive';
+  setLocateLoading(true);
   navigator.geolocation.getCurrentPosition(
     (pos)=>{
+      setLocateLoading(false);
       if(isStale()) return;
       locateCard.classList.remove('show');
       beginDriveAt(pos.coords.longitude, pos.coords.latitude);
     },
     ()=>{
+      setLocateLoading(false);
       if(isStale()) return;
       locateCard.classList.remove('show');
       alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
