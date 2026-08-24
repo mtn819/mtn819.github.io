@@ -814,7 +814,8 @@ map.on('load', ()=>{
   map.setFog({});
 });
 
-map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
+// Deliberately not adding NavigationControl (the built-in +/- zoom
+// buttons) at all, in either mode — pinch/scroll zoom still works.
 map.dragRotate.enable();
 map.touchZoomRotate.enable();
 map.touchPitch.enable();
@@ -1070,6 +1071,13 @@ drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
 const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
 
 let currentMode = 'explore';
+// Incremented on EVERY mode switch. Any async work started under an
+// older session (most importantly the geolocation request, which can
+// take many seconds to resolve) compares its captured value against
+// this and bails out if it's stale. Without this, a geolocation
+// callback could land *after* the user had already returned to
+// Explore and start the drive loop anyway — see switchMode/locate-go.
+let modeSession = 0;
 let carMarker = null;
 let carFlipEl = null;
 const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
@@ -1093,6 +1101,7 @@ function removeCarMarker(){
 function switchMode(next){
   if(next === currentMode) return;
   currentMode = next;
+  modeSession++; // invalidate any async work started under the old mode
   modeExploreBtn.classList.toggle('active', next === 'explore');
   modeDriveBtn.classList.toggle('active', next === 'drive');
 
@@ -1111,7 +1120,12 @@ function switchMode(next){
     // opens with — never resume wherever driving last left the camera.
     transitionGuard.classList.add('show');
     map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
-    map.once('moveend', ()=> transitionGuard.classList.remove('show'));
+    // Clear on moveend, but ALSO on a hard timeout — a guard that never
+    // clears blocks every button on the page, so it must never depend
+    // on a single event firing.
+    const clearGuard = ()=> transitionGuard.classList.remove('show');
+    map.once('moveend', clearGuard);
+    setTimeout(clearGuard, 4000);
   } else {
     // Entering Drive mode is always treated like the very first time:
     // drop any old marker and re-ask for the current location, rather
@@ -1136,12 +1150,24 @@ document.getElementById('locate-go').addEventListener('click', ()=>{
     alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
     return;
   }
+  // Capture the session at request time. getCurrentPosition is async and
+  // can take many seconds; if the user taps "Explorar" or "Ahora no"
+  // while it's still pending, this callback must NOT start driving.
+  // (That was the transition bug: a late callback would kick off the
+  // drive loop while the UI said Explore, and the loop re-centers the
+  // camera on the car every single frame — pinning the view "in one
+  // area" and making destination clicks look like they did nothing,
+  // because the loop overwrote the camera on the very next frame.)
+  const requestSession = modeSession;
+  const isStale = ()=> requestSession !== modeSession || currentMode !== 'drive';
   navigator.geolocation.getCurrentPosition(
     (pos)=>{
+      if(isStale()) return;
       locateCard.classList.remove('show');
       beginDriveAt(pos.coords.longitude, pos.coords.latitude);
     },
     ()=>{
+      if(isStale()) return;
       locateCard.classList.remove('show');
       alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
       switchMode('explore');
@@ -1336,6 +1362,14 @@ function checkTerrain(t){
 }
 
 function driveLoop(t){
+  // Hard safety net: this loop calls map.jumpTo() every frame, so if it
+  // ever survives into Explore mode it pins the camera and makes the
+  // whole app look broken. Never let it run outside Drive mode, no
+  // matter how it got started.
+  if(currentMode !== 'drive' || !carMarker){
+    driveRAF = null;
+    return;
+  }
   if(lastFrameTime === null) lastFrameTime = t;
   const dt = Math.min((t - lastFrameTime) / 1000, 0.1);
   lastFrameTime = t;
