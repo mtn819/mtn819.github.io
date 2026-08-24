@@ -376,7 +376,6 @@
   #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
-  #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
 
   /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
   /* Short transition so the car's left/right flip and the jet's
@@ -936,21 +935,18 @@ map.dragRotate.enable();
 map.touchZoomRotate.enable();
 map.touchPitch.enable();
 
-// Chooses between satellite imagery (real photo detail when zoomed in)
-// and the OSM street map (which carries street names, labels and
-// addresses). Driven off what's ACTUALLY on the map rather than a
+// Swap to satellite imagery automatically once zoomed in close, so
+// kids see real photo detail on landmarks, and OSM lines/labels when
+// zoomed out. Driven off what's ACTUALLY on the map rather than a
 // tracked boolean, and wrapped in try/catch: addLayer throws
-// "Layer already exists" if called twice, and this runs on every
+// "Layer already exists" if called twice, and this fires on every
 // camera move — an exception here would abort whatever code triggered
 // the move (a destination jump, a mode switch), which is exactly the
 // kind of thing that made the app appear to randomly break.
 let usingSatellite = false;
-function updateImagery(){
+map.on('zoom', ()=>{
   try{
-    // While flying, always show the labelled street map so you can read
-    // street names and addresses as you pass over them. Otherwise it's
-    // satellite up close, street map when zoomed out.
-    const wantSatellite = !jetActive && map.getZoom() > 7.5;
+    const wantSatellite = map.getZoom() > 7.5;
     if(wantSatellite === usingSatellite) return;
     if(wantSatellite){
       if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
@@ -960,20 +956,12 @@ function updateImagery(){
       if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
     }
     usingSatellite = wantSatellite;
-    // Keep the road-detection line layer on top of whichever base
-    // layer was just swapped in, otherwise it can end up underneath.
-    if(map.getLayer('drive-roads')) map.moveLayer('drive-roads');
   }catch(e){ console.error('imagery swap skipped', e); }
-}
-map.on('zoom', updateImagery);
+});
 
 // ---------------------------------------------------------------
 // Landmark markers
 // ---------------------------------------------------------------
-// Kept so the landmark pins can be hidden entirely in Drive mode —
-// they're an Explore-mode feature, and leaving them on the map while
-// driving is both visually noisy and clickable when it shouldn't be.
-const destinationMarkerEls = [];
 DESTINATIONS.forEach(d=>{
   const el = document.createElement('div');
   el.textContent = d.emoji;
@@ -983,14 +971,7 @@ DESTINATIONS.forEach(d=>{
   el.title = d.name;
   el.addEventListener('click', ()=> flyToDestination(d));
   new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
-  destinationMarkerEls.push(el);
 });
-
-// display:none removes them from hit-testing too, so they can't be
-// clicked while hidden — not just visually gone.
-function setDestinationMarkersVisible(visible){
-  destinationMarkerEls.forEach(el => { el.style.display = visible ? '' : 'none'; });
-}
 
 const transitionGuard = document.getElementById('transition-guard');
 function flyToDestination(d){
@@ -1326,6 +1307,8 @@ let currentMode = 'explore';
 let modeSession = 0;
 let carMarker = null;
 let carFlipEl = null;
+const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
+let vehicleIndex = 0;
 let carEmojiEl = null;
 
 // ---- Jet mode ----------------------------------------------------
@@ -1356,7 +1339,6 @@ function engageJet(){
   }
   applyFacing(); // jet points the opposite way by default — re-mirror now
   driveHud.classList.add('state-jet');
-  updateImagery(); // labelled street map while flying
 }
 function releaseJet(){
   if(!jetActive) return;
@@ -1375,7 +1357,6 @@ function releaseJet(){
   if(carEmojiEl) carEmojiEl.textContent = VEHICLE_EMOJIS[vehicleIndex];
   applyFacing(); // back to car-style mirroring
   driveHud.classList.remove('state-jet');
-  updateImagery(); // back to satellite at street level
 }
 
 // A tap counts as a double-tap only if it lands soon after the last one
@@ -1395,8 +1376,6 @@ function registerDirectionTap(dir){
     lastTapDir = dir;
   }
 }
-const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
-let vehicleIndex = 0;
 let facingRight = false; // vehicle emojis default to facing left
 
 // The car emojis (🚗🛻🚙🚓🐎) point LEFT by default and only ever get
@@ -1431,30 +1410,6 @@ function removeCarMarker(){
   if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; carEmojiEl = null; }
 }
 
-// Everything needed to leave Drive mode EXCEPT moving the camera.
-// Shared by switchMode (which then flies home) and by clicking a
-// landmark while driving (which flies to that landmark instead).
-function exitDriveState(){
-  stopDrive();
-  removeCarMarker();
-  document.getElementById('dock-wrap').style.display = '';
-  driveHud.style.display = 'none';
-  driveHud.classList.remove('state-boost');
-  driveHud.classList.remove('state-jet');
-  drivePhotoBtn.style.display = 'none';
-  photoPanel.classList.remove('show');
-  closeLightbox();
-  // Landmark pins and the passport are Explore-mode features — bring
-  // them back now that driving is over.
-  setDestinationMarkersVisible(true);
-  passportBtn.style.display = '';
-  try{
-    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
-    map.dragRotate.enable();
-    map.dragPan.enable();
-  }catch(e){ console.error('drive teardown issue', e); }
-}
-
 function switchMode(next){
   if(next === currentMode) return;
   currentMode = next;
@@ -1463,7 +1418,18 @@ function switchMode(next){
   modeDriveBtn.classList.toggle('active', next === 'drive');
 
   if(next === 'explore'){
-    exitDriveState();
+    stopDrive();
+    removeCarMarker();
+    document.getElementById('dock-wrap').style.display = '';
+    driveHud.style.display = 'none';
+    driveHud.classList.remove('state-boost');
+    drivePhotoBtn.style.display = 'none';
+    photoPanel.classList.remove('show');
+    closeLightbox();
+    // The passport is an Explore-mode feature (stamps are earned by
+    // visiting destinations, which only exist in Explore) — bring it
+    // back now that driving is over.
+    passportBtn.style.display = '';
     // Raise the guard (and grey out the controls it's blocking) BEFORE
     // touching the map, so it also covers a synchronous map failure —
     // and so the disabled buttons visibly read as disabled rather than
@@ -1484,10 +1450,13 @@ function switchMode(next){
       document.getElementById('dock-wrap').classList.remove('dimmed');
     };
 
-    // Camera work isolated: the UI state above is already correct, and
+    // All map calls isolated: the UI state above is already correct, and
     // a map-level failure must never abort the switch partway and leave
     // the app half in one mode and half in the other.
     try{
+      if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+      map.dragRotate.enable();
+      map.dragPan.enable();
       // Always reset to the exact same zoomed-out globe view the app
       // opens with — never resume wherever driving last left the camera.
       map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
@@ -1505,10 +1474,9 @@ function switchMode(next){
     // causing a second, stale car to appear at the old spot.
     removeCarMarker();
     document.getElementById('dock-wrap').style.display = 'none';
-    // Drive mode is about your own neighbourhood — hide the landmark
-    // pins and the passport so nothing from Explore mode is left on
-    // screen (and nothing stray is clickable while driving).
-    setDestinationMarkersVisible(false);
+    // Nothing in Drive mode can earn a stamp, so the big passport
+    // button in the top right is just clutter here — hide it and
+    // reserve it for Explore mode.
     passportBtn.style.display = 'none';
     factCard.classList.remove('show');
     photoPanel.classList.remove('show');
@@ -1572,10 +1540,6 @@ function beginDriveAt(lng, lat){
   removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
-  // Fresh terrain state — a new session shouldn't inherit "on a road"
-  // from wherever the last one ended.
-  isNearRoad = false;
-  lastTerrainCheck = 0;
 
   // Structure: outer (MapLibre owns its transform for map positioning —
   // never set transform on this one directly) > flip (persistent
@@ -1780,10 +1744,10 @@ function getInputDirection(){
 // car goes where you point almost immediately instead of drifting.
 const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
 const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
-const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
 const ACCEL = 60;                          // reaches top speed in about half a second
-const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
 const FRICTION = 80;                       // near-instant stop when you let go
+const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
+const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
 
 let isNearRoad = false;
@@ -1870,16 +1834,16 @@ function driveLoop(t){
   carLat += (carVelN * dt) / METERS_PER_DEG_LAT;
   carLng += (carVelE * dt) / metersPerDegLng(carLat);
 
+  // A throw anywhere in here would break the requestAnimationFrame
+  // chain permanently — the car would freeze and never recover, with
+  // no way back except a page reload. Keep the loop alive no matter
+  // what a single frame does.
   // Ease the camera toward the current target zoom (pulled back while
   // flying, street-level otherwise). Done here rather than with an
   // easeTo, because this loop calls jumpTo every frame and would
   // otherwise fight any animation the map tried to run itself.
   driveZoom += (targetDriveZoom - driveZoom) * Math.min(1, dt * 4);
 
-  // A throw anywhere in here would break the requestAnimationFrame
-  // chain permanently — the car would freeze and never recover, with
-  // no way back except a page reload. Keep the loop alive no matter
-  // what a single frame does.
   try{
     if(carMarker) carMarker.setLngLat([carLng, carLat]);
     map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:driveZoom });
