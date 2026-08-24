@@ -875,7 +875,8 @@ map.on('load', ()=>{
   try{ map.setFog({}); }catch(e){ /* fog isn't supported on every build/projection combo — purely cosmetic, skip it */ }
 });
 
-map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
+const navControl = new maplibregl.NavigationControl({ visualizePitch:true });
+map.addControl(navControl, 'top-right');
 map.dragRotate.enable();
 map.touchZoomRotate.enable();
 map.touchPitch.enable();
@@ -1223,6 +1224,7 @@ function switchMode(next){
     // what was eventually causing WebGL buffer/context errors after
     // extended driving. ensureRoadLayer() recreates it fresh next time.
     removeRoadLayer();
+    map.addControl(navControl, 'top-right');
     map.dragRotate.enable();
     map.dragPan.enable();
     // Always reset to the exact same zoomed-out globe view the app
@@ -1249,7 +1251,8 @@ function switchMode(next){
     document.getElementById('dock-wrap').style.display = 'none';
     factCard.classList.remove('show');
     photoPanel.classList.remove('show');
-  closeLightbox();
+    closeLightbox();
+    map.removeControl(navControl);
     locateCard.classList.add('show');
   }
 }
