@@ -390,7 +390,7 @@
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
   #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
-  #drive-hud.state-boat{ background:rgba(45,120,173,0.85); border-color:#215a83; }
+  #drive-hud.state-heli{ background:rgba(31,92,76,0.85); border-color:var(--forest-deep); }
 
   /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
   /* Short transition so the car's left/right flip and the jet's
@@ -711,9 +711,9 @@
 <div id="welcome">
   <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
        it's obvious at a glance whether a reload actually picked up a new
-       build. Shows 1787611683639 when opened straight from the
+       build. Shows 1787626052348 when opened straight from the
        repo without going through deploy.sh. -->
-  <div id="build-tag">1787611683639</div>
+  <div id="build-tag">1787626052348</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -981,7 +981,6 @@ function updateImagery(){
     usingSatellite = wantSatellite;
     // Keep the road/water overlays above whichever base layer was just
     // swapped in, otherwise they end up buried underneath it.
-    if(map.getLayer('drive-water')) map.moveLayer('drive-water');
     if(map.getLayer('drive-roads')) map.moveLayer('drive-roads');
   }catch(e){ console.error('imagery swap skipped', e); }
 }
@@ -1003,6 +1002,31 @@ DESTINATIONS.forEach(d=>{
 });
 
 const transitionGuard = document.getElementById('transition-guard');
+// How long a journey to a destination should take, scaled by distance.
+// Roughly: a few hundred km is quick, halfway around the world is the
+// full ride. Clamped at both ends so a nearby hop still reads as travel
+// and a global crossing never drags.
+const FLY_MS_MIN = 4400;   // short hop
+const FLY_MS_MAX = 14000;  // other side of the planet
+function flightDurationMs(fromLngLat, toCenter){
+  try{
+    const toRad = deg => deg * Math.PI / 180;
+    const lat1 = toRad(fromLngLat.lat), lat2 = toRad(toCenter[1]);
+    const dLat = lat2 - lat1;
+    const dLng = toRad(toCenter[0] - fromLngLat.lng);
+    // Haversine, in km.
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+    const km = 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+    // The furthest two points on Earth can be is about 20,000km. Square
+    // root so short trips still get a decent share of the time rather
+    // than being over in a blink — linear scaling made them feel abrupt.
+    const t = Math.min(1, Math.sqrt(km / 20000));
+    return Math.round(FLY_MS_MIN + (FLY_MS_MAX - FLY_MS_MIN) * t);
+  }catch(e){
+    return FLY_MS_MAX; // if anything goes wrong, err on the scenic side
+  }
+}
+
 function flyToDestination(d){
   if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
 
@@ -1034,7 +1058,12 @@ function flyToDestination(d){
   // what made the description card pop up early and cut the journey
   // short. A moveend is only accepted once the flight is essentially
   // over; otherwise it's ignored as a stray.
-  const FLY_MS = 3000;
+  // Scale the journey to how far it actually is. A hop to the next town
+  // shouldn't take as long as crossing the planet — a fixed duration made
+  // every trip feel the same, and long ones feel far too quick for the
+  // distance covered. Great-circle distance so it's real distance, not
+  // degrees (which would badly overstate east-west hops near the poles).
+  const FLY_MS = flightDurationMs(map.getCenter(), d.center);
   const startedAt = (typeof performance !== 'undefined' && performance.now)
     ? performance.now() : Date.now();
   const elapsed = ()=> ((typeof performance !== 'undefined' && performance.now)
@@ -1360,16 +1389,15 @@ let carEmojiEl = null;
 // the speed is actually readable. Releasing drops straight back to
 // whichever vehicle was selected before.
 const JET_EMOJI = '✈️';
-const BOAT_EMOJI = '⛵';
-let isOverWater = false; // on a lake/sea/ocean, so the car becomes a boat
+const HELI_EMOJI = '🚁';
 
 // Single source of truth for the avatar. Three things can decide it, so
 // they're resolved in priority order here rather than scattered around:
-// flying beats floating, floating beats the chosen land vehicle.
+// flying beats off-road, off-road beats the chosen road vehicle.
 function applyVehicleIcon(){
   if(!carEmojiEl) return;
   carEmojiEl.textContent = jetActive ? JET_EMOJI
-    : isOverWater ? BOAT_EMOJI
+    : !isNearRoad ? HELI_EMOJI
     : VEHICLE_EMOJIS[vehicleIndex];
   carEmojiEl.classList.remove('pop');
   void carEmojiEl.offsetWidth; // restart the pop animation on rapid changes
@@ -1407,7 +1435,7 @@ function releaseJet(){
     carVelN *= scale;
     carVelE *= scale;
   }
-  // Back to the boat if we're over water, otherwise the chosen vehicle.
+  // Back to the helicopter if we're off-road, otherwise the chosen vehicle.
   applyVehicleIcon();
   applyFacing(); // back to car-style mirroring
   driveHud.classList.remove('state-jet');
@@ -1476,7 +1504,7 @@ function exitDriveState(){
   driveHud.style.display = 'none';
   driveHud.classList.remove('state-boost');
   driveHud.classList.remove('state-jet');
-  driveHud.classList.remove('state-boat');
+  driveHud.classList.remove('state-heli');
   drivePhotoBtn.style.display = 'none';
   photoPanel.classList.remove('show');
   closeLightbox();
@@ -1486,7 +1514,6 @@ function exitDriveState(){
   passportBtn.style.display = '';
   try{
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
-    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'none');
     map.dragRotate.enable();
     map.dragPan.enable();
   }catch(e){ console.error('drive teardown issue', e); }
@@ -1557,10 +1584,35 @@ function switchMode(next){
 modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
 modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
 
-document.getElementById('locate-cancel').addEventListener('click', ()=>{
+// When there's no GPS fix to be had — the player tapped "Ahora no", the
+// prompt was denied, it timed out, or the browser has no geolocation at
+// all — drive at whatever the Explore camera was last looking at rather
+// than bouncing them back with an error. A kid who says no to the
+// permission prompt still gets to play.
+const NO_LOCATION_MSG = '📍 No pudimos obtener tu ubicación';
+// Where the vehicle goes when there's no GPS fix. Always the same
+// place, deliberately: a predictable starting point beats a clever one,
+// and Paris is dense with streets so there's plenty to drive on. The
+// Explore camera is NOT used — it defaults to [0, 20], open water in the
+// Gulf of Guinea, which at street zoom is just "map data not available".
+// Looked up from DESTINATIONS by id so the coordinates live in one place.
+function fallbackDriveSpot(){
+  const d = DESTINATIONS.find(x => x.id === 'eiffel-tower');
+  return d ? d.center : [2.2945, 48.8584];
+}
+
+function beginDriveAtCurrentView(){
+  const [lng, lat] = fallbackDriveSpot();
   setLocateLoading(false);
   locateCard.classList.remove('show');
-  switchMode('explore');
+  beginDriveAt(lng, lat);
+  // beginDriveAt queues the usual "hold to drive" hint; replace it with
+  // the explanation, shown a little longer since it's saying something.
+  showDriveHint(NO_LOCATION_MSG, 6000);
+}
+
+document.getElementById('locate-cancel').addEventListener('click', ()=>{
+  beginDriveAtCurrentView();
 });
 const locateGoBtn = document.getElementById('locate-go');
 const locateGoLabel = document.getElementById('locate-go-label');
@@ -1573,7 +1625,7 @@ function setLocateLoading(on){
 locateGoBtn.addEventListener('click', ()=>{
   if(locateGoBtn.disabled) return; // already waiting on a fix
   if(!navigator.geolocation){
-    alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
+    beginDriveAtCurrentView();
     return;
   }
   // Capture the session at request time. getCurrentPosition is async and
@@ -1597,9 +1649,7 @@ locateGoBtn.addEventListener('click', ()=>{
     ()=>{
       setLocateLoading(false);
       if(isStale()) return;
-      locateCard.classList.remove('show');
-      alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
-      switchMode('explore');
+      beginDriveAtCurrentView();
     },
     { enableHighAccuracy:true, timeout:10000 }
   );
@@ -1609,7 +1659,6 @@ function beginDriveAt(lng, lat){
   removeCarMarker(); // guarantee there is never more than one car
   carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
   facingRight = false;
-  isOverWater = false; // first checkTerrain sets this correctly
 
   // Structure: outer (MapLibre owns its transform for map positioning —
   // never set transform on this one directly) > flip (persistent
@@ -1627,9 +1676,13 @@ function beginDriveAt(lng, lat){
 
   emoji.addEventListener('click', (e)=>{
     e.stopPropagation();
+    // Only swap vehicles while actually in a car — that is, on a road and
+    // not flying. Tapping the jet or the helicopter used to silently
+    // change the car you'd get back later, which is confusing: the tap
+    // appeared to do nothing, then the vehicle had changed by the time
+    // you returned to a road.
+    if(jetActive || !isNearRoad) return;
     vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
-    // While flying or afloat the jet/boat stays on screen — the newly
-    // picked vehicle appears once back on land.
     applyVehicleIcon();
   });
 
@@ -1658,29 +1711,12 @@ function beginDriveAt(lng, lat){
 // visibility is toggled off in Explore mode so it doesn't cost tile
 // requests while spinning the globe.
 function ensureRoadLayer(){
-  // Wrapped: road/water detection is only an enhancement. If the vector
-  // source or layers can't be added for any reason, driving must still
-  // work — never let this take the app down.
+  // Wrapped: road detection is only an enhancement. If the vector source
+  // or layer can't be added for any reason, driving must still work —
+  // never let this take the app down.
   try{
     if(!map.getSource('openmaptiles')){
       map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
-    }
-    if(!map.getLayer('drive-water')){
-      // Lakes, seas and oceans. In the OpenMapTiles schema every polygon
-      // built from OSM coastline data is class 'ocean', which covers all
-      // the seas too (Mediterranean, Caribbean, Baltic...) since they sit
-      // beyond the coastline; 'lake' covers inland water. Rivers, ponds,
-      // docks and swimming pools are excluded so crossing a creek or a
-      // back garden doesn't turn the car into a boat.
-      //
-      // Drawn with a visible tint on purpose: queryRenderedFeatures only
-      // reports layers that actually render, and it doubles as a clear
-      // "this is water" cue for a kid.
-      map.addLayer({
-        id:'drive-water', type:'fill', source:'openmaptiles', 'source-layer':'water',
-        filter:['match', ['get','class'], ['ocean','lake'], true, false],
-        paint:{ 'fill-color':'#3E9CDC', 'fill-opacity':0.25 }
-      });
     }
     if(!map.getLayer('drive-roads')){
       map.addLayer({
@@ -1689,9 +1725,8 @@ function ensureRoadLayer(){
         paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
       });
     }
-    if(map.getLayer('drive-water')) map.setLayoutProperty('drive-water', 'visibility', 'visible');
     if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'visible');
-  }catch(e){ console.error('road/water layers unavailable — driving still works', e); }
+  }catch(e){ console.error('road layer unavailable — driving still works', e); }
 }
 
 function resumeDrive(){
@@ -1709,7 +1744,6 @@ function stopDrive(){
   activePointerId = null;
   releaseJet();       // never leave a session mid-flight
   lastTapAt = 0;      // don't let a tap from a previous session pair up
-  isOverWater = false;
   Object.keys(keys).forEach(k => delete keys[k]);
 }
 // Maps a movement key to its direction vector, for double-tap detection.
@@ -1832,10 +1866,9 @@ function getInputDirection(){
 // half that off-road, and acceleration/braking quick enough that the
 // car goes where you point almost immediately instead of drifting.
 const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
-const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
+const BASE_MAX_SPEED = 96 / 3.6;           // off-road helicopter (96 km/h)
 const ACCEL = 60;                          // reaches top speed in about half a second
 const FRICTION = 80;                       // near-instant stop when you let go
-const BOAT_MAX_SPEED = ROAD_MAX_SPEED;     // boats match a car's road top speed (128 km/h)
 const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
 const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
 const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
@@ -1847,14 +1880,8 @@ function checkTerrain(t){
   if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
   lastTerrainCheck = t;
   let nearRoad = false;
-  let overWater = false;
   try{
     const pt = map.project([carLng, carLat]);
-    if(map.getLayer('drive-water')){
-      // Single point, not a box: we want "actually on the water", not
-      // "somewhere near a shoreline".
-      overWater = map.queryRenderedFeatures([pt.x, pt.y], { layers:['drive-water'] }).length > 0;
-    }
     if(map.getLayer('drive-roads')){
       const roadHits = map.queryRenderedFeatures(
         [[pt.x - ROAD_CHECK_PX, pt.y - ROAD_CHECK_PX], [pt.x + ROAD_CHECK_PX, pt.y + ROAD_CHECK_PX]],
@@ -1864,11 +1891,10 @@ function checkTerrain(t){
     }
   } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
 
-  isNearRoad = nearRoad;
-  // Swap the avatar as soon as the surface underneath changes. Skipped
-  // while flying — a plane over a lake is still a plane.
-  if(overWater !== isOverWater){
-    isOverWater = overWater;
+  // Swap the avatar as soon as we move on or off a road. Skipped while
+  // flying — a plane over open country is still a plane.
+  if(nearRoad !== isNearRoad){
+    isNearRoad = nearRoad;
     if(!jetActive) applyVehicleIcon();
   }
 }
@@ -1888,10 +1914,9 @@ function driveLoop(t){
 
   checkTerrain(t);
   // While flying, roads are irrelevant — the jet goes anywhere at full speed.
-  // Flying ignores everything; on water a boat cruises at the car's road
-  // top speed regardless of roads; on land it's road vs off-road.
+  // Flying ignores everything; off-road you're in a helicopter; on a
+  // road you're in the chosen ground vehicle.
   const maxSpeed = jetActive ? JET_MAX_SPEED
-    : isOverWater ? BOAT_MAX_SPEED
     : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
   const accel = jetActive ? JET_ACCEL : ACCEL;
 
@@ -1957,8 +1982,8 @@ function driveLoop(t){
     const speed = Math.hypot(carVelN, carVelE);
     const kmh = Math.round(speed * 3.6);
     driveSpeedo.textContent = kmh;
-    driveHud.classList.toggle('state-boost', !jetActive && !isOverWater && isNearRoad && kmh > 0);
-    driveHud.classList.toggle('state-boat', !jetActive && isOverWater);
+    driveHud.classList.toggle('state-boost', !jetActive && isNearRoad && kmh > 0);
+    driveHud.classList.toggle('state-heli', !jetActive && !isNearRoad && kmh > 0);
   }catch(e){ console.error('drive frame skipped', e); }
 
   driveRAF = requestAnimationFrame(driveLoop);
@@ -2012,9 +2037,13 @@ updatePassportCount();
 // Drive-mode hint toast
 // ---------------------------------------------------------------
 const driveHintEl = document.getElementById('drive-hint');
-function showDriveHint(){
+const DEFAULT_DRIVE_HINT = '👉 Mantén presionado para conducir';
+let driveHintTimer = null;
+function showDriveHint(message, ms){
+  driveHintEl.textContent = message || DEFAULT_DRIVE_HINT;
   driveHintEl.classList.add('show');
-  setTimeout(hideDriveHint, 4000);
+  if(driveHintTimer) clearTimeout(driveHintTimer);
+  driveHintTimer = setTimeout(hideDriveHint, ms || 4000);
 }
 function hideDriveHint(){ driveHintEl.classList.remove('show'); }
 </script>
