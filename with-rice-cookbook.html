@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>With Rice — 50 Vegetarian Chinese Recipes</title>
+<style>
+  :root {
+    --paper: #faf6ef;
+    --ink: #2b241c;
+    --red: #a8322d;
+    --red-dark: #7c211d;
+    --gold: #b8863b;
+    --line: #ddd2bd;
+    --card: #fffdf8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Georgia", "Songti SC", "STSong", serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(180deg, var(--red) 0%, var(--red-dark) 100%);
+    color: #fff8ec;
+    padding: 3rem 1.5rem 2.5rem;
+    text-align: center;
+    position: relative;
+  }
+  header::after {
+    content: "";
+    position: absolute;
+    bottom: -14px; left: 50%;
+    transform: translateX(-50%);
+    width: 90%; max-width: 700px; height: 4px;
+    background: var(--gold);
+    border-radius: 2px;
+  }
+  header h1 {
+    font-size: 2.6rem;
+    margin: 0 0 0.3rem;
+    letter-spacing: 1px;
+  }
+  header .cn { font-size: 1.3rem; opacity: .85; margin-bottom: .8rem; }
+  header p {
+    max-width: 620px;
+    margin: 0 auto;
+    font-size: 1.02rem;
+    opacity: .92;
+  }
+  .meta-note {
+    max-width: 700px;
+    margin: 1.8rem auto 0;
+    background: #fff8ec;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--gold);
+    padding: 1rem 1.3rem;
+    border-radius: 4px;
+    font-size: .92rem;
+  }
+  nav {
+    max-width: 980px;
+    margin: 2.2rem auto 0;
+    padding: 0 1.5rem;
+  }
+  nav h2 {
+    font-size: 1.1rem;
+    color: var(--red-dark);
+    border-bottom: 2px solid var(--line);
+    padding-bottom: .4rem;
+  }
+  nav ul {
+    columns: 3;
+    -webkit-columns: 3;
+    list-style: none;
+    padding: 0;
+    margin: .8rem 0 0;
+    font-size: .88rem;
+  }
+  nav li { break-inside: avoid; margin-bottom: .35rem; }
+  nav a { color: var(--ink); text-decoration: none; }
+  nav a:hover { color: var(--red); text-decoration: underline; }
+  main {
+    max-width: 980px;
+    margin: 2rem auto 4rem;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1.3rem 1.5rem;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    scroll-margin-top: 1rem;
+  }
+  .card-num {
+    position: absolute;
+    top: -12px; left: -12px;
+    background: var(--gold);
+    color: #fff;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem;
+    font-weight: bold;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  }
+  .card h3 {
+    margin: 0 0 .3rem;
+    font-size: 1.3rem;
+    color: var(--red-dark);
+  }
+  .tag {
+    display: inline-block;
+    font-size: .72rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--red);
+    background: #f5e4d8;
+    padding: .15rem .55rem;
+    border-radius: 20px;
+    margin-bottom: .8rem;
+  }
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 1.2rem;
+  }
+  .cols h4 {
+    margin: 0 0 .3rem;
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--gold);
+  }
+  ul.ing { margin: 0; padding-left: 1.1rem; font-size: .93rem; }
+  ul.ing li { margin-bottom: .2rem; }
+  ol.steps { margin: 0; padding-left: 1.2rem; font-size: .93rem; }
+  ol.steps li { margin-bottom: .4rem; }
+  @media (max-width: 640px) {
+    nav ul { columns: 1; }
+    .cols { grid-template-columns: 1fr; }
+    header h1 { font-size: 2rem; }
+  }
+  footer {
+    text-align: center;
+    color: #8a7a63;
+    font-size: .85rem;
+    padding: 1.5rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>With Rice</h1>
+  <div class="cn">下饭菜 · 50 Vegetarian Chinese Recipes</div>
+  <p>Fifty simple, five-ingredient vegetarian dishes built for one purpose: to be eaten spooned over a hot bowl of steamed rice. Mix, match, and rotate — that's the whole cookbook.</p>
+  <div class="meta-note">
+    <strong>How to read "5 ingredients":</strong> each recipe lists five main ingredients. Pantry basics — cooking oil, salt, sugar, soy sauce, cornstarch, garlic, and water — are assumed to be on hand and aren't counted toward the five.
+  </div>
+</header>
+
+<nav>
+  <h2>Index — all 50 recipes</h2>
+  <ul><li><a href="#r0">Mapo Tofu</a></li><li><a href="#r1">Scallion Oil Tofu</a></li><li><a href="#r2">Braised Tofu with Shiitake</a></li><li><a href="#r3">Home-Style Tofu</a></li><li><a href="#r4">Tomato Tofu</a></li><li><a href="#r5">Crispy Tofu with Chili Salt</a></li><li><a href="#r6">Tofu with Black Bean Sauce</a></li><li><a href="#r7">Tofu and Snow Peas</a></li><li><a href="#r8">Braised Tofu Puffs with Mushroom</a></li><li><a href="#r9">Stir-Fried Tofu Skin with Celery</a></li><li><a href="#r10">Pressed Tofu with Chives</a></li><li><a href="#r11">Spicy Cold Tofu Skin Salad</a></li><li><a href="#r12">Tomato Egg Stir-Fry</a></li><li><a href="#r13">Scallion Egg</a></li><li><a href="#r14">Steamed Egg with Mushroom</a></li><li><a href="#r15">Egg with Chinese Chives</a></li><li><a href="#r16">Egg and Bitter Melon Stir-Fry</a></li><li><a href="#r17">Bell Pepper and Egg Stir-Fry</a></li><li><a href="#r18">Garlic Bok Choy</a></li><li><a href="#r19">Stir-Fried Napa Cabbage</a></li><li><a href="#r20">Water Spinach with Fermented Tofu</a></li><li><a href="#r21">Gai Lan with Mushroom Sauce</a></li><li><a href="#r22">Stir-Fried Choy Sum</a></li><li><a href="#r23">Old Beijing Cabbage with Vinegar</a></li><li><a href="#r24">Spinach with Garlic</a></li><li><a href="#r25">Stir-Fried Lettuce with Garlic</a></li><li><a href="#r26">Braised Shiitake Mushrooms</a></li><li><a href="#r27">Three-Cup Mushrooms</a></li><li><a href="#r28">Stir-Fried King Oyster Mushroom</a></li><li><a href="#r29">Mushroom and Bok Choy</a></li><li><a href="#r30">Enoki Mushroom Stir-Fry</a></li><li><a href="#r31">Braised Mushroom and Tofu Skin</a></li><li><a href="#r32">Stir-Fried Mushroom with Snow Peas</a></li><li><a href="#r33">Braised Daikon</a></li><li><a href="#r34">Stir-Fried Potato Shreds</a></li><li><a href="#r35">Stir-Fried Lotus Root</a></li><li><a href="#r36">Braised Winter Melon</a></li><li><a href="#r37">Stir-Fried Chinese Yam</a></li><li><a href="#r38">Sweet and Sour Cabbage with Carrot</a></li><li><a href="#r39">Stir-Fried Taro</a></li><li><a href="#r40">Braised Bamboo Shoots</a></li><li><a href="#r41">Dry-Fried Green Beans</a></li><li><a href="#r42">Sichuan Garlic Green Beans</a></li><li><a href="#r43">Stir-Fried Snow Peas with Garlic</a></li><li><a href="#r44">Kung Pao Peanuts and Vegetables</a></li><li><a href="#r45">Braised Peanuts with Star Anise</a></li><li><a href="#r46">Stir-Fried Corn with Pine Nuts</a></li><li><a href="#r47">Spicy Smashed Cucumber Salad</a></li><li><a href="#r48">Stir-Fried Celery with Dried Tofu</a></li><li><a href="#r49">Vegetarian Eggplant with Garlic Sauce</a></li></ul>
+</nav>
+
+<main>
+
+  <article class="card" id="r0">
+    <div class="card-num">01</div>
+    <h3>Mapo Tofu</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Soft tofu</li><li>Doubanjiang (chili bean paste)</li><li>Fermented black beans</li><li>Ground Sichuan peppercorn</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Cube the tofu and simmer in hot water for 2 min to firm it up; drain.</li><li>Fry a spoonful of doubanjiang and black beans in oil until fragrant and red.</li><li>Add a splash of water, slide in the tofu, and simmer 5 min.</li><li>Thicken with a cornstarch slurry, top with scallion and ground Sichuan peppercorn.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r1">
+    <div class="card-num">02</div>
+    <h3>Scallion Oil Tofu</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Soft tofu</li><li>Scallions</li><li>Light soy sauce</li><li>Sesame oil</li><li>Dried chili flakes</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Steam a block of soft tofu whole for 8 min; pour off the liquid.</li><li>Slice a mountain of scallions and scatter over the tofu.</li><li>Heat oil until smoking and pour it over the scallions to sizzle them.</li><li>Drizzle with soy sauce and sesame oil, top with chili flakes.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r2">
+    <div class="card-num">03</div>
+    <h3>Braised Tofu with Shiitake</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Firm tofu</li><li>Dried shiitake mushrooms</li><li>Soy sauce</li><li>Star anise</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Rehydrate shiitake in warm water, reserving the soaking liquid.</li><li>Pan-fry cubed tofu until lightly golden on all sides.</li><li>Add mushrooms, soy sauce, star anise, and the mushroom liquid; simmer 10 min.</li><li>Reduce until glossy and finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r3">
+    <div class="card-num">04</div>
+    <h3>Home-Style Tofu</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Fried tofu</li><li>Napa cabbage</li><li>Doubanjiang</li><li>Garlic</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice fried tofu and blanch cabbage briefly.</li><li>Stir-fry garlic and doubanjiang until fragrant and oil turns red.</li><li>Add tofu and cabbage, toss with a splash of water to build a light sauce.</li><li>Simmer 3-4 min and finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r4">
+    <div class="card-num">05</div>
+    <h3>Tomato Tofu</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Silken tofu</li><li>Tomatoes</li><li>Scallion</li><li>Sugar</li><li>Soy sauce</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Cut tomatoes into wedges and cook down in oil until saucy.</li><li>Season with soy sauce and a pinch of sugar to balance acidity.</li><li>Gently slide in cubed silken tofu, simmer 4 min without stirring hard.</li><li>Top with scallion before serving.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r5">
+    <div class="card-num">06</div>
+    <h3>Crispy Tofu with Chili Salt</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Firm tofu</li><li>Cornstarch</li><li>Five-spice powder</li><li>Salt</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Cube tofu, pat dry, and toss lightly in cornstarch.</li><li>Shallow-fry until golden and crisp on all sides.</li><li>Toss hot tofu with a mix of salt and five-spice powder.</li><li>Scatter chopped scallion over the top and serve immediately.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r6">
+    <div class="card-num">07</div>
+    <h3>Tofu with Black Bean Sauce</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Firm tofu</li><li>Fermented black beans</li><li>Garlic</li><li>Bell pepper</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Pan-fry tofu cubes until golden; set aside.</li><li>Mash fermented black beans with garlic and fry until fragrant.</li><li>Add bell pepper strips and tofu, toss to coat in the sauce.</li><li>Finish with scallion and a splash of water to loosen the sauce.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r7">
+    <div class="card-num">08</div>
+    <h3>Tofu and Snow Peas</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Firm tofu</li><li>Snow peas</li><li>Garlic</li><li>Soy sauce</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice tofu into thin planks and pan-fry until golden.</li><li>Stir-fry garlic until fragrant, then add snow peas over high heat.</li><li>Return tofu to the pan and season with soy sauce.</li><li>Finish with a drizzle of sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r8">
+    <div class="card-num">09</div>
+    <h3>Braised Tofu Puffs with Mushroom</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Tofu puffs</li><li>Shiitake mushrooms</li><li>Soy sauce</li><li>Star anise</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Halve tofu puffs and slice mushrooms.</li><li>Simmer both together in water with soy sauce and star anise.</li><li>Braise 15 min until the puffs soak up the sauce.</li><li>Reduce liquid until glossy and top with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r9">
+    <div class="card-num">10</div>
+    <h3>Stir-Fried Tofu Skin with Celery</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Dried tofu skin (beancurd sticks)</li><li>Celery</li><li>Dried chili</li><li>Garlic</li><li>Soy sauce</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Soak dried tofu skin until pliable, then slice on a diagonal.</li><li>Slice celery thin on the same angle.</li><li>Stir-fry garlic and dried chili, then add celery over high heat.</li><li>Toss in tofu skin with soy sauce until just combined and still crisp.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r10">
+    <div class="card-num">11</div>
+    <h3>Pressed Tofu with Chives</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Five-spice pressed tofu</li><li>Garlic chives</li><li>Soy sauce</li><li>Chili oil</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice pressed tofu into thin matchsticks.</li><li>Cut garlic chives into short lengths.</li><li>Stir-fry tofu briefly, then add chives over high heat just until wilted.</li><li>Season with soy sauce, chili oil, and a touch of sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r11">
+    <div class="card-num">12</div>
+    <h3>Spicy Cold Tofu Skin Salad</h3>
+    <span class="tag">Tofu & Bean</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Fresh tofu skin</li><li>Cilantro</li><li>Chili oil</li><li>Black vinegar</li><li>Garlic</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Blanch fresh tofu skin briefly and slice into ribbons.</li><li>Mince garlic and stir into black vinegar and chili oil.</li><li>Toss the tofu skin with the dressing.</li><li>Finish with a generous scatter of cilantro.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r12">
+    <div class="card-num">13</div>
+    <h3>Tomato Egg Stir-Fry</h3>
+    <span class="tag">Eggs</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Eggs</li><li>Tomatoes</li><li>Scallion</li><li>Sugar</li><li>Salt</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Beat eggs with a pinch of salt and scramble softly; remove from pan.</li><li>Cook tomato wedges down until juicy, adding a pinch of sugar.</li><li>Fold the eggs back in and toss gently to combine.</li><li>Finish with scallion just before serving.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r13">
+    <div class="card-num">14</div>
+    <h3>Scallion Egg</h3>
+    <span class="tag">Eggs</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Eggs</li><li>Scallion</li><li>Soy sauce</li><li>Sesame oil</li><li>Salt</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Beat eggs with salt and a splash of soy sauce.</li><li>Stir in a generous amount of chopped scallion.</li><li>Pour into a hot oiled pan and cook until just set, folding gently.</li><li>Drizzle with sesame oil to finish.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r14">
+    <div class="card-num">15</div>
+    <h3>Steamed Egg with Mushroom</h3>
+    <span class="tag">Eggs</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Eggs</li><li>Shiitake mushroom</li><li>Soy sauce</li><li>Sesame oil</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Whisk eggs with warm water until smooth, then strain.</li><li>Scatter diced shiitake over the egg mixture in a shallow dish.</li><li>Steam covered on medium-low heat for 12-15 min until just set.</li><li>Finish with soy sauce, sesame oil, and scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r15">
+    <div class="card-num">16</div>
+    <h3>Egg with Chinese Chives</h3>
+    <span class="tag">Eggs</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Eggs</li><li>Garlic chives</li><li>Salt</li><li>Cooking oil</li><li>White pepper</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Cut garlic chives into short lengths.</li><li>Beat eggs with salt and white pepper.</li><li>Stir chives into the egg mixture just before cooking.</li><li>Pour into a hot pan and scramble gently until set.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r16">
+    <div class="card-num">17</div>
+    <h3>Egg and Bitter Melon Stir-Fry</h3>
+    <span class="tag">Eggs</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Eggs</li><li>Bitter melon</li><li>Garlic</li><li>Salt</li><li>Cooking oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice bitter melon thin and blanch briefly to mellow bitterness.</li><li>Stir-fry garlic, then add bitter melon over high heat.</li><li>Push vegetables aside and scramble beaten eggs in the same pan.</li><li>Combine everything and season with salt.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r17">
+    <div class="card-num">18</div>
+    <h3>Bell Pepper and Egg Stir-Fry</h3>
+    <span class="tag">Eggs</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Eggs</li><li>Bell peppers</li><li>Garlic</li><li>Soy sauce</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Scramble eggs softly and set aside.</li><li>Stir-fry garlic and sliced bell peppers over high heat until just tender.</li><li>Return eggs to the pan and toss together.</li><li>Season with soy sauce and finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r18">
+    <div class="card-num">19</div>
+    <h3>Garlic Bok Choy</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Baby bok choy</li><li>Garlic</li><li>Vegetarian oyster-flavor sauce</li><li>Sesame oil</li><li>Salt</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Halve or quarter baby bok choy lengthwise; rinse well.</li><li>Blanch briefly in salted boiling water until just bright green.</li><li>Fry sliced garlic in oil until golden and fragrant.</li><li>Pour garlic oil and vegetarian oyster sauce over the bok choy.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r19">
+    <div class="card-num">20</div>
+    <h3>Stir-Fried Napa Cabbage</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Napa cabbage</li><li>Dried chili</li><li>Garlic</li><li>Black vinegar</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Tear napa cabbage into large pieces, separating stems and leaves.</li><li>Fry garlic and dried chili until fragrant.</li><li>Add cabbage stems first, then leaves, stir-frying over high heat.</li><li>Splash in black vinegar and sesame oil at the end.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r20">
+    <div class="card-num">21</div>
+    <h3>Water Spinach with Fermented Tofu</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Water spinach (ong choy)</li><li>Fermented bean curd</li><li>Garlic</li><li>Dried chili</li><li>Cooking oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Wash water spinach well and cut into short lengths.</li><li>Mash a cube of fermented bean curd with a little of its liquid.</li><li>Fry garlic and dried chili, then add the fermented tofu paste.</li><li>Toss in water spinach over high heat until just wilted.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r21">
+    <div class="card-num">22</div>
+    <h3>Gai Lan with Mushroom Sauce</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Chinese broccoli (gai lan)</li><li>Shiitake mushroom</li><li>Garlic</li><li>Sesame oil</li><li>Salt</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Blanch gai lan until just tender-crisp; arrange on a plate.</li><li>Slice shiitake and stir-fry with garlic until softened.</li><li>Season the mushrooms with salt and a little water to make a light sauce.</li><li>Spoon the mushroom sauce over the gai lan and finish with sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r22">
+    <div class="card-num">23</div>
+    <h3>Stir-Fried Choy Sum</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Choy sum</li><li>Garlic</li><li>Soy sauce</li><li>Sesame oil</li><li>Salt</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Trim and rinse choy sum, keeping stems and leaves together.</li><li>Fry garlic in oil until fragrant.</li><li>Add choy sum and stir-fry over high heat until just wilted.</li><li>Season with soy sauce, salt, and a drizzle of sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r23">
+    <div class="card-num">24</div>
+    <h3>Old Beijing Cabbage with Vinegar</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Green cabbage</li><li>Dried chili</li><li>Garlic</li><li>Black vinegar</li><li>Sugar</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Hand-tear cabbage into bite-size pieces rather than slicing.</li><li>Fry dried chili and garlic in hot oil until fragrant.</li><li>Add cabbage and stir-fry quickly over high heat.</li><li>Season with black vinegar and a pinch of sugar just before serving.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r24">
+    <div class="card-num">25</div>
+    <h3>Spinach with Garlic</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Spinach</li><li>Garlic</li><li>Sesame oil</li><li>Salt</li><li>White pepper</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Wash spinach thoroughly and drain well.</li><li>Fry sliced garlic in oil until fragrant but not browned.</li><li>Add spinach and stir-fry briefly just until wilted.</li><li>Season with salt, white pepper, and a drizzle of sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r25">
+    <div class="card-num">26</div>
+    <h3>Stir-Fried Lettuce with Garlic</h3>
+    <span class="tag">Leafy Greens</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Romaine lettuce</li><li>Garlic</li><li>Vegetarian oyster-flavor sauce</li><li>Sesame oil</li><li>Salt</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Cut romaine into large pieces, keeping the crunchy ribs.</li><li>Fry garlic in hot oil until just golden.</li><li>Add lettuce and stir-fry over very high heat for under a minute.</li><li>Season with vegetarian oyster sauce and sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r26">
+    <div class="card-num">27</div>
+    <h3>Braised Shiitake Mushrooms</h3>
+    <span class="tag">Mushrooms</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Dried shiitake mushrooms</li><li>Soy sauce</li><li>Sugar</li><li>Star anise</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Rehydrate shiitake and reserve the soaking liquid.</li><li>Simmer mushrooms in the liquid with soy sauce, sugar, and star anise.</li><li>Braise 20 min until deeply flavorful and glossy.</li><li>Reduce the sauce and finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r27">
+    <div class="card-num">28</div>
+    <h3>Three-Cup Mushrooms</h3>
+    <span class="tag">Mushrooms</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>King oyster mushroom</li><li>Sesame oil</li><li>Soy sauce</li><li>Rice wine</li><li>Thai basil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Tear king oyster mushrooms into thick strips.</li><li>Sear in sesame oil until browned and slightly crisp.</li><li>Add equal parts soy sauce and rice wine, simmer until reduced.</li><li>Toss in a handful of Thai basil just before serving.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r28">
+    <div class="card-num">29</div>
+    <h3>Stir-Fried King Oyster Mushroom</h3>
+    <span class="tag">Mushrooms</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>King oyster mushroom</li><li>Garlic</li><li>Soy sauce</li><li>Scallion</li><li>Dried chili flakes</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice king oyster mushrooms into thick coins.</li><li>Sear in a dry hot pan until golden, then add oil and garlic.</li><li>Season with soy sauce and chili flakes.</li><li>Finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r29">
+    <div class="card-num">30</div>
+    <h3>Mushroom and Bok Choy</h3>
+    <span class="tag">Mushrooms</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Shiitake mushroom</li><li>Baby bok choy</li><li>Garlic</li><li>Vegetarian oyster-flavor sauce</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Blanch bok choy until just tender and arrange on a plate.</li><li>Slice shiitake and fry with garlic until softened.</li><li>Add vegetarian oyster sauce and a splash of water, simmer briefly.</li><li>Spoon the mushrooms and sauce over the bok choy, finish with sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r30">
+    <div class="card-num">31</div>
+    <h3>Enoki Mushroom Stir-Fry</h3>
+    <span class="tag">Mushrooms</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Enoki mushroom</li><li>Garlic</li><li>Dried chili</li><li>Scallion</li><li>Soy sauce</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Trim the base of the enoki and separate the strands.</li><li>Fry garlic and dried chili in oil until fragrant.</li><li>Add enoki and stir-fry briefly over high heat.</li><li>Season with soy sauce and finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r31">
+    <div class="card-num">32</div>
+    <h3>Braised Mushroom and Tofu Skin</h3>
+    <span class="tag">Mushrooms</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Mixed mushrooms</li><li>Dried tofu skin</li><li>Soy sauce</li><li>Star anise</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Soak dried tofu skin until soft, then cut into pieces.</li><li>Slice mixed mushrooms and sear until browned.</li><li>Add tofu skin, soy sauce, star anise, and water; simmer 15 min.</li><li>Reduce until saucy and finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r32">
+    <div class="card-num">33</div>
+    <h3>Stir-Fried Mushroom with Snow Peas</h3>
+    <span class="tag">Mushrooms</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Mixed mushrooms</li><li>Snow peas</li><li>Garlic</li><li>Soy sauce</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice mushrooms and stir-fry until browned.</li><li>Add garlic and snow peas, tossing over high heat.</li><li>Season with soy sauce.</li><li>Finish with a drizzle of sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r33">
+    <div class="card-num">34</div>
+    <h3>Braised Daikon</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Daikon radish</li><li>Soy sauce</li><li>Star anise</li><li>Sugar</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Peel and cut daikon into thick chunks.</li><li>Simmer in water with soy sauce, star anise, and a pinch of sugar.</li><li>Braise 20-25 min until tender and translucent.</li><li>Reduce the sauce and top with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r34">
+    <div class="card-num">35</div>
+    <h3>Stir-Fried Potato Shreds</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Potato</li><li>Dried chili</li><li>Black vinegar</li><li>Garlic</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Cut potato into thin matchsticks and rinse to remove excess starch.</li><li>Fry garlic and dried chili until fragrant.</li><li>Add potato shreds and stir-fry quickly over high heat.</li><li>Splash in black vinegar and finish with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r35">
+    <div class="card-num">36</div>
+    <h3>Stir-Fried Lotus Root</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Lotus root</li><li>Dried chili</li><li>Garlic</li><li>Black vinegar</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice lotus root thin and rinse to keep it crisp.</li><li>Fry garlic and dried chili until fragrant.</li><li>Stir-fry lotus root over high heat until just tender-crisp.</li><li>Finish with black vinegar and sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r36">
+    <div class="card-num">37</div>
+    <h3>Braised Winter Melon</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Winter melon</li><li>Garlic</li><li>Soy sauce</li><li>White pepper</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Peel winter melon and cut into thick slices.</li><li>Fry garlic until fragrant, then add winter melon.</li><li>Add a splash of water and soy sauce, simmer until translucent.</li><li>Season with white pepper and top with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r37">
+    <div class="card-num">38</div>
+    <h3>Stir-Fried Chinese Yam</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Chinese yam</li><li>Wood ear mushroom</li><li>Garlic</li><li>Salt</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Peel and slice Chinese yam thin, keeping slices in water briefly.</li><li>Rehydrate wood ear mushroom and tear into pieces.</li><li>Fry garlic, then stir-fry yam and wood ear over high heat.</li><li>Season with salt and finish with sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r38">
+    <div class="card-num">39</div>
+    <h3>Sweet and Sour Cabbage with Carrot</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Cabbage</li><li>Carrot</li><li>Black vinegar</li><li>Sugar</li><li>Dried chili</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Hand-tear cabbage and julienne the carrot.</li><li>Fry dried chili in oil until fragrant.</li><li>Add cabbage and carrot, stir-frying over high heat.</li><li>Season with black vinegar and sugar to taste.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r39">
+    <div class="card-num">40</div>
+    <h3>Stir-Fried Taro</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Taro</li><li>Garlic</li><li>Scallion</li><li>Soy sauce</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Peel and cut taro into small cubes; steam until just tender.</li><li>Fry garlic until fragrant.</li><li>Add taro and pan-fry gently until lightly golden.</li><li>Season with soy sauce, sesame oil, and scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r40">
+    <div class="card-num">41</div>
+    <h3>Braised Bamboo Shoots</h3>
+    <span class="tag">Root & Gourd</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Bamboo shoots</li><li>Dried shiitake</li><li>Soy sauce</li><li>Sugar</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice bamboo shoots and blanch to remove bitterness.</li><li>Slice rehydrated shiitake.</li><li>Simmer both together with soy sauce, sugar, and water for 15 min.</li><li>Reduce the sauce and top with scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r41">
+    <div class="card-num">42</div>
+    <h3>Dry-Fried Green Beans</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Green beans</li><li>Preserved mustard greens (vegetarian)</li><li>Garlic</li><li>Dried chili</li><li>Soy sauce</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Fry whole green beans in oil until blistered and wrinkled; drain.</li><li>Fry garlic and dried chili until fragrant.</li><li>Add minced preserved mustard greens and stir until fragrant.</li><li>Toss the green beans back in with a splash of soy sauce.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r42">
+    <div class="card-num">43</div>
+    <h3>Sichuan Garlic Green Beans</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Green beans</li><li>Garlic</li><li>Dried chili</li><li>Soy sauce</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Trim green beans and blanch briefly.</li><li>Fry garlic and dried chili in oil until fragrant.</li><li>Add green beans and stir-fry over high heat.</li><li>Season with soy sauce and finish with sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r43">
+    <div class="card-num">44</div>
+    <h3>Stir-Fried Snow Peas with Garlic</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Snow peas</li><li>Garlic</li><li>Salt</li><li>Sesame oil</li><li>White pepper</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>String the snow peas and rinse well.</li><li>Fry garlic in oil until fragrant but not browned.</li><li>Stir-fry snow peas over high heat for 1-2 min until bright green.</li><li>Season with salt, white pepper, and sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r44">
+    <div class="card-num">45</div>
+    <h3>Kung Pao Peanuts and Vegetables</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Roasted peanuts</li><li>Cucumber</li><li>Dried chili</li><li>Garlic</li><li>Soy sauce</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Dice cucumber into small cubes.</li><li>Fry garlic and dried chili in oil until fragrant.</li><li>Add cucumber and stir-fry briefly over high heat.</li><li>Toss in peanuts and soy sauce just before serving to keep them crunchy.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r45">
+    <div class="card-num">46</div>
+    <h3>Braised Peanuts with Star Anise</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Raw peanuts</li><li>Star anise</li><li>Soy sauce</li><li>Salt</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Simmer raw peanuts in water with star anise and salt for 40 min until tender.</li><li>Add soy sauce in the last 10 min of simmering.</li><li>Let cool slightly in the liquid to absorb flavor.</li><li>Top with chopped scallion before serving.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r46">
+    <div class="card-num">47</div>
+    <h3>Stir-Fried Corn with Pine Nuts</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Sweet corn kernels</li><li>Pine nuts</li><li>Carrot</li><li>Salt</li><li>Sugar</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Dice carrot small to match the size of the corn kernels.</li><li>Toast pine nuts in a dry pan until golden; set aside.</li><li>Stir-fry corn and carrot together until just tender.</li><li>Season with salt and a pinch of sugar, then top with pine nuts.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r47">
+    <div class="card-num">48</div>
+    <h3>Spicy Smashed Cucumber Salad</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Cucumber</li><li>Garlic</li><li>Chili oil</li><li>Black vinegar</li><li>Sesame oil</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Smash cucumbers with the flat of a knife and tear into pieces.</li><li>Mince garlic and mix with black vinegar and chili oil.</li><li>Toss the cucumber with the dressing.</li><li>Finish with a drizzle of sesame oil.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r48">
+    <div class="card-num">49</div>
+    <h3>Stir-Fried Celery with Dried Tofu</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Celery</li><li>Dried spiced tofu (five-spice pressed tofu)</li><li>Garlic</li><li>Dried chili</li><li>Soy sauce</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Slice celery on a diagonal and cut pressed tofu into matchsticks.</li><li>Fry garlic and dried chili until fragrant.</li><li>Add celery and stir-fry over high heat until just tender-crisp.</li><li>Toss in the tofu and season with soy sauce.</li></ol>
+      </div>
+    </div>
+  </article>
+
+  <article class="card" id="r49">
+    <div class="card-num">50</div>
+    <h3>Vegetarian Eggplant with Garlic Sauce</h3>
+    <span class="tag">Other Veg</span>
+    <div class="cols">
+      <div>
+        <h4>Ingredients</h4>
+        <ul class="ing"><li>Chinese eggplant</li><li>Garlic</li><li>Doubanjiang</li><li>Black vinegar</li><li>Scallion</li></ul>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <ol class="steps"><li>Cut eggplant into strips and pan-fry until soft and lightly browned.</li><li>Fry garlic and doubanjiang until fragrant and the oil turns red.</li><li>Return eggplant to the pan and toss to coat.</li><li>Finish with black vinegar and scallion.</li></ol>
+      </div>
+    </div>
+  </article>
+</main>
+
+<footer>With Rice · A vegetarian Chinese "with-rice" (下饭菜) cookbook</footer>
+</body>
+</html>
