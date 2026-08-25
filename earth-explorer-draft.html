@@ -711,9 +711,9 @@
 <div id="welcome">
   <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
        it's obvious at a glance whether a reload actually picked up a new
-       build. Shows 1787623859211 when opened straight from the
+       build. Shows 1787624702966 when opened straight from the
        repo without going through deploy.sh. -->
-  <div id="build-tag">1787623859211</div>
+  <div id="build-tag">1787624702966</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -1676,9 +1676,13 @@ function beginDriveAt(lng, lat){
 
   emoji.addEventListener('click', (e)=>{
     e.stopPropagation();
+    // Only swap vehicles while actually in a car — that is, on a road and
+    // not flying. Tapping the jet or the helicopter used to silently
+    // change the car you'd get back later, which is confusing: the tap
+    // appeared to do nothing, then the vehicle had changed by the time
+    // you returned to a road.
+    if(jetActive || !isNearRoad) return;
     vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
-    // While flying or off-road the jet/helicopter stays on screen — the
-    // newly picked vehicle appears once back on a road.
     applyVehicleIcon();
   });
 
