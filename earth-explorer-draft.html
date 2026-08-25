@@ -711,9 +711,9 @@
 <div id="welcome">
   <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
        it's obvious at a glance whether a reload actually picked up a new
-       build. Shows 1787624702966 when opened straight from the
+       build. Shows 1787626052348 when opened straight from the
        repo without going through deploy.sh. -->
-  <div id="build-tag">1787624702966</div>
+  <div id="build-tag">1787626052348</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -1006,8 +1006,8 @@ const transitionGuard = document.getElementById('transition-guard');
 // Roughly: a few hundred km is quick, halfway around the world is the
 // full ride. Clamped at both ends so a nearby hop still reads as travel
 // and a global crossing never drags.
-const FLY_MS_MIN = 2200;   // short hop
-const FLY_MS_MAX = 7000;   // other side of the planet
+const FLY_MS_MIN = 4400;   // short hop
+const FLY_MS_MAX = 14000;  // other side of the planet
 function flightDurationMs(fromLngLat, toCenter){
   try{
     const toRad = deg => deg * Math.PI / 180;
@@ -1589,16 +1589,16 @@ modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
 // all — drive at whatever the Explore camera was last looking at rather
 // than bouncing them back with an error. A kid who says no to the
 // permission prompt still gets to play.
-const NO_LOCATION_MSG = '📍 No se compartió la ubicación; desplegando en el lugar actual';
+const NO_LOCATION_MSG = '📍 No pudimos obtener tu ubicación';
 // Where the vehicle goes when there's no GPS fix. Always the same
 // place, deliberately: a predictable starting point beats a clever one,
-// and downtown Houston is guaranteed to have street-level map data. The
+// and Paris is dense with streets so there's plenty to drive on. The
 // Explore camera is NOT used — it defaults to [0, 20], open water in the
 // Gulf of Guinea, which at street zoom is just "map data not available".
 // Looked up from DESTINATIONS by id so the coordinates live in one place.
 function fallbackDriveSpot(){
-  const d = DESTINATIONS.find(x => x.id === 'downtown-houston');
-  return d ? d.center : [-95.3698, 29.7604];
+  const d = DESTINATIONS.find(x => x.id === 'eiffel-tower');
+  return d ? d.center : [2.2945, 48.8584];
 }
 
 function beginDriveAtCurrentView(){
