@@ -711,9 +711,9 @@
 <div id="welcome">
   <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
        it's obvious at a glance whether a reload actually picked up a new
-       build. Shows 1787622362370 when opened straight from the
+       build. Shows 1787622871627 when opened straight from the
        repo without going through deploy.sh. -->
-  <div id="build-tag">1787622362370</div>
+  <div id="build-tag">1787622871627</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -1554,10 +1554,28 @@ function switchMode(next){
 modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
 modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
 
-document.getElementById('locate-cancel').addEventListener('click', ()=>{
+// When there's no GPS fix to be had — the player tapped "Ahora no", the
+// prompt was denied, it timed out, or the browser has no geolocation at
+// all — drive at whatever the Explore camera was last looking at rather
+// than bouncing them back with an error. A kid who says no to the
+// permission prompt still gets to play.
+const NO_LOCATION_MSG = '📍 No se compartió la ubicación; desplegando en el lugar actual';
+function beginDriveAtCurrentView(){
+  let lng = 0, lat = 20;
+  try{
+    const centre = map.getCenter();
+    lng = centre.lng; lat = centre.lat;
+  }catch(e){ /* fall back to the default centre */ }
   setLocateLoading(false);
   locateCard.classList.remove('show');
-  switchMode('explore');
+  beginDriveAt(lng, lat);
+  // beginDriveAt queues the usual "hold to drive" hint; replace it with
+  // the explanation, shown a little longer since it's saying something.
+  showDriveHint(NO_LOCATION_MSG, 6000);
+}
+
+document.getElementById('locate-cancel').addEventListener('click', ()=>{
+  beginDriveAtCurrentView();
 });
 const locateGoBtn = document.getElementById('locate-go');
 const locateGoLabel = document.getElementById('locate-go-label');
@@ -1570,7 +1588,7 @@ function setLocateLoading(on){
 locateGoBtn.addEventListener('click', ()=>{
   if(locateGoBtn.disabled) return; // already waiting on a fix
   if(!navigator.geolocation){
-    alert("Este navegador no puede compartir tu ubicación — intenta conducir desde un teléfono o un navegador más moderno.");
+    beginDriveAtCurrentView();
     return;
   }
   // Capture the session at request time. getCurrentPosition is async and
@@ -1594,9 +1612,7 @@ locateGoBtn.addEventListener('click', ()=>{
     ()=>{
       setLocateLoading(false);
       if(isStale()) return;
-      locateCard.classList.remove('show');
-      alert("No pudimos obtener tu ubicación — puede que necesites permitir el acceso a la ubicación en la configuración de tu navegador.");
-      switchMode('explore');
+      beginDriveAtCurrentView();
     },
     { enableHighAccuracy:true, timeout:10000 }
   );
@@ -1980,9 +1996,13 @@ updatePassportCount();
 // Drive-mode hint toast
 // ---------------------------------------------------------------
 const driveHintEl = document.getElementById('drive-hint');
-function showDriveHint(){
+const DEFAULT_DRIVE_HINT = '👉 Mantén presionado para conducir';
+let driveHintTimer = null;
+function showDriveHint(message, ms){
+  driveHintEl.textContent = message || DEFAULT_DRIVE_HINT;
   driveHintEl.classList.add('show');
-  setTimeout(hideDriveHint, 4000);
+  if(driveHintTimer) clearTimeout(driveHintTimer);
+  driveHintTimer = setTimeout(hideDriveHint, ms || 4000);
 }
 function hideDriveHint(){ driveHintEl.classList.remove('show'); }
 </script>
