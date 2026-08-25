@@ -390,7 +390,6 @@
   #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
   #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
   #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
-  #drive-hud.state-heli{ background:rgba(31,92,76,0.85); border-color:var(--forest-deep); }
 
   /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
   /* Short transition so the car's left/right flip and the jet's
@@ -711,9 +710,9 @@
 <div id="welcome">
   <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
        it's obvious at a glance whether a reload actually picked up a new
-       build. Shows 1787626052348 when opened straight from the
+       build. Shows 1787627957927 when opened straight from the
        repo without going through deploy.sh. -->
-  <div id="build-tag">1787626052348</div>
+  <div id="build-tag">1787627957927</div>
   <div id="welcome-card">
     <span class="globe-emoji">🌎</span>
     <h1>La Expedición del Explorador</h1>
@@ -1389,16 +1388,12 @@ let carEmojiEl = null;
 // the speed is actually readable. Releasing drops straight back to
 // whichever vehicle was selected before.
 const JET_EMOJI = '✈️';
-const HELI_EMOJI = '🚁';
-
-// Single source of truth for the avatar. Three things can decide it, so
-// they're resolved in priority order here rather than scattered around:
-// flying beats off-road, off-road beats the chosen road vehicle.
+// Single source of truth for the avatar: the jet while flying, otherwise
+// whichever ground vehicle is selected. Terrain no longer changes it —
+// off-road just means a slower car.
 function applyVehicleIcon(){
   if(!carEmojiEl) return;
-  carEmojiEl.textContent = jetActive ? JET_EMOJI
-    : !isNearRoad ? HELI_EMOJI
-    : VEHICLE_EMOJIS[vehicleIndex];
+  carEmojiEl.textContent = jetActive ? JET_EMOJI : VEHICLE_EMOJIS[vehicleIndex];
   carEmojiEl.classList.remove('pop');
   void carEmojiEl.offsetWidth; // restart the pop animation on rapid changes
   carEmojiEl.classList.add('pop');
@@ -1504,7 +1499,6 @@ function exitDriveState(){
   driveHud.style.display = 'none';
   driveHud.classList.remove('state-boost');
   driveHud.classList.remove('state-jet');
-  driveHud.classList.remove('state-heli');
   drivePhotoBtn.style.display = 'none';
   photoPanel.classList.remove('show');
   closeLightbox();
@@ -1676,12 +1670,10 @@ function beginDriveAt(lng, lat){
 
   emoji.addEventListener('click', (e)=>{
     e.stopPropagation();
-    // Only swap vehicles while actually in a car — that is, on a road and
-    // not flying. Tapping the jet or the helicopter used to silently
-    // change the car you'd get back later, which is confusing: the tap
-    // appeared to do nothing, then the vehicle had changed by the time
-    // you returned to a road.
-    if(jetActive || !isNearRoad) return;
+    // Tapping the jet used to silently change the car you'd get back on
+    // landing, which reads as broken: the tap appears to do nothing, then
+    // the vehicle has changed by itself later. Ignore taps while flying.
+    if(jetActive) return;
     vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
     applyVehicleIcon();
   });
@@ -1866,7 +1858,7 @@ function getInputDirection(){
 // half that off-road, and acceleration/braking quick enough that the
 // car goes where you point almost immediately instead of drifting.
 const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
-const BASE_MAX_SPEED = 96 / 3.6;           // off-road helicopter (96 km/h)
+const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
 const ACCEL = 60;                          // reaches top speed in about half a second
 const FRICTION = 80;                       // near-instant stop when you let go
 const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
@@ -1891,12 +1883,8 @@ function checkTerrain(t){
     }
   } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
 
-  // Swap the avatar as soon as we move on or off a road. Skipped while
-  // flying — a plane over open country is still a plane.
-  if(nearRoad !== isNearRoad){
-    isNearRoad = nearRoad;
-    if(!jetActive) applyVehicleIcon();
-  }
+  // Road status only affects speed now, not which vehicle is shown.
+  isNearRoad = nearRoad;
 }
 
 function driveLoop(t){
@@ -1914,8 +1902,7 @@ function driveLoop(t){
 
   checkTerrain(t);
   // While flying, roads are irrelevant — the jet goes anywhere at full speed.
-  // Flying ignores everything; off-road you're in a helicopter; on a
-  // road you're in the chosen ground vehicle.
+  // Flying ignores roads entirely; on the ground it's road vs off-road.
   const maxSpeed = jetActive ? JET_MAX_SPEED
     : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
   const accel = jetActive ? JET_ACCEL : ACCEL;
@@ -1983,7 +1970,6 @@ function driveLoop(t){
     const kmh = Math.round(speed * 3.6);
     driveSpeedo.textContent = kmh;
     driveHud.classList.toggle('state-boost', !jetActive && isNearRoad && kmh > 0);
-    driveHud.classList.toggle('state-heli', !jetActive && !isNearRoad && kmh > 0);
   }catch(e){ console.error('drive frame skipped', e); }
 
   driveRAF = requestAnimationFrame(driveLoop);
