@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>La Expedición del Explorador 2</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#F7F1E1;
+    --parchment-deep:#E9DCBC;
+    --forest:#1C5D71;
+    --forest-deep:#0E3947;
+    --sunset:#EF6B4A;
+    --sunset-deep:#C94627;
+    --sky:#46B6DE;
+    --ink:#1B333C;
+    --stamp-red:#B8385C;
+    --gold:#E2B33F;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  *,
+  *::before,
+  *::after {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;
+    font-family:'Nunito',sans-serif;
+    background:var(--forest-deep);
+    color:var(--ink);
+    overflow:hidden;
+  }
+  h1,h2,h3,.display{
+    font-family:'Baloo 2',cursive;
+  }
+
+  #map{
+    position:absolute; inset:0; width:100%; height:100%;
+    touch-action:none;
+  }
+
+  /* subtle vignette so the globe feels like it's floating in a scope */
+  #vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(8,26,36,0.55) 100%);
+    z-index:2;
+  }
+
+  /* ---------- Top bar ---------- */
+  #topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px;
+    z-index:10;
+    pointer-events:none;
+  }
+  #brand{
+    display:flex; align-items:center; gap:10px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:999px;
+    padding:8px 18px 8px 10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.25);
+    pointer-events:auto;
+  }
+  #brand span{
+    font-family:'Baloo 2',cursive;
+    font-weight:800;
+    font-size:18px;
+    color:var(--forest-deep);
+    white-space:nowrap;
+  }
+
+  #passport-btn{
+    pointer-events:auto;
+    display:flex; align-items:center; gap:8px;
+    background:var(--sunset);
+    border:3px solid var(--sunset-deep);
+    color:white;
+    font-family:'Baloo 2',cursive;
+    font-weight:700;
+    font-size:16px;
+    border-radius:999px;
+    padding:10px 18px;
+    cursor:pointer;
+    box-shadow:0 4px 0 var(--sunset-deep);
+    transition:transform .12s ease;
+  }
+  #passport-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--sunset-deep); }
+  #passport-count{
+    background:white; color:var(--sunset-deep);
+    border-radius:999px; font-size:13px; font-weight:800;
+    padding:2px 9px;
+  }
+
+  /* ---------- Destination dock (bottom) ---------- */
+  #dock-wrap{
+    position:absolute; bottom:0; left:0; right:0;
+    z-index:10;
+    padding:14px 14px 16px;
+    pointer-events:none;
+  }
+  #dock-label{
+    font-family:'Baloo 2',cursive;
+    color:var(--parchment);
+    font-size:14px;
+    font-weight:700;
+    margin:0 4px 8px;
+    text-shadow:0 2px 4px rgba(0,0,0,0.5);
+    pointer-events:none;
+  }
+  #dock{
+    display:flex; gap:10px; overflow-x:auto;
+    padding:4px 4px 8px;
+    pointer-events:auto;
+    scrollbar-width:thin;
+  }
+  #dock::-webkit-scrollbar{ height:6px; }
+  #dock::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.3); border-radius:4px; }
+
+  .dest-card{
+    flex:0 0 auto;
+    width:132px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:var(--radius);
+    padding:10px 8px 12px;
+    cursor:pointer;
+    text-align:center;
+    box-shadow:0 4px 0 rgba(0,0,0,0.3);
+    transition:transform .12s ease;
+    position:relative;
+    user-select:none;
+  }
+  .dest-card:hover{ transform:translateY(-3px); }
+  .dest-card:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+  .dest-card .emoji{ font-size:30px; display:block; margin-bottom:4px; }
+  .dest-card .name{
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    color:var(--forest-deep); line-height:1.15;
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    overflow:hidden; text-overflow:ellipsis;
+    overflow-wrap:break-word; word-break:break-word; hyphens:auto;
+    min-height:calc(13px * 1.15 * 2);
+  }
+  .dest-card .country{
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1;
+    overflow:hidden; text-overflow:ellipsis;
+    font-size:9px; font-weight:700; color:var(--sunset-deep);
+    text-transform:uppercase; letter-spacing:0.3px; margin-top:3px; opacity:0.85;
+    overflow-wrap:break-word; word-break:break-word;
+  }
+  .dest-card.visited{ background:var(--forest); }
+  .dest-card.visited .name{ color:var(--parchment); }
+  .dest-card.visited .country{ color:var(--gold); }
+  .dest-card .check{
+    position:absolute; top:-8px; right:-8px;
+    width:24px;height:24px; border-radius:50%;
+    background:var(--gold); border:2px solid var(--forest-deep);
+    display:none; align-items:center; justify-content:center;
+    font-size:13px;
+  }
+  .dest-card.visited .check{ display:flex; }
+
+  /* ---------- Fact card (appears after fly-to) ---------- */
+  #fact-card{
+    position:absolute;
+    left:50%; top:14%;
+    transform:translate(-50%,-20px);
+    width:min(360px, 86vw);
+    background:var(--parchment);
+    border:4px solid var(--forest-deep);
+    border-radius:22px;
+    padding:18px 20px 20px;
+    box-shadow:0 10px 0 rgba(0,0,0,0.28);
+    z-index:20;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  #fact-card.show{
+    opacity:1; transform:translate(-50%,0);
+    pointer-events:auto;
+  }
+  #fact-card .fclose{
+    position:absolute; top:10px; right:12px;
+    background:none;border:none;font-size:20px;
+    cursor:pointer; color:var(--forest-deep); font-weight:800;
+    line-height:1;
+  }
+  #fact-card .femoji{ font-size:40px; display:block; margin-bottom:2px;}
+  #fact-card h2{ margin:0 0 6px; color:var(--forest-deep); font-size:22px; overflow-wrap:break-word; word-break:break-word; hyphens:auto; }
+  #fact-card .fcountry{ font-size:13px; font-weight:800; color:var(--sunset-deep); margin-bottom:10px; }
+  #fact-card p{ margin:0 0 14px; font-size:15px; line-height:1.45; color:var(--ink); }
+  #fact-card .stamp-btn{
+    display:block; width:100%;
+    background:var(--forest); color:var(--parchment);
+    border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:15px;
+    border-radius:999px; padding:10px; cursor:pointer;
+    box-shadow:0 4px 0 var(--forest-deep);
+  }
+  #fact-card .stamp-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
+  #fact-card .stamp-btn.already{ background:var(--parchment-deep); color:var(--forest-deep); cursor:default; box-shadow:0 4px 0 rgba(0,0,0,0.15); }
+
+  /* ---------- Welcome overlay ---------- */
+  #welcome{
+    position:absolute; inset:0; z-index:50;
+    background:radial-gradient(circle at 50% 40%, var(--forest) 0%, var(--forest-deep) 70%);
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    padding:24px;
+  }
+  #welcome-card{
+    max-width:420px;
+  }
+  #welcome .globe-emoji{ font-size:64px; display:block; margin-bottom:6px; animation:bob 2.4s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  #build-tag{
+    position:absolute; top:12px; right:14px;
+    background:rgba(8,26,36,0.55);
+    color:var(--parchment-deep);
+    font-family:'Nunito',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:0.5px;
+    padding:4px 9px;
+    border-radius:999px;
+    opacity:0.85;
+    pointer-events:none;
+    user-select:text; /* handy to copy when reporting an issue */
+  }
+  #welcome h1{ color:var(--parchment); font-size:34px; margin:0 0 8px; }
+  #welcome p{ color:var(--parchment-deep); font-size:16px; line-height:1.5; margin:0 0 24px; }
+  #start-btn{
+    background:var(--sunset); color:white;
+    border:3px solid var(--sunset-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:19px;
+    border-radius:999px; padding:14px 36px; cursor:pointer;
+    box-shadow:0 5px 0 var(--sunset-deep);
+  }
+  #start-btn:active{ transform:translateY(4px); box-shadow:0 1px 0 var(--sunset-deep); }
+
+  /* ---------- Passport modal ---------- */
+  #passport-modal{
+    position:absolute; inset:0; z-index:60;
+    background:rgba(8,26,36,0.72);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #passport-modal.show{ display:flex; }
+  #passport-book{
+    width:min(420px,92vw);
+    max-height:82vh;
+    overflow-y:auto;
+    background:var(--parchment);
+    border:5px solid var(--forest-deep);
+    border-radius:24px;
+    padding:22px 20px 26px;
+    position:relative;
+  }
+  #passport-book h2{ color:var(--forest-deep); margin:0 0 4px; font-size:24px; }
+  #passport-book .sub{ font-size:13px; color:var(--sunset-deep); font-weight:800; margin-bottom:16px; }
+  .pclose{
+    position:absolute; top:14px; right:16px;
+    background:none;border:none;font-size:24px;cursor:pointer;
+    color:var(--forest-deep); font-weight:800;
+  }
+  #stamp-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+  }
+  .stamp-slot{
+    aspect-ratio:1;
+    border:3px dashed var(--forest);
+    border-radius:14px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    opacity:0.35;
+    text-align:center;
+    padding:4px;
+    overflow:hidden;
+  }
+  .stamp-slot.filled{
+    opacity:1;
+    border-style:solid;
+    border-color:var(--stamp-red);
+    background:#fff8e8;
+    transform:rotate(var(--tilt,-2deg));
+  }
+  .stamp-slot .semoji{ font-size:22px; }
+  .stamp-slot .sname{
+    font-family:'Baloo 2',cursive; font-size:10px; font-weight:700;
+    margin-top:2px; color:var(--forest-deep);
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    overflow:hidden; text-overflow:ellipsis;
+    overflow-wrap:break-word; word-break:break-word; hyphens:auto;
+  }
+  #passport-empty{ text-align:center; color:var(--forest); font-size:14px; margin-top:10px; }
+
+  /* ---------- Toast note (used for the drive-mode hint) ---------- */
+  #drive-hint{
+    position:absolute; left:50%; bottom:96px; transform:translateX(-50%);
+    background:var(--forest-deep); color:var(--parchment);
+    font-size:13px; font-weight:700;
+    padding:8px 16px; border-radius:999px;
+    opacity:0; transition:opacity .4s ease;
+    z-index:15; pointer-events:none;
+    white-space:nowrap;
+  }
+  #drive-hint.show{ opacity:1; }
+
+  /* maplibre attribution styling to stay legible on dark globe */
+  /* Absolute guarantee that no built-in map control buttons (+/-,
+     compass, geolocate, fullscreen) can ever appear in either mode,
+     regardless of what might add them. Attribution is exempt below
+     because the map data licenses require it to stay visible. */
+  .maplibregl-ctrl-group,
+  .maplibregl-ctrl button:not(.maplibregl-ctrl-attrib-button),
+  .maplibregl-ctrl-zoom-in,
+  .maplibregl-ctrl-zoom-out,
+  .maplibregl-ctrl-compass,
+  .maplibregl-ctrl-geolocate,
+  .maplibregl-ctrl-fullscreen{
+    display:none !important;
+  }
+  .maplibregl-ctrl-attrib{
+    background:rgba(251,243,222,0.85) !important;
+    border-radius:8px 0 0 0 !important;
+    font-size:9px !important;
+    max-width:150px;
+  }
+  /* Attribution text stays visible (required by the map data licenses),
+     but is fully inert — no tapping through to an outside site from
+     inside the game. */
+  .maplibregl-ctrl-attrib a,
+  .maplibregl-ctrl-attrib-button{
+    pointer-events:none !important;
+    cursor:default !important;
+    text-decoration:none !important;
+  }
+  .maplibregl-ctrl-bottom-right{ z-index:5; }
+
+  @media (max-width:480px){
+    #brand span{ display:none; }
+    .dest-card{ width:108px; }
+  }
+
+  /* ---------- Mode toggle ---------- */
+  #mode-toggle{
+    display:flex; gap:4px;
+    background:rgba(18,59,48,0.55);
+    border:2px solid var(--forest-deep);
+    border-radius:999px;
+    padding:3px;
+    pointer-events:auto;
+  }
+  #mode-toggle button{
+    border:none; background:transparent;
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    padding:7px 14px; border-radius:999px; cursor:pointer;
+    color:var(--parchment);
+  }
+  #mode-toggle button.active{
+    background:var(--sunset); color:white;
+    box-shadow:0 2px 0 var(--sunset-deep);
+  }
+
+  /* ---------- Speedometer (small, bottom-right) ---------- */
+  #drive-hud{
+    position:absolute; bottom:16px; right:14px;
+    z-index:12; display:none;
+    background:rgba(18,59,48,0.72);
+    border:2px solid var(--forest-deep);
+    border-radius:10px;
+    padding:5px 10px;
+    align-items:baseline; gap:4px;
+    font-family:'Baloo 2',cursive;
+    color:var(--parchment);
+    transition:background-color .2s ease, border-color .2s ease;
+  }
+  #drive-hud #drive-speedo{ font-size:18px; font-weight:800; }
+  #drive-hud .unit{ font-size:10px; font-weight:600; opacity:0.85; }
+  #drive-hud.state-boost{ background:rgba(216,99,26,0.85); border-color:var(--sunset-deep); }
+  #drive-hud.state-jet{ background:rgba(62,156,220,0.9); border-color:#2d78ad; }
+
+  /* ---------- Car marker: click-to-cycle vehicle + facing flip ---------- */
+  /* Short transition so the car's left/right flip and the jet's
+     rotation both feel responsive. Kept brief because the jet's
+     heading updates every frame — a longer ease would visibly lag
+     behind the steering. */
+  .car-flip{ transition:transform .08s linear; }
+  .car-emoji{
+    font-size:30px;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    cursor:pointer;
+    display:block;
+  }
+  @keyframes vehicle-pop{
+    0%{ transform:scale(1); }
+    50%{ transform:scale(1.45); }
+    100%{ transform:scale(1); }
+  }
+  .car-emoji.pop{ animation:vehicle-pop 0.5s ease; }
+
+  /* ---------- Nearby photos: toggle buttons + panel ---------- */
+  .photo-toggle-btn{
+    display:block; width:100%;
+    background:var(--parchment-deep); color:var(--forest-deep);
+    border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:13px;
+    border-radius:999px; padding:8px; cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.18);
+    margin-top:8px;
+  }
+  .photo-toggle-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.18); }
+
+  #drive-photo-btn{
+    position:absolute; bottom:60px; right:14px;
+    z-index:12; display:none;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:999px;
+    padding:8px 14px;
+    font-family:'Baloo 2',cursive;
+    font-weight:700; font-size:13px;
+    color:var(--forest-deep);
+    cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+    transition:transform .12s ease;
+  }
+  #drive-photo-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.28); }
+
+  #photo-panel{
+    position:absolute; top:64px; right:14px;
+    z-index:22; display:none;
+    width:150px;
+    background:var(--parchment);
+    border:3px solid var(--forest-deep);
+    border-radius:14px;
+    padding:10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.28);
+  }
+  #photo-panel.show{ display:block; }
+  #photo-panel .photo-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:6px;
+  }
+  #photo-panel h3{ margin:0; font-size:12px; color:var(--forest-deep); }
+  .photo-close{
+    background:none; border:none; cursor:pointer;
+    font-size:14px; font-weight:800; color:var(--forest-deep);
+    line-height:1; padding:0 0 0 6px;
+  }
+  #photo-panel .pshots{ display:flex; flex-direction:column; gap:6px; }
+  #photo-panel .pshot-btn{
+    display:block; width:100%; padding:0; margin:0;
+    background:none; border:none; cursor:zoom-in;
+  }
+  #photo-panel img{
+    width:100%; height:72px; object-fit:cover;
+    border-radius:8px; border:2px solid var(--forest-deep);
+    display:block;
+  }
+  #photo-panel .ploading{ font-size:11px; color:var(--forest); text-align:center; padding:8px 0; }
+  #photo-panel .pcaption{ font-size:9px; color:var(--forest); margin-top:2px; line-height:1.2; }
+
+  /* ---------- Photo lightbox (closeup + carousel) ---------- */
+  #photo-lightbox{
+    position:absolute; inset:0; z-index:80;
+    background:rgba(8,26,36,0.93);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #photo-lightbox.show{ display:flex; }
+  #photo-lightbox .lightbox-body{
+    display:flex; flex-direction:column; align-items:center;
+    max-width:min(640px, 88vw);
+  }
+  #lightbox-img{
+    max-width:100%; max-height:68vh;
+    border-radius:14px; border:3px solid var(--parchment);
+    box-shadow:0 8px 0 rgba(0,0,0,0.35);
+    object-fit:contain; background:var(--forest-deep);
+  }
+  #lightbox-caption{
+    color:var(--parchment); font-size:13px; font-weight:700;
+    text-align:center; margin-top:12px;
+    overflow-wrap:break-word; word-break:break-word;
+  }
+  #lightbox-counter{
+    color:var(--parchment-deep); font-size:11px; font-weight:700;
+    margin-top:6px; opacity:0.8;
+  }
+  #lightbox-close{
+    position:absolute; top:16px; right:16px;
+    width:42px; height:42px; border-radius:50%;
+    background:var(--parchment); border:3px solid var(--forest-deep);
+    color:var(--forest-deep); font-size:18px; font-weight:800;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  }
+  #lightbox-close:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+  #lightbox-prev, #lightbox-next{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:50px; height:50px; border-radius:50%;
+    background:var(--parchment); border:3px solid var(--forest-deep);
+    color:var(--forest-deep); font-size:26px; font-weight:800;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+    line-height:1; padding-bottom:4px;
+  }
+  #lightbox-prev:active, #lightbox-next:active{ transform:translateY(calc(-50% + 2px)); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+  #lightbox-prev{ left:14px; }
+  #lightbox-next{ right:14px; }
+  #photo-lightbox.single #lightbox-prev,
+  #photo-lightbox.single #lightbox-next,
+  #photo-lightbox.single #lightbox-counter{ display:none; }
+
+  /* ---------- Location permission card ---------- */
+  #locate-card{
+    position:absolute; inset:0; z-index:40;
+    background:rgba(8,26,36,0.72);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #locate-card.show{ display:flex; }
+  #locate-inner{
+    max-width:340px; text-align:center;
+    background:var(--parchment);
+    border:4px solid var(--forest-deep);
+    border-radius:22px;
+    padding:22px 22px 24px;
+  }
+  #locate-inner .lemoji{ font-size:44px; display:block; margin-bottom:6px; }
+  #locate-inner h2{ color:var(--forest-deep); margin:0 0 8px; font-size:20px; }
+  #locate-inner p{ margin:0 0 18px; font-size:14px; color:var(--ink); line-height:1.4; }
+  #locate-go{
+    background:var(--sunset); color:white; border:3px solid var(--sunset-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:15px;
+    border-radius:999px; padding:11px 26px; cursor:pointer;
+    box-shadow:0 4px 0 var(--sunset-deep);
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-width:220px; min-height:46px;
+  }
+  /* While waiting on the browser's location prompt / GPS fix, which can
+     take several seconds. Without this the button looks unresponsive
+     and invites repeat taps. */
+  #locate-go.loading{
+    background:var(--parchment-deep);
+    color:var(--forest-deep);
+    border-color:var(--forest-deep);
+    box-shadow:0 4px 0 rgba(0,0,0,0.18);
+    cursor:wait;
+  }
+  #locate-spinner{
+    display:none;
+    width:16px; height:16px; flex-shrink:0;
+    border:3px solid rgba(18,59,48,0.25);
+    border-top-color:var(--forest-deep);
+    border-radius:50%;
+    animation:locate-spin 0.7s linear infinite;
+  }
+  #locate-go.loading #locate-spinner{ display:block; }
+  @keyframes locate-spin{ to{ transform:rotate(360deg); } }
+  #locate-cancel{
+    display:block; margin:10px auto 0; background:none; border:none;
+    color:var(--forest); font-size:12px; text-decoration:underline; cursor:pointer;
+  }
+
+  /* ---------- Milestone celebration (every 8 stamps) ---------- */
+  #milestone-modal{
+    position:absolute; inset:0; z-index:70;
+    background:rgba(8,26,36,0.78);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #milestone-modal.show{ display:flex; }
+  #milestone-inner{
+    max-width:340px; text-align:center;
+    background:var(--parchment);
+    border:5px solid var(--gold);
+    border-radius:24px;
+    padding:26px 24px 24px;
+    box-shadow:0 10px 0 rgba(0,0,0,0.3);
+    animation: milestone-pop .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes milestone-pop{
+    0%{ transform:scale(0.6); opacity:0; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  #milestone-inner .milestone-emoji{
+    font-size:52px; display:block; margin-bottom:8px;
+    animation: milestone-bounce 1.1s ease-in-out infinite;
+  }
+  @keyframes milestone-bounce{
+    0%,100%{ transform:translateY(0) rotate(0deg); }
+    50%{ transform:translateY(-8px) rotate(-6deg); }
+  }
+  #milestone-inner h2{ color:var(--sunset-deep); margin:0 0 6px; font-size:24px; }
+  #milestone-inner p{ margin:0 0 20px; font-size:14px; color:var(--forest-deep); font-weight:700; }
+  #milestone-close{
+    background:var(--forest); color:var(--parchment); border:3px solid var(--forest-deep);
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:15px;
+    border-radius:999px; padding:11px 26px; cursor:pointer;
+    box-shadow:0 4px 0 var(--forest-deep);
+  }
+  #milestone-close:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--forest-deep); }
+
+  /* ---------- Transition guard: blocks all UI during camera flights ---------- */
+  #transition-guard{
+    position:absolute; inset:0; z-index:25;
+    display:none;
+    pointer-events:auto;
+    background:transparent;
+    cursor:wait;
+  }
+  #transition-guard.show{ display:block; }
+  /* Applied to the top bar and destination dock while a camera
+     transition is in progress. Fades AND desaturates so the buttons
+     read as genuinely disabled rather than just dim, and swaps the
+     cursor so a click that's about to be swallowed looks intentional. */
+  #topbar.dimmed, #dock-wrap.dimmed{
+    opacity:0.4;
+    filter:grayscale(70%);
+    transition:opacity .2s ease, filter .2s ease;
+  }
+  #topbar.dimmed button, #dock-wrap.dimmed .dest-card{
+    cursor:not-allowed;
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="vignette"></div>
+
+<div id="topbar">
+  <div id="mode-toggle">
+    <button id="mode-explore-btn" class="active">🌍 Explorar</button>
+    <button id="mode-drive-btn">🚗 Conducir</button>
+  </div>
+  <button id="passport-btn">🪪 Pasaporte <span id="passport-count">0/8</span></button>
+</div>
+
+<div id="drive-hud">
+  <span id="drive-speedo">0</span><span class="unit">km/h</span>
+</div>
+
+<button id="drive-photo-btn">📸 Fotos</button>
+
+<div id="transition-guard"></div>
+
+<div id="locate-card">
+  <div id="locate-inner">
+    <span class="lemoji">📍</span>
+    <h2>¡Conduce cerca de ti!</h2>
+    <p>Esto usa la ubicación de tu dispositivo para poner tu carro en un mapa real de tu vecindario, para que puedas conducir y explorarlo.</p>
+    <button id="locate-go"><span id="locate-spinner"></span><span id="locate-go-label">Compartir mi ubicación</span></button>
+    <button id="locate-cancel">Ahora no</button>
+  </div>
+</div>
+
+<div id="drive-hint">👉 Mantén presionado para conducir</div>
+
+<div id="fact-card">
+  <button class="fclose" aria-label="Close">✕</button>
+  <span class="femoji">🌍</span>
+  <h2 id="fact-title">Nombre del lugar</h2>
+  <div class="fcountry" id="fact-country">PAÍS</div>
+  <p id="fact-text">Aquí va un dato curioso.</p>
+  <button class="stamp-btn" id="stamp-btn">🎟️ ¡Conseguir sello!</button>
+  <button class="photo-toggle-btn" id="fact-photo-btn">📸 Fotos cercanas</button>
+</div>
+
+<div id="photo-panel">
+  <div class="photo-panel-header">
+    <h3>📸 Fotos cercanas</h3>
+    <button class="photo-close" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="pshots" id="photo-shots"><div class="ploading">Buscando fotos…</div></div>
+</div>
+
+<div id="photo-lightbox">
+  <button id="lightbox-close" aria-label="Cerrar">✕</button>
+  <button id="lightbox-prev" aria-label="Anterior">‹</button>
+  <div class="lightbox-body">
+    <img id="lightbox-img" src="" alt="">
+    <div id="lightbox-caption"></div>
+    <div id="lightbox-counter"></div>
+  </div>
+  <button id="lightbox-next" aria-label="Siguiente">›</button>
+</div>
+
+<div id="dock-wrap">
+  <p id="dock-label">✨ ¡Elige una capital para volar!</p>
+  <div id="dock"></div>
+</div>
+
+<div id="welcome">
+  <!-- Stamped by deploy.sh with the unix build time in milliseconds, so
+       it's obvious at a glance whether a reload actually picked up a new
+       build. Shows 1787627957927 when opened straight from the
+       repo without going through deploy.sh. -->
+  <div id="build-tag">1787627957927</div>
+  <div id="welcome-card">
+    <span class="globe-emoji">🧭</span>
+    <h1>La Expedición del Explorador 2</h1>
+    <p>Vuela a las capitales de todos los países del mundo, descubre algo curioso de cada uno y colecciona sellos con sus banderas. ¿Listo para dar la vuelta al planeta?</p>
+    <button id="start-btn">¡Despegar! →</button>
+  </div>
+</div>
+
+<div id="passport-modal">
+  <div id="passport-book">
+    <button class="pclose" aria-label="Close">✕</button>
+    <h2>🪪 Mi Pasaporte</h2>
+    <div class="sub" id="passport-sub">0 de 8 sellos conseguidos</div>
+    <div id="stamp-grid"></div>
+    <p id="passport-empty">Vuela a otros lugares y toca "¡Conseguir sello!" para llenar tu pasaporte.</p>
+  </div>
+</div>
+
+<div id="milestone-modal">
+  <div id="milestone-inner">
+    <span class="milestone-emoji">🎉</span>
+    <h2 id="milestone-title">¡Felicidades!</h2>
+    <p id="milestone-sub">Has conseguido 8 sellos</p>
+    <button id="milestone-close">¡Seguir explorando!</button>
+  </div>
+</div>
+
+<script>
+// Set once the map successfully initializes (inside the try block below).
+// Kept outside that block, alongside the start button listener, so both
+// stay usable even if map setup fails.
+let exploreMap = null;
+
+// ---------------------------------------------------------------
+// Attach the welcome/start button FIRST, before anything that
+// touches the map library. If the map fails to load for any
+// reason (slow network, blocked CDN, etc.) the rest of this
+// script may throw — but this listener is already wired up, so
+// "Start exploring" always works and the overlay always dismisses.
+// ---------------------------------------------------------------
+document.getElementById('start-btn').addEventListener('click', ()=>{
+  document.getElementById('welcome').style.display = 'none';
+  // Deliberately leave the camera on the map's default zoomed-out globe
+  // view here — no jump-in. That way the very first flyTo, whenever the
+  // player taps their first destination card, is the moment the journey
+  // actually starts, and it reads as a real "travel somewhere" moment
+  // instead of the opening view already being zoomed in.
+});
+
+// ---------------------------------------------------------------
+// Destinations: each has coords, a kid-friendly fact, and an emoji
+// ---------------------------------------------------------------
+// --- Los tres primeros siempre van al frente, en este orden ---
+const FIRST_DESTINATIONS = [
+  { id:'sv-san-salvador', name:'San Salvador', country:'EL SALVADOR', emoji:'🇸🇻', center:[-89.1914,13.6929], fact:"El Salvador es el país más pequeño de Centroamérica, pero está lleno de volcanes, playas de arena negra y gente muy amable. Su capital, San Salvador, está rodeada de montañas y del enorme volcán de San Salvador, al que la gente le dice cariñosamente 'El Boquerón'. Aquí se comen las pupusas, unas tortillas rellenas de queso y frijoles que son la comida favorita del país." },
+  { id:'us-washington', name:'Washington D. C.', country:'ESTADOS UNIDOS', emoji:'🇺🇸', center:[-77.0369,38.9072], fact:"Estados Unidos es un país gigante con 50 estados, desde playas soleadas hasta montañas nevadas y desiertos enormes. Su capital, Washington D. C., no pertenece a ningún estado y ahí está la Casa Blanca, donde vive el presidente. También tiene museos gratuitos llenos de dinosaurios, cohetes espaciales y aviones de verdad colgando del techo." },
+  { id:'mx-cdmx', name:'Ciudad de México', country:'MÉXICO', emoji:'🇲🇽', center:[-99.1332,19.4326], fact:"México es famoso por sus pirámides antiguas, sus mariachis y su comida deliciosa como los tacos y el mole. Su capital, la Ciudad de México, se construyó encima de un lago enorme donde los aztecas fundaron la ciudad de Tenochtitlán hace más de 700 años. Hoy es una de las ciudades más grandes del mundo y tiene canales, castillos y hasta ajolotes rosados nadando en sus aguas." },
+];
+
+// --- El resto se baraja en cada carga ---
+const OTHER_DESTINATIONS = [
+  { id:'ca-ottawa', name:'Ottawa', country:'CANADÁ', emoji:'🇨🇦', center:[-75.6972,45.4215], fact:"Canadá es el segundo país más grande del mundo y está lleno de bosques, lagos y osos. En invierno hace tanto frío en su capital, Ottawa, que el canal Rideau se congela por completo y la gente lo usa como pista de patinaje sobre hielo para ir al trabajo o a la escuela. Aquí también se produce casi toda la miel de maple del planeta." },
+  { id:'gt-guatemala', name:'Ciudad de Guatemala', country:'GUATEMALA', emoji:'🇬🇹', center:[-90.5069,14.6349], fact:"Guatemala es el corazón del mundo maya, con pirámides escondidas en la selva como las de Tikal. Su capital está rodeada de volcanes, y uno de ellos, el Volcán de Fuego, lanza pequeñas nubes de humo casi todos los días. En sus mercados se venden telas tejidas a mano con colores brillantes que cuentan historias antiguas." },
+  { id:'hn-tegucigalpa', name:'Tegucigalpa', country:'HONDURAS', emoji:'🇭🇳', center:[-87.1921,14.0723], fact:"Honduras tiene arrecifes de coral increíbles en las Islas de la Bahía, donde nadan tiburones ballena, los peces más grandes del mundo. Su capital, Tegucigalpa, está construida sobre colinas, así que muchas de sus calles suben y bajan como una montaña rusa. El país también guarda la antigua ciudad maya de Copán, famosa por sus esculturas de piedra." },
+  { id:'ni-managua', name:'Managua', country:'NICARAGUA', emoji:'🇳🇮', center:[-86.2514,12.1149], fact:"Nicaragua se llama 'la tierra de lagos y volcanes' porque tiene muchísimos de los dos. Su capital, Managua, está a la orilla de un gran lago, y cerca hay una isla formada por dos volcanes unidos llamada Ometepe. En el lago de Nicaragua viven unos tiburones que aprendieron a nadar en agua dulce, ¡algo rarísimo en el mundo!" },
+  { id:'cr-san-jose', name:'San José', country:'COSTA RICA', emoji:'🇨🇷', center:[-84.0907,9.9281], fact:"Costa Rica es un país pequeño pero con una cantidad enorme de animales: perezosos, tucanes, monos aulladores y ranas de colores. Desde su capital, San José, puedes llegar en pocas horas a volcanes humeantes o a playas del Pacífico y del Caribe. Aquí la gente dice '¡Pura vida!' para saludar, dar las gracias y decir que todo está bien." },
+  { id:'pa-panama', name:'Ciudad de Panamá', country:'PANAMÁ', emoji:'🇵🇦', center:[-79.5199,8.9824], fact:"Panamá es el puente de tierra que une América del Norte con América del Sur. Por su famoso canal pasan barcos gigantes que se ahorran un viaje de miles de kilómetros alrededor del continente, subiendo y bajando en unas esclusas llenas de agua. Su capital mezcla rascacielos brillantes con un casco antiguo de calles empedradas." },
+  { id:'bz-belmopan', name:'Belmopán', country:'BELICE', emoji:'🇧🇿', center:[-88.7713,17.2510], fact:"Belice es el único país de Centroamérica donde se habla inglés como idioma oficial. Frente a sus costas está el segundo arrecife de coral más grande del mundo, con un misterioso hoyo azul perfectamente redondo en medio del mar. Su capital, Belmopán, se construyó tierra adentro después de que un huracán dañara la ciudad anterior." },
+  { id:'cu-habana', name:'La Habana', country:'CUBA', emoji:'🇨🇺', center:[-82.3666,23.1136], fact:"Cuba es la isla más grande del Caribe y es famosa por su música alegre, como el son y la salsa. En las calles de La Habana todavía ruedan autos coloridos de los años cincuenta que sus dueños han mantenido funcionando por décadas. También vive aquí el zunzuncito, el ave más pequeña del mundo, que cabe en la palma de una mano." },
+  { id:'ht-puerto-principe', name:'Puerto Príncipe', country:'HAITÍ', emoji:'🇭🇹', center:[-72.3388,18.5944], fact:"Haití comparte una isla con la República Dominicana y fue el primer país de América Latina en volverse independiente. Su arte es famosísimo: pintores haitianos llenan sus cuadros de animales, mercados y paisajes con colores muy brillantes. En su capital, Puerto Príncipe, se escuchan tambores y música compás en las fiestas de carnaval." },
+  { id:'do-santo-domingo', name:'Santo Domingo', country:'REPÚBLICA DOMINICANA', emoji:'🇩🇴', center:[-69.9312,18.4861], fact:"La República Dominicana tiene playas de agua turquesa y la montaña más alta del Caribe, el Pico Duarte. Su capital, Santo Domingo, tiene la calle más antigua construida por europeos en América. Aquí nació el merengue, un baile tan alegre que es casi imposible quedarse quieto cuando empieza a sonar." },
+  { id:'jm-kingston', name:'Kingston', country:'JAMAICA', emoji:'🇯🇲', center:[-76.7936,17.9714], fact:"Jamaica es una isla montañosa donde nació la música reggae y donde se cultiva un café famoso en las Montañas Azules. En su capital, Kingston, hay museos de música y mercados llenos de frutas tropicales. Este país pequeño ha dado algunos de los corredores más rápidos de la historia, ¡y hasta tuvo un equipo de bobsleigh en los Juegos de Invierno!" },
+  { id:'bs-nasau', name:'Nasáu', country:'BAHAMAS', emoji:'🇧🇸', center:[-77.3554,25.0443], fact:"Las Bahamas son más de 700 islas con arena tan blanca y agua tan clara que puedes ver el fondo del mar desde un bote. En una de sus islas viven cerditos que nadan felices en el mar y salen a saludar a los visitantes. Su capital, Nasáu, tiene casas pintadas de rosa, amarillo y azul." },
+  { id:'bb-bridgetown', name:'Bridgetown', country:'BARBADOS', emoji:'🇧🇧', center:[-59.6167,13.0975], fact:"Barbados es una isla plana y soleada del Caribe rodeada de arrecifes donde nadan tortugas marinas. En sus cuevas subterráneas, como la Harrison's Cave, hay ríos y cascadas escondidas bajo la tierra. Su capital, Bridgetown, tiene un puente que le dio el nombre a toda la ciudad." },
+  { id:'tt-puerto-espana', name:'Puerto España', country:'TRINIDAD Y TOBAGO', emoji:'🇹🇹', center:[-61.5189,10.6549], fact:"Trinidad y Tobago son dos islas hermanas famosas por su carnaval con disfraces enormes y llenos de plumas. Aquí se inventó el steelpan, un instrumento hecho con tambores de metal que suena como una campana musical. La isla también tiene un lago de asfalto natural, ¡uno de los pocos que existen en el mundo!" },
+  { id:'ag-saint-johns', name:"Saint John's", country:'ANTIGUA Y BARBUDA', emoji:'🇦🇬', center:[-61.8456,17.1274], fact:"Antigua y Barbuda presume de tener 365 playas, una para cada día del año. Las aguas cálidas del Caribe rodean las dos islas y muchos barcos de vela llegan a competir en sus regatas. En Barbuda vive una gran colonia de fragatas, aves que inflan una bolsa roja en el cuello como si fuera un globo." },
+  { id:'kn-basseterre', name:'Basseterre', country:'SAN CRISTÓBAL Y NIEVES', emoji:'🇰🇳', center:[-62.7177,17.3026], fact:"San Cristóbal y Nieves es el país más pequeño de América, formado por dos islas volcánicas cubiertas de selva. Un tren turístico recorre la isla principal pasando por antiguos campos de caña de azúcar. En sus bosques viven monos verdes que a veces bajan a los jardines a buscar frutas." },
+  { id:'lc-castries', name:'Castries', country:'SANTA LUCÍA', emoji:'🇱🇨', center:[-60.9875,14.0101], fact:"Santa Lucía es una isla verde con dos montañas puntiagudas llamadas los Pitons que se elevan directamente desde el mar. Tiene un volcán al que puedes entrar casi en auto, con pozas de lodo caliente que burbujean. Sus bosques son el hogar del loro de Santa Lucía, un ave azul y verde que no vive en ningún otro lugar." },
+  { id:'vc-kingstown', name:'Kingstown', country:'SAN VICENTE Y LAS GRANADINAS', emoji:'🇻🇨', center:[-61.2248,13.1600], fact:"San Vicente y las Granadinas es un collar de más de treinta islas e islotes en el Caribe. Su isla principal tiene un volcán activo llamado La Soufrière y jardines botánicos que están entre los más antiguos del continente americano. Las islas pequeñas tienen playas donde casi nunca hay nadie más que las tortugas." },
+  { id:'gd-saint-georges', name:"Saint George's", country:'GRANADA', emoji:'🇬🇩', center:[-61.7486,12.0561], fact:"A Granada la llaman 'la isla de las especias' porque aquí crece muchísima nuez moscada y canela. Su capital tiene un puerto en forma de herradura rodeado de casas con techos rojos. Bajo el mar hay un parque de esculturas: estatuas colocadas en el fondo que poco a poco se van cubriendo de coral." },
+  { id:'dm-roseau', name:'Roseau', country:'DOMINICA', emoji:'🇩🇲', center:[-61.3870,15.3092], fact:"Dominica es conocida como 'la isla de la naturaleza' porque casi toda está cubierta de selva y montañas. Tiene un lago hirviente de verdad, calentado por el volcán que está debajo, y cientos de ríos y cascadas. Aquí viven ballenas cachalote durante todo el año, algo muy poco común en el mundo." },
+  { id:'co-bogota', name:'Bogotá', country:'COLOMBIA', emoji:'🇨🇴', center:[-74.0721,4.7110], fact:"Colombia es el único país de Sudamérica con costas en dos océanos, el Atlántico y el Pacífico. Su capital, Bogotá, está tan alta en las montañas de los Andes que hace fresco todo el año aunque esté cerca del ecuador. En el país hay más especies de aves que en ningún otro lugar del planeta y un río que en ciertos meses se vuelve rojo y amarillo por unas plantas acuáticas." },
+  { id:'ve-caracas', name:'Caracas', country:'VENEZUELA', emoji:'🇻🇪', center:[-66.9036,10.4806], fact:"En Venezuela está el Salto Ángel, la cascada más alta del mundo, que cae desde una montaña plana llamada tepuy. Su capital, Caracas, está en un valle protegido por la montaña El Ávila. Sobre el lago de Maracaibo cae un relámpago tras otro casi todas las noches, en un fenómeno que se ve desde muy lejos." },
+  { id:'ec-quito', name:'Quito', country:'ECUADOR', emoji:'🇪🇨', center:[-78.4678,-0.1807], fact:"Ecuador se llama así porque la línea del ecuador pasa justo por su territorio: puedes poner un pie en cada mitad del planeta. Su capital, Quito, está rodeada de volcanes gigantes como el Cotopaxi. A este país pertenecen las Islas Galápagos, donde viven tortugas enormes e iguanas que nadan en el mar." },
+  { id:'pe-lima', name:'Lima', country:'PERÚ', emoji:'🇵🇪', center:[-77.0428,-12.0464], fact:"En Perú está Machu Picchu, la ciudad de piedra que los incas construyeron en lo alto de las montañas hace más de 500 años. Su capital, Lima, está junto al desierto y al océano, y casi nunca llueve allí. En el país viven llamas y alpacas, y se cultivan miles de variedades distintas de papa." },
+  { id:'bo-la-paz', name:'La Paz', country:'BOLIVIA', emoji:'🇧🇴', center:[-68.1193,-16.4897], fact:"Bolivia tiene dos capitales: Sucre es la capital oficial y La Paz es donde trabaja el gobierno. La Paz está tan alta en las montañas que la gente se mueve en teleféricos que vuelan por encima de la ciudad. Aquí está también el Salar de Uyuni, un desierto de sal tan liso que cuando llueve se convierte en un espejo gigante del cielo." },
+  { id:'cl-santiago', name:'Santiago', country:'CHILE', emoji:'🇨🇱', center:[-70.6693,-33.4489], fact:"Chile es un país larguísimo y flaquito: tiene el desierto más seco del mundo en el norte y glaciares de hielo en el sur. Desde su capital, Santiago, se ven las montañas nevadas de los Andes en los días despejados. En el desierto de Atacama el cielo es tan claro que allí se instalaron algunos de los telescopios más potentes del planeta." },
+  { id:'ar-buenos-aires', name:'Buenos Aires', country:'ARGENTINA', emoji:'🇦🇷', center:[-58.3816,-34.6037], fact:"Argentina es la tierra del tango, un baile que nació en los barrios de su capital, Buenos Aires. En el sur del país están la Patagonia y glaciares enormes que crujen y se rompen en pedazos que caen al agua. Al norte están las cataratas del Iguazú, con más de 200 saltos de agua rodeados de selva." },
+  { id:'uy-montevideo', name:'Montevideo', country:'URUGUAY', emoji:'🇺🇾', center:[-56.1645,-34.9011], fact:"Uruguay es un país tranquilo de campos verdes donde hay más vacas que personas. Su capital, Montevideo, tiene una rambla larguísima junto al agua por donde la gente pasea, corre y anda en bicicleta. Aquí casi todo el mundo toma mate, una infusión que se comparte pasando el mismo recipiente de mano en mano." },
+  { id:'py-asuncion', name:'Asunción', country:'PARAGUAY', emoji:'🇵🇾', center:[-57.5759,-25.2637], fact:"Paraguay es uno de los dos países de Sudamérica que no tienen costa en el mar, así que sus ríos son sus grandes caminos. Casi todo el mundo habla dos idiomas: español y guaraní, la lengua indígena del país. En el Chaco, una región enorme y seca, viven armadillos gigantes y jaguares." },
+  { id:'br-brasilia', name:'Brasilia', country:'BRASIL', emoji:'🇧🇷', center:[-47.8825,-15.7942], fact:"Brasil es el país más grande de Sudamérica y en él está casi toda la selva amazónica, con monos, tucanes y delfines rosados de río. Su capital, Brasilia, se construyó desde cero en apenas unos años y, vista desde el aire, tiene forma de avión. Aquí se habla portugués y el fútbol es casi como una fiesta nacional." },
+  { id:'gy-georgetown', name:'Georgetown', country:'GUYANA', emoji:'🇬🇾', center:[-58.1553,6.8013], fact:"Guyana está cubierta casi por completo de selva tropical, con la impresionante catarata Kaieteur, que es varias veces más alta que las cataratas del Niágara. En sus ríos crecen nenúfares gigantes con hojas tan grandes que parecen bandejas flotantes. Su capital, Georgetown, tiene edificios de madera y canales que ayudan a controlar el agua." },
+  { id:'sr-paramaribo', name:'Paramaribo', country:'SURINAM', emoji:'🇸🇷', center:[-55.2038,5.8520], fact:"Surinam es el país más pequeño de Sudamérica y el único donde se habla neerlandés. Su capital, Paramaribo, está llena de casas de madera blanca y en ella conviven personas venidas de muchas partes del mundo. Más del noventa por ciento del país sigue cubierto de selva, donde viven jaguares y guacamayos." },
+];
+
+OTHER_DESTINATIONS.push(
+  { id:'es-madrid', name:'Madrid', country:'ESPAÑA', emoji:'🇪🇸', center:[-3.7038,40.4168], fact:"España es un país soleado del sur de Europa famoso por su comida, como la paella y las tapas. Su capital, Madrid, está justo en el centro del país y tiene un museo, el Prado, lleno de cuadros pintados hace cientos de años. En España también hay ciudades con castillos árabes, playas mediterráneas y una fiesta llamada Las Fallas donde se queman figuras gigantes." },
+  { id:'pt-lisboa', name:'Lisboa', country:'PORTUGAL', emoji:'🇵🇹', center:[-9.1393,38.7223], fact:"Portugal está en el extremo oeste de Europa, mirando al Océano Atlántico. Su capital, Lisboa, está construida sobre siete colinas y unos tranvías amarillos suben y bajan por sus calles empinadas. Desde aquí salieron hace siglos los barcos de los exploradores que dibujaron los primeros mapas de muchas costas del mundo." },
+  { id:'fr-paris', name:'París', country:'FRANCIA', emoji:'🇫🇷', center:[2.3522,48.8566], fact:"Francia es famosa por su pan, sus quesos y sus pasteles, y por la Torre Eiffel, que mide unos 330 metros de altura. En verano la torre crece unos centímetros porque el metal se dilata con el calor. En este país también están las cuevas de Lascaux, donde hace más de 17.000 años alguien pintó caballos y bisontes en las paredes." },
+  { id:'gb-londres', name:'Londres', country:'REINO UNIDO', emoji:'🇬🇧', center:[-0.1276,51.5072], fact:"El Reino Unido está formado por Inglaterra, Escocia, Gales e Irlanda del Norte. En su capital, Londres, están el Big Ben, los autobuses rojos de dos pisos y guardias con altos sombreros de piel que casi nunca se mueven. Por la ciudad pasa el río Támesis y hay una noria gigante desde la que se ve todo el horizonte." },
+  { id:'ie-dublin', name:'Dublín', country:'IRLANDA', emoji:'🇮🇪', center:[-6.2603,53.3498], fact:"A Irlanda la llaman 'la isla esmeralda' porque llueve tanto que todo se mantiene verde. En sus leyendas aparecen los duendes leprechauns que guardan una olla de oro al final del arcoíris. En su capital, Dublín, hay una biblioteca antiquísima con un libro decorado a mano hace más de mil años." },
+  { id:'de-berlin', name:'Berlín', country:'ALEMANIA', emoji:'🇩🇪', center:[13.4050,52.5200], fact:"Alemania es famosa por sus castillos de cuento, sus bosques y sus mercados de Navidad llenos de luces. Su capital, Berlín, estuvo dividida por un muro durante muchos años, y hoy quedan trozos pintados por artistas de todo el mundo. Aquí se inventó la imprenta moderna, que permitió hacer muchísimos libros por primera vez." },
+  { id:'it-roma', name:'Roma', country:'ITALIA', emoji:'🇮🇹', center:[12.4964,41.9028], fact:"Italia tiene forma de bota y es la tierra de la pizza, la pasta y el helado. Su capital, Roma, tiene un enorme anfiteatro llamado Coliseo donde hace casi 2.000 años se hacían espectáculos para miles de personas. En la ciudad hay una fuente donde la gente lanza monedas pidiendo poder volver algún día." },
+  { id:'va-vaticano', name:'Ciudad del Vaticano', country:'CIUDAD DEL VATICANO', emoji:'🇻🇦', center:[12.4534,41.9029], fact:"La Ciudad del Vaticano es el país más pequeño del mundo: cabe entero dentro de la ciudad de Roma y se puede recorrer caminando en poco tiempo. Es donde vive el papa y donde está la Capilla Sixtina, con un techo pintado hace más de 500 años por Miguel Ángel. Tiene su propio correo, sus propios sellos y hasta su propia banda de guardias con uniformes de rayas de colores." },
+  { id:'nl-amsterdam', name:'Ámsterdam', country:'PAÍSES BAJOS', emoji:'🇳🇱', center:[4.9041,52.3676], fact:"En los Países Bajos hay más bicicletas que personas y buena parte del terreno está por debajo del nivel del mar, protegido por diques. Su capital, Ámsterdam, tiene canales cruzados por cientos de puentes y casas altas y estrechas. En primavera, campos enteros se llenan de tulipanes de todos los colores." },
+  { id:'be-bruselas', name:'Bruselas', country:'BÉLGICA', emoji:'🇧🇪', center:[4.3517,50.8503], fact:"Bélgica es famosa por su chocolate, sus papas fritas y sus gofres calentitos. En su capital, Bruselas, hay una plaza que cada dos años se cubre con una alfombra gigante hecha de flores de verdad. Aquí también nacieron muchos personajes de cómic muy conocidos, como Tintín y los Pitufos." },
+  { id:'lu-luxemburgo', name:'Luxemburgo', country:'LUXEMBURGO', emoji:'🇱🇺', center:[6.1296,49.6116], fact:"Luxemburgo es un país diminuto entre Francia, Bélgica y Alemania, y su capital se llama igual que el país. La ciudad está construida sobre acantilados y tiene túneles excavados en la roca que se usaban para defenderla. Es uno de los pocos lugares del mundo donde todo el transporte público es gratis." },
+  { id:'ch-berna', name:'Berna', country:'SUIZA', emoji:'🇨🇭', center:[7.4474,46.9480], fact:"Suiza está llena de montañas de los Alpes, vacas con campanas y chocolate delicioso. Su capital es Berna, con una torre del reloj que hace un pequeño espectáculo con figuras cada hora. En este país se hablan cuatro idiomas oficiales y hay trenes que suben por pendientes muy empinadas hasta la nieve." },
+  { id:'at-viena', name:'Viena', country:'AUSTRIA', emoji:'🇦🇹', center:[16.3738,48.2082], fact:"Austria es un país de montañas donde se practica mucho el esquí. Su capital, Viena, es la ciudad de la música: aquí vivieron compositores como Mozart y Beethoven. También tiene uno de los parques de diversiones más antiguos del mundo, con una noria de madera que gira desde hace más de cien años." },
+  { id:'li-vaduz', name:'Vaduz', country:'LIECHTENSTEIN', emoji:'🇱🇮', center:[9.5209,47.1410], fact:"Liechtenstein es un país minúsculo escondido entre Suiza y Austria, tan pequeño que se puede cruzar caminando en unas horas. Sobre su capital, Vaduz, hay un castillo en la montaña donde vive de verdad el príncipe del país. No tiene aeropuerto propio, así que los visitantes llegan en tren o en auto." },
+  { id:'mc-monaco', name:'Mónaco', country:'MÓNACO', emoji:'🇲🇨', center:[7.4246,43.7384], fact:"Mónaco es el segundo país más pequeño del mundo y está apretado entre las montañas y el mar Mediterráneo. Una vez al año, sus calles normales se convierten en una pista de carreras de Fórmula 1 con curvas cerradísimas y un túnel. Como hay poco espacio, han ganado terreno al mar para construir." },
+  { id:'ad-andorra', name:'Andorra la Vella', country:'ANDORRA', emoji:'🇦🇩', center:[1.5218,42.5063], fact:"Andorra es un país pequeñito en medio de las montañas de los Pirineos, entre España y Francia. Su capital, Andorra la Vella, es la capital más alta de Europa y en invierno se llena de gente que viene a esquiar. Aquí el idioma oficial es el catalán." },
+  { id:'sm-san-marino', name:'San Marino', country:'SAN MARINO', emoji:'🇸🇲', center:[12.4578,43.9424], fact:"San Marino es uno de los países más antiguos del mundo y está rodeado completamente por Italia. Su capital se sitúa en lo alto del monte Titano, coronada por tres torres de piedra desde donde se ve el mar a lo lejos. Cuenta la leyenda que lo fundó un cantero que buscaba un lugar tranquilo donde vivir." },
+  { id:'mt-la-valeta', name:'La Valeta', country:'MALTA', emoji:'🇲🇹', center:[14.5146,35.8989], fact:"Malta es un grupo de islas soleadas en medio del mar Mediterráneo. Aquí hay templos de piedra construidos hace más de 5.000 años, incluso antes que las pirámides de Egipto. Su capital, La Valeta, está rodeada de murallas y es una de las capitales más pequeñas de Europa." },
+  { id:'gr-atenas', name:'Atenas', country:'GRECIA', emoji:'🇬🇷', center:[23.7275,37.9838], fact:"Grecia es la tierra de los mitos de dioses y héroes como Zeus y Hércules. En su capital, Atenas, se levanta el Partenón, un templo de mármol construido hace unos 2.500 años sobre una colina. En este país nacieron los Juegos Olímpicos, que en su origen se celebraban cada cuatro años en Olimpia." },
+  { id:'dk-copenhague', name:'Copenhague', country:'DINAMARCA', emoji:'🇩🇰', center:[12.5683,55.6761], fact:"Dinamarca es un país de islas y costas donde casi todo el mundo anda en bicicleta. Aquí se inventaron los bloques de LEGO, con los que se pueden construir castillos, naves y ciudades enteras. En el puerto de su capital, Copenhague, hay una pequeña estatua de una sirenita sentada sobre una roca." },
+  { id:'no-oslo', name:'Oslo', country:'NORUEGA', emoji:'🇳🇴', center:[10.7522,59.9139], fact:"Noruega tiene fiordos: valles profundos llenos de agua de mar con montañas altísimas a los lados. En el norte del país, en verano el sol no se esconde de noche, y en invierno el cielo se llena de auroras verdes. Hace mil años, de estas costas salían los barcos vikingos a explorar el océano." },
+  { id:'se-estocolmo', name:'Estocolmo', country:'SUECIA', emoji:'🇸🇪', center:[18.0686,59.3293], fact:"Suecia es un país de bosques y lagos donde viven alces enormes. Su capital, Estocolmo, está construida sobre catorce islas unidas por puentes. En este país se entregan cada año los premios Nobel a personas que hicieron descubrimientos importantes para el mundo." },
+  { id:'fi-helsinki', name:'Helsinki', country:'FINLANDIA', emoji:'🇫🇮', center:[24.9384,60.1699], fact:"Finlandia tiene tantos lagos que la llaman 'la tierra de los mil lagos', aunque en realidad son muchísimos más. Aquí casi todas las casas tienen sauna, un cuarto muy calentito para relajarse. En su región de Laponia vive gente que cuida renos, y muchos niños creen que allí está la casa de Papá Noel." },
+  { id:'is-reikiavik', name:'Reikiavik', country:'ISLANDIA', emoji:'🇮🇸', center:[-21.9426,64.1466], fact:"Islandia es una isla de fuego y hielo: tiene volcanes activos y glaciares enormes al mismo tiempo. El agua caliente que sale de la tierra se usa para calentar las casas y para bañarse en piscinas al aire libre aunque afuera esté nevando. Aquí hay géiseres que lanzan chorros de agua hirviendo hacia el cielo." },
+  { id:'pl-varsovia', name:'Varsovia', country:'POLONIA', emoji:'🇵🇱', center:[21.0122,52.2297], fact:"Polonia tiene bosques antiguos donde todavía viven bisontes europeos, unos animales enormes parecidos a búfalos. En el sur del país hay una mina de sal con capillas y esculturas talladas completamente en sal. Su capital, Varsovia, fue reconstruida casi por completo después de la guerra, siguiendo cuadros y fotos antiguas." },
+  { id:'cz-praga', name:'Praga', country:'CHEQUIA', emoji:'🇨🇿', center:[14.4378,50.0755], fact:"Chequia, también llamada República Checa, tiene castillos por todas partes y calles de piedra que parecen de cuento. En su capital, Praga, hay un reloj astronómico de más de 600 años en el que unas figuras salen a desfilar cada hora. El castillo de Praga es uno de los más grandes del mundo." },
+  { id:'sk-bratislava', name:'Bratislava', country:'ESLOVAQUIA', emoji:'🇸🇰', center:[17.1077,48.1486], fact:"Eslovaquia es un país montañoso lleno de castillos y de cuevas con estalactitas de hielo. Su capital, Bratislava, está a orillas del río Danubio y muy cerca de la frontera con Austria. En sus calles hay estatuas de bronce divertidas, como la de un hombre que se asoma desde una alcantarilla." },
+  { id:'hu-budapest', name:'Budapest', country:'HUNGRÍA', emoji:'🇭🇺', center:[19.0402,47.4979], fact:"Hungría tiene aguas termales por todas partes, y su capital, Budapest, está llena de baños calientes donde la gente se mete incluso en invierno. La ciudad nació de la unión de dos ciudades separadas por el río Danubio: Buda y Pest. El idioma húngaro es muy diferente al de sus países vecinos." },
+  { id:'ro-bucarest', name:'Bucarest', country:'RUMANÍA', emoji:'🇷🇴', center:[26.1025,44.4268], fact:"Rumanía es la tierra de Transilvania, con castillos en las montañas de los Cárpatos y muchos osos pardos en sus bosques. En su capital, Bucarest, hay uno de los edificios más pesados del mundo, tan grande que tiene miles de habitaciones. Por el país pasa el río Danubio antes de llegar al mar Negro." },
+  { id:'bg-sofia', name:'Sofía', country:'BULGARIA', emoji:'🇧🇬', center:[23.3219,42.6977], fact:"Bulgaria cultiva tantas rosas que produce buena parte del aceite de rosas del mundo, usado para hacer perfumes. Su capital, Sofía, está al pie de una montaña a la que se puede subir a esquiar en el mismo día. Aquí se inventó el alfabeto cirílico, que hoy usan muchos países." },
+  { id:'hr-zagreb', name:'Zagreb', country:'CROACIA', emoji:'🇭🇷', center:[15.9819,45.8150], fact:"Croacia tiene más de mil islas en el mar Adriático y unas playas de agua clarísima. En su parque de Plitvice hay dieciséis lagos conectados por cascadas de color turquesa. En Croacia se inventó la corbata, y su capital, Zagreb, tiene un museo dedicado a inventos curiosos." },
+  { id:'si-liubliana', name:'Liubliana', country:'ESLOVENIA', emoji:'🇸🇮', center:[14.5058,46.0569], fact:"Eslovenia es un país pequeño con montañas, bosques y una costa cortita en el mar. Tiene un lago con una isla en medio a la que se llega en barca y donde hay una campana de los deseos. En sus cuevas subterráneas viven unos animalitos llamados olmos, que son casi transparentes y pueden pasar años sin comer." },
+  { id:'ba-sarajevo', name:'Sarajevo', country:'BOSNIA Y HERZEGOVINA', emoji:'🇧🇦', center:[18.4131,43.8563], fact:"Bosnia y Herzegovina es un país de montañas verdes y ríos de color esmeralda. En la ciudad de Mostar hay un puente de piedra muy antiguo desde el que algunos valientes saltan al río. Su capital, Sarajevo, fue sede de unos Juegos Olímpicos de Invierno." },
+  { id:'rs-belgrado', name:'Belgrado', country:'SERBIA', emoji:'🇷🇸', center:[20.4489,44.7866], fact:"Serbia está en el centro de los Balcanes y no tiene salida al mar, pero sí dos grandes ríos que se juntan justo en su capital, Belgrado. Sobre esa unión hay una fortaleza antigua desde la que se ve el atardecer. El país es famoso por sus fiestas de música con trompetas." },
+  { id:'me-podgorica', name:'Podgorica', country:'MONTENEGRO', emoji:'🇲🇪', center:[19.2636,42.4304], fact:"Montenegro significa 'montaña negra' y es un país pequeño con picos altos que caen directo al mar Adriático. La bahía de Kotor parece un fiordo, con pueblos de piedra al pie de las montañas. Tiene uno de los cañones más profundos de Europa, excavado por el río Tara." },
+  { id:'mk-skopie', name:'Skopie', country:'MACEDONIA DEL NORTE', emoji:'🇲🇰', center:[21.4254,41.9973], fact:"Macedonia del Norte es un país sin costa lleno de montañas y de lagos muy antiguos, como el lago Ohrid, uno de los más viejos del mundo. Su capital, Skopie, está llena de estatuas y de puentes sobre el río Vardar. En sus montañas hay monasterios pintados por dentro con miles de figuras." },
+  { id:'al-tirana', name:'Tirana', country:'ALBANIA', emoji:'🇦🇱', center:[19.8187,41.3275], fact:"Albania tiene playas preciosas en el mar Jónico y montañas donde la nieve dura hasta la primavera. Su capital, Tirana, tiene edificios pintados de colores muy vivos para alegrar la ciudad. Por todo el país quedan miles de pequeños búnkeres de cemento que hoy algunos usan como cafés o museos." },
+  { id:'ua-kiev', name:'Kiev', country:'UCRANIA', emoji:'🇺🇦', center:[30.5234,50.4501], fact:"Ucrania tiene tierras negras tan fértiles que la llaman 'el granero de Europa' por todo el trigo y girasol que se cultiva allí. Su capital, Kiev, está a orillas del río Dniéper y tiene iglesias con cúpulas doradas que brillan al sol. Aquí se decoran huevos de Pascua llamados pysanky con dibujos diminutos y coloridos." },
+  { id:'by-minsk', name:'Minsk', country:'BIELORRUSIA', emoji:'🇧🇾', center:[27.5615,53.9006], fact:"Bielorrusia está cubierta de bosques y pantanos donde viven cigüeñas, castores y bisontes. Comparte con Polonia un bosque antiquísimo que es de los últimos de su tipo en Europa. Su capital, Minsk, tiene avenidas anchísimas y parques enormes." },
+  { id:'md-chisinau', name:'Chisináu', country:'MOLDAVIA', emoji:'🇲🇩', center:[28.8575,47.0105], fact:"Moldavia es un país pequeño de colinas suaves y viñedos. Bajo tierra tiene bodegas con kilómetros y kilómetros de túneles, tantos que se recorren en auto. En sus pueblos todavía se hacen alfombras tejidas a mano con dibujos tradicionales." },
+  { id:'ru-moscu', name:'Moscú', country:'RUSIA', emoji:'🇷🇺', center:[37.6173,55.7558], fact:"Rusia es el país más grande del mundo: es tan ancho que cuando en un extremo la gente desayuna, en el otro ya es de noche. En su capital, Moscú, está la Plaza Roja con una catedral de cúpulas de colores que parecen caramelos. Un tren llamado Transiberiano cruza el país entero en varios días de viaje." },
+  { id:'ee-tallin', name:'Tallin', country:'ESTONIA', emoji:'🇪🇪', center:[24.7536,59.4370], fact:"Estonia tiene un casco antiguo en su capital, Tallin, con murallas y torres que parecen de un cuento medieval. Es uno de los países más digitales del mundo: casi todo se puede hacer por internet, hasta votar. La mitad de su territorio está cubierto de bosques donde viven linces y osos." },
+  { id:'lv-riga', name:'Riga', country:'LETONIA', emoji:'🇱🇻', center:[24.1052,56.9496], fact:"Letonia está junto al mar Báltico, donde a veces las olas dejan en la playa trozos de ámbar, una resina antigua y dorada. Su capital, Riga, tiene muchísimos edificios decorados con caras, flores y animales tallados. Cada varios años se celebra una fiesta con miles de personas cantando juntas." },
+  { id:'lt-vilna', name:'Vilna', country:'LITUANIA', emoji:'🇱🇹', center:[25.2797,54.6872], fact:"Lituania tiene una colina cubierta por más de cien mil cruces que la gente ha ido dejando durante generaciones. En su costa hay dunas de arena altísimas que se mueven con el viento. Su capital, Vilna, tiene un casco antiguo con calles estrechas y patios escondidos." },
+  { id:'cy-nicosia', name:'Nicosia', country:'CHIPRE', emoji:'🇨🇾', center:[33.3823,35.1856], fact:"Chipre es una isla soleada en el mar Mediterráneo donde puedes esquiar en las montañas por la mañana y bañarte en el mar por la tarde. Según la mitología griega, la diosa Afrodita nació de la espuma junto a una de sus rocas. En sus playas anidan tortugas marinas cada verano." }
+);
+
+OTHER_DESTINATIONS.push(
+  { id:'tr-ankara', name:'Ankara', country:'TURQUÍA', emoji:'🇹🇷', center:[32.8597,39.9334], fact:"Turquía está en dos continentes a la vez: una parte en Europa y otra en Asia, separadas por un estrecho de agua. En la región de Capadocia hay casas y hasta ciudades enteras excavadas dentro de rocas blandas, y cada mañana se llenan de globos aerostáticos. Su capital es Ankara, aunque la ciudad más grande es Estambul." },
+  { id:'ge-tiflis', name:'Tiflis', country:'GEORGIA', emoji:'🇬🇪', center:[44.8271,41.7151], fact:"Georgia está entre las montañas del Cáucaso y el mar Negro, con pueblos antiguos encaramados en las alturas. Aquí se hace vino desde hace unos 8.000 años, guardándolo en enormes vasijas enterradas. Su alfabeto tiene letras redondeadas que no se parecen a las de ningún otro país." },
+  { id:'am-erevan', name:'Ereván', country:'ARMENIA', emoji:'🇦🇲', center:[44.5152,40.1872], fact:"Armenia es un país montañoso con monasterios de piedra construidos en lo alto de barrancos. Desde su capital, Ereván, se ve el monte Ararat, una montaña con la cima nevada que aparece en muchas leyendas. Es uno de los países con la historia escrita más antigua de la región." },
+  { id:'az-baku', name:'Bakú', country:'AZERBAIYÁN', emoji:'🇦🇿', center:[49.8671,40.4093], fact:"A Azerbaiyán lo llaman 'la tierra del fuego' porque en algunos lugares salen llamas naturales del suelo que llevan siglos encendidas. Su capital, Bakú, está junto al mar Caspio y mezcla una ciudad amurallada antigua con torres modernas con forma de llama. Aquí hay miles de dibujos tallados en las rocas hace milenios." },
+  { id:'kz-astana', name:'Astaná', country:'KAZAJISTÁN', emoji:'🇰🇿', center:[71.4460,51.1694], fact:"Kazajistán es el país sin salida al mar más grande del mundo, con estepas que parecen no acabarse nunca. Desde aquí despegan cohetes de verdad hacia el espacio desde un cosmódromo muy famoso. Su capital, Astaná, tiene inviernos tan fríos que es una de las capitales más heladas del planeta." },
+  { id:'uz-taskent', name:'Taskent', country:'UZBEKISTÁN', emoji:'🇺🇿', center:[69.2401,41.2995], fact:"Uzbekistán estaba en la Ruta de la Seda, el camino por el que viajaban las caravanas de camellos entre Asia y Europa. Sus ciudades antiguas, como Samarcanda, tienen cúpulas cubiertas de azulejos azules brillantes. Su capital, Taskent, tiene un metro con estaciones decoradas como pequeños palacios." },
+  { id:'tm-asjabad', name:'Asjabad', country:'TURKMENISTÁN', emoji:'🇹🇲', center:[58.3833,37.9601], fact:"Turkmenistán es casi todo desierto, el Karakum, con dunas que se extienden por kilómetros. En medio de la arena hay un enorme cráter con fuego que lleva décadas ardiendo y al que llaman 'la puerta del infierno'. Su capital, Asjabad, tiene muchísimos edificios cubiertos de mármol blanco." },
+  { id:'kg-biskek', name:'Biskek', country:'KIRGUISTÁN', emoji:'🇰🇬', center:[74.5698,42.8746], fact:"Kirguistán es un país de montañas altísimas donde muchas familias todavía pasan el verano en yurtas, unas tiendas redondas de fieltro. Tiene un lago enorme, el Issyk-Kul, que nunca se congela aunque esté rodeado de nieve. Aquí se practica la cetrería con águilas entrenadas." },
+  { id:'tj-dusambe', name:'Dusambé', country:'TAYIKISTÁN', emoji:'🇹🇯', center:[68.7870,38.5598], fact:"Tayikistán es casi todo montaña: más de la mitad del país está a gran altura, en una zona llamada 'el techo del mundo'. Por allí pasa una carretera de las más altas del planeta, entre glaciares y valles solitarios. En su capital, Dusambé, hay uno de los mástiles de bandera más altos que existen." },
+  { id:'af-kabul', name:'Kabul', country:'AFGANISTÁN', emoji:'🇦🇫', center:[69.2075,34.5553], fact:"Afganistán es un país de montañas altas y valles rodeados por la cordillera del Hindú Kush. Sus alfombras tejidas a mano son famosas en todo el mundo por sus dibujos y colores. Su capital, Kabul, está en un valle a gran altura, con inviernos fríos y nevados." },
+  { id:'pk-islamabad', name:'Islamabad', country:'PAKISTÁN', emoji:'🇵🇰', center:[73.0479,33.6844], fact:"En Pakistán están algunas de las montañas más altas del mundo, incluido el K2, que es la segunda cumbre más alta del planeta. Su capital, Islamabad, se construyó a propósito hace pocas décadas al pie de unas colinas verdes. Aquí también hay ruinas de una ciudad de hace 4.500 años con calles ordenadas y desagües." },
+  { id:'in-nueva-delhi', name:'Nueva Delhi', country:'INDIA', emoji:'🇮🇳', center:[77.2090,28.6139], fact:"La India es uno de los países con más habitantes del mundo y en él se hablan cientos de idiomas distintos. Aquí está el Taj Mahal, un palacio de mármol blanco construido hace casi 400 años que cambia de color según la luz del día. Se celebra Holi, una fiesta en la que la gente se lanza polvos de colores." },
+  { id:'np-katmandu', name:'Katmandú', country:'NEPAL', emoji:'🇳🇵', center:[85.3240,27.7172], fact:"En Nepal está el monte Everest, la montaña más alta de la Tierra, con casi 8.849 metros de altura. Su bandera es la única del mundo que no es rectangular: tiene forma de dos triángulos. Su capital, Katmandú, está llena de templos con ojos pintados que parecen mirar a la ciudad." },
+  { id:'bt-timbu', name:'Timbu', country:'BUTÁN', emoji:'🇧🇹', center:[89.6390,27.4712], fact:"Bután es un pequeño reino escondido en el Himalaya que mide su éxito por la felicidad de su gente, no solo por el dinero. Es uno de los pocos países que absorbe más gases contaminantes de los que produce, gracias a sus bosques. Su animal nacional es el takín, que parece una mezcla de cabra y vaca." },
+  { id:'bd-daca', name:'Daca', country:'BANGLADÉS', emoji:'🇧🇩', center:[90.4125,23.8103], fact:"Bangladés está cruzado por cientos de ríos, así que muchísima gente viaja en barco todos los días. En sus manglares, los Sundarbans, viven tigres de Bengala que saben nadar entre las raíces. Su capital, Daca, es famosa por los rickshaws pintados con dibujos muy coloridos." },
+  { id:'lk-sri-jayawardenapura', name:'Sri Jayawardenapura Kotte', country:'SRI LANKA', emoji:'🇱🇰', center:[79.8850,6.8829], fact:"Sri Lanka es una isla con forma de lágrima al sur de la India, famosa por su té y sus elefantes. Su capital oficial tiene un nombre larguísimo, aunque la ciudad más grande y conocida es Colombo, justo al lado. En sus montañas hay plantaciones de té verdes que parecen escalones gigantes." },
+  { id:'mv-male', name:'Malé', country:'MALDIVAS', emoji:'🇲🇻', center:[73.5093,4.1755], fact:"Maldivas son casi 1.200 islitas de coral en medio del Océano Índico, y ninguna es muy alta: casi todo el país está a pocos metros sobre el mar. El agua es tan transparente que se ven mantarrayas y tiburones ballena nadando cerca. Su capital, Malé, es una de las ciudades más pequeñas y llenas de gente del mundo." },
+  { id:'cn-pekin', name:'Pekín', country:'CHINA', emoji:'🇨🇳', center:[116.4074,39.9042], fact:"China es uno de los países más poblados del mundo y en él está la Gran Muralla, que serpentea por montañas durante miles de kilómetros. Aquí viven los osos panda, que se pasan casi todo el día comiendo bambú. En su capital, Pekín, está la Ciudad Prohibida, un palacio con casi mil edificios." },
+  { id:'mn-ulan-bator', name:'Ulán Bator', country:'MONGOLIA', emoji:'🇲🇳', center:[106.9057,47.8864], fact:"Mongolia tiene estepas enormes y muy poca gente: es uno de los países menos poblados del mundo. Muchas familias son nómadas y mueven sus casas redondas, llamadas gers, siguiendo a sus rebaños. En el desierto de Gobi se han encontrado huevos de dinosaurio fosilizados." },
+  { id:'kr-seul', name:'Seúl', country:'COREA DEL SUR', emoji:'🇰🇷', center:[126.9780,37.5665], fact:"Corea del Sur mezcla palacios antiguos con tecnología modernísima y trenes rapidísimos. En su capital, Seúl, hay un río que cruza la ciudad y montañas a las que se sube a caminar el fin de semana. Aquí se come kimchi, una col fermentada picante que acompaña casi todas las comidas." },
+  { id:'kp-pionyang', name:'Pionyang', country:'COREA DEL NORTE', emoji:'🇰🇵', center:[125.7625,39.0392], fact:"Corea del Norte ocupa la mitad norte de la península coreana y es uno de los países más cerrados del mundo, con pocos visitantes. Su capital, Pionyang, tiene avenidas muy anchas y monumentos enormes. El país es montañoso y comparte con China el monte Paektu, un volcán con un lago en el cráter." },
+  { id:'jp-tokio', name:'Tokio', country:'JAPÓN', emoji:'🇯🇵', center:[139.6917,35.6895], fact:"Japón está formado por miles de islas y es la tierra del monte Fuji, un volcán con forma casi perfecta. Aquí se inventaron el sushi, los trenes bala y muchísimos videojuegos y dibujos animados. En primavera florecen los cerezos y la gente se sienta bajo ellos a mirar los pétalos caer." },
+  { id:'vn-hanoi', name:'Hanói', country:'VIETNAM', emoji:'🇻🇳', center:[105.8342,21.0278], fact:"Vietnam tiene bahías llenas de islas de piedra caliza y campos de arroz en forma de escalones en las montañas. En sus ciudades circulan millones de motos, y la gente come pho, una sopa de fideos, incluso en el desayuno. Su capital, Hanói, tiene un barrio antiguo con calles dedicadas a un solo tipo de producto." },
+  { id:'la-vientian', name:'Vientián', country:'LAOS', emoji:'🇱🇦', center:[102.6331,17.9757], fact:"Laos es el único país del sudeste asiático sin salida al mar, pero el gran río Mekong lo recorre de norte a sur. Tiene una llanura misteriosa llena de enormes jarras de piedra que nadie sabe con certeza para qué servían. En sus selvas hay cascadas turquesas y elefantes asiáticos." },
+  { id:'kh-nom-pen', name:'Nom Pen', country:'CAMBOYA', emoji:'🇰🇭', center:[104.9160,11.5564], fact:"En Camboya está Angkor Wat, el monumento religioso más grande del mundo, construido hace casi 900 años. Algunos de sus templos están abrazados por raíces gigantes de árboles que crecieron encima. Su capital, Nom Pen, está donde se juntan varios ríos, incluido el Mekong." },
+  { id:'th-bangkok', name:'Bangkok', country:'TAILANDIA', emoji:'🇹🇭', center:[100.5018,13.7563], fact:"Tailandia es famosa por sus templos dorados, sus playas y sus mercados flotantes donde se vende comida desde botes. El nombre completo de su capital es tan largo que aparece en los libros de récords. Aquí nunca hubo colonización europea, y el elefante es un animal muy querido en el país." },
+  { id:'mm-naipyido', name:'Naipyidó', country:'BIRMANIA (MYANMAR)', emoji:'🇲🇲', center:[96.1297,19.7633], fact:"Birmania, también llamada Myanmar, tiene una llanura, Bagan, cubierta por miles de templos de ladrillo que se ven al amanecer entre la neblina. En el lago Inle, los pescadores reman con una pierna para tener las manos libres. Su capital, Naipyidó, se construyó hace pocas décadas y tiene avenidas enormes." },
+  { id:'my-kuala-lumpur', name:'Kuala Lumpur', country:'MALASIA', emoji:'🇲🇾', center:[101.6869,3.1390], fact:"Malasia tiene una de las selvas más antiguas del mundo, con más de 100 millones de años. Su capital, Kuala Lumpur, tiene dos torres gemelas unidas por un puente en el aire a gran altura. En sus bosques vive la flor más grande del planeta, la rafflesia, que puede medir casi un metro." },
+  { id:'sg-singapur', name:'Singapur', country:'SINGAPUR', emoji:'🇸🇬', center:[103.8198,1.3521], fact:"Singapur es una ciudad y un país al mismo tiempo, en una isla pequeñita cerca del ecuador. Está llena de jardines y de 'superárboles' de metal cubiertos de plantas que se iluminan de noche. Aquí se hablan cuatro idiomas oficiales y la comida callejera es famosa en el mundo entero." },
+  { id:'id-yakarta', name:'Yakarta', country:'INDONESIA', emoji:'🇮🇩', center:[106.8456,-6.2088], fact:"Indonesia está formada por más de 17.000 islas y tiene más volcanes activos que cualquier otro país. Aquí viven los dragones de Komodo, los lagartos más grandes del mundo, y también orangutanes en las selvas de Borneo y Sumatra. Su capital, Yakarta, es una ciudad enorme junto al mar." },
+  { id:'bn-bandar-seri-begawan', name:'Bandar Seri Begawan', country:'BRUNÉI', emoji:'🇧🇳', center:[114.9398,4.9031], fact:"Brunéi es un país pequeño en la isla de Borneo, rodeado de selva tropical muy bien conservada. En su capital hay un barrio entero construido sobre el agua, con casas de madera unidas por pasarelas. Sus mezquitas tienen cúpulas doradas que brillan bajo el sol." },
+  { id:'ph-manila', name:'Manila', country:'FILIPINAS', emoji:'🇵🇭', center:[120.9842,14.5995], fact:"Filipinas está formada por más de 7.000 islas con playas y arrecifes llenos de peces de colores. Tiene unas colinas que en verano se ponen marrones y parecen chocolate, y por eso las llaman así. Aquí vive el tarsero, un animalito con ojos enormes que cabe en la palma de la mano." },
+  { id:'tl-dili', name:'Dili', country:'TIMOR ORIENTAL', emoji:'🇹🇱', center:[125.5736,-8.5569], fact:"Timor Oriental es uno de los países más jóvenes del mundo, ya que se hizo independiente en el año 2002. Ocupa la mitad de una isla montañosa donde se cultiva café en las alturas. Sus aguas son parte del 'triángulo de coral', una de las zonas con más vida marina del planeta." },
+  { id:'ir-teheran', name:'Teherán', country:'IRÁN', emoji:'🇮🇷', center:[51.3890,35.6892], fact:"Irán tiene ciudades antiquísimas y palacios de la época del Imperio Persa, como las ruinas de Persépolis. Aquí se inventaron los qanats, unos túneles subterráneos que llevan agua desde las montañas hasta el desierto. Su capital, Teherán, está al pie de una cordillera nevada donde se puede esquiar." },
+  { id:'iq-bagdad', name:'Bagdad', country:'IRAK', emoji:'🇮🇶', center:[44.3661,33.3152], fact:"En Irak estuvo Mesopotamia, la región entre los ríos Tigris y Éufrates donde nació una de las primeras escrituras del mundo. Allí se construyeron ciudades como Babilonia hace miles de años. Su capital, Bagdad, fue hace siglos un gran centro de estudios, con una famosa casa de la sabiduría." },
+  { id:'sy-damasco', name:'Damasco', country:'SIRIA', emoji:'🇸🇾', center:[36.2765,33.5138], fact:"Siria tiene una de las ciudades habitadas más antiguas del mundo: su capital, Damasco, lleva miles de años ocupada sin parar. En el país hay castillos de la época de las cruzadas y mercados cubiertos llamados zocos. Cerca del mar hay ruinas donde se usó uno de los primeros alfabetos." },
+  { id:'lb-beirut', name:'Beirut', country:'LÍBANO', emoji:'🇱🇧', center:[35.5018,33.8938], fact:"Líbano es un país pequeño donde en un mismo día puedes esquiar en la montaña y bañarte en el mar. En sus bosques crecen los famosos cedros, unos árboles enormes que aparecen en su bandera. Su capital, Beirut, es un puerto muy antiguo del Mediterráneo." },
+  { id:'il-jerusalen', name:'Jerusalén', country:'ISRAEL', emoji:'🇮🇱', center:[35.2137,31.7683], fact:"Israel es un país pequeño con desiertos, montañas y una costa mediterránea. Aquí está el mar Muerto, tan salado que la gente flota sin ningún esfuerzo, y es el punto de tierra más bajo del planeta. Jerusalén es una ciudad antiquísima con murallas de piedra dorada." },
+  { id:'ps-ramala', name:'Ramala', country:'PALESTINA', emoji:'🇵🇸', center:[35.2042,31.9038], fact:"Palestina está en el Medio Oriente, con colinas de olivos y ciudades muy antiguas. En Jericó se han encontrado restos de asentamientos de hace más de 10.000 años, de los más viejos que se conocen. Aquí se hace un dulce famoso llamado knafeh, con queso y almíbar." },
+  { id:'jo-aman', name:'Amán', country:'JORDANIA', emoji:'🇯🇴', center:[35.9284,31.9454], fact:"En Jordania está Petra, una ciudad entera tallada dentro de acantilados de roca rosada hace más de 2.000 años. También tiene el desierto de Wadi Rum, con arena roja tan parecida a Marte que allí se filman películas espaciales. Su capital, Amán, está construida sobre muchas colinas." },
+  { id:'sa-riad', name:'Riad', country:'ARABIA SAUDITA', emoji:'🇸🇦', center:[46.6753,24.7136], fact:"Arabia Saudita es casi toda desierto, incluido el Rub al-Jali, un mar de arena enorme donde apenas llueve. Los camellos han sido durante siglos el medio de transporte del desierto. Su capital, Riad, ha crecido muchísimo y hoy tiene torres altas en medio de la arena." },
+  { id:'ye-sana', name:'Saná', country:'YEMEN', emoji:'🇾🇪', center:[44.2067,15.3694], fact:"Yemen tiene una ciudad vieja, Saná, con casas de barro de varios pisos decoradas con ventanas blancas, como pasteles gigantes. En su isla de Socotra crecen árboles rarísimos con forma de paraguas llamados 'sangre de dragón'. Muchas de sus montañas están cultivadas en terrazas escalonadas." },
+  { id:'om-mascate', name:'Mascate', country:'OMÁN', emoji:'🇴🇲', center:[58.5922,23.5859], fact:"Omán tiene desiertos, montañas y una costa larguísima donde anidan tortugas marinas. Aquí se recoge incienso de unos árboles del desierto, un producto muy valioso desde la antigüedad. Su capital, Mascate, está entre el mar y unas montañas rocosas, con casas casi siempre pintadas de blanco." },
+  { id:'ae-abu-dabi', name:'Abu Dabi', country:'EMIRATOS ÁRABES UNIDOS', emoji:'🇦🇪', center:[54.3773,24.4539], fact:"Los Emiratos Árabes Unidos son siete emiratos unidos en un solo país, en pleno desierto junto al golfo Pérsico. En Dubái está el edificio más alto del mundo, tan alto que a veces la punta se pierde entre las nubes. Su capital es Abu Dabi, con una gran mezquita de mármol blanco." },
+  { id:'qa-doha', name:'Doha', country:'CATAR', emoji:'🇶🇦', center:[51.5310,25.2854], fact:"Catar es una península de arena que se adentra en el golfo Pérsico. Antes de descubrir el gas y el petróleo, la gente vivía sobre todo de pescar perlas buceando sin equipo. Su capital, Doha, tiene un paseo junto al mar y museos con formas muy modernas." },
+  { id:'bh-manama', name:'Manama', country:'BARÉIN', emoji:'🇧🇭', center:[50.5860,26.2285], fact:"Baréin es un pequeño archipiélago unido a Arabia Saudita por un puente larguísimo sobre el mar. Tiene un 'árbol de la vida' que crece solo en medio del desierto y nadie sabe muy bien de dónde saca el agua. Aquí también hay miles de túmulos funerarios de hace miles de años." },
+  { id:'kw-kuwait', name:'Ciudad de Kuwait', country:'KUWAIT', emoji:'🇰🇼', center:[47.9774,29.3759], fact:"Kuwait es un país pequeño y muy caluroso al norte del golfo Pérsico, donde en verano el termómetro sube muchísimo. En su capital hay unas torres con esferas azules que guardan agua y desde las que se ve toda la ciudad. Casi toda el agua potable del país se obtiene quitándole la sal al agua del mar." }
+);
+
+OTHER_DESTINATIONS.push(
+  { id:'eg-el-cairo', name:'El Cairo', country:'EGIPTO', emoji:'🇪🇬', center:[31.2357,30.0444], fact:"En Egipto están las pirámides de Guiza y la Gran Esfinge, construidas hace más de 4.500 años. El río Nilo, uno de los más largos del mundo, cruza el país entero y hace que crezcan cultivos en medio del desierto. Los antiguos egipcios escribían con jeroglíficos, unos dibujitos que servían como letras." },
+  { id:'ly-tripoli', name:'Trípoli', country:'LIBIA', emoji:'🇱🇾', center:[13.1913,32.8872], fact:"Libia es casi todo desierto del Sahara, con dunas enormes y oasis con palmeras datileras. En sus rocas del Acacus hay pinturas de hace miles de años que muestran jirafas y ríos, cuando el Sahara era verde. Su capital, Trípoli, está junto al mar Mediterráneo." },
+  { id:'tn-tunez', name:'Túnez', country:'TÚNEZ', emoji:'🇹🇳', center:[10.1815,36.8065], fact:"Túnez tiene playas mediterráneas al norte y desierto del Sahara al sur. Aquí estuvo la antigua ciudad de Cartago, que hace más de 2.000 años fue una gran potencia del mar. En sus pueblos del desierto hay casas excavadas en la tierra que se usaron para rodar películas de ciencia ficción." },
+  { id:'dz-argel', name:'Argel', country:'ARGELIA', emoji:'🇩🇿', center:[3.0588,36.7538], fact:"Argelia es el país más grande de África, y la mayor parte de su territorio es desierto del Sahara. En sus montañas del sur hay dibujos rupestres antiquísimos pintados en las rocas. Su capital, Argel, se llama 'la blanca' porque sus casas suben por la colina mirando al Mediterráneo." },
+  { id:'ma-rabat', name:'Rabat', country:'MARRUECOS', emoji:'🇲🇦', center:[-6.8498,34.0209], fact:"Marruecos tiene montañas nevadas, desierto del Sahara y mercados llamados zocos donde se vende de todo. En la ciudad de Chefchaouen casi todas las casas están pintadas de azul. En sus campos hay cabras que se suben a los árboles de argán para comer sus frutos." },
+  { id:'mr-nuakchot', name:'Nuakchot', country:'MAURITANIA', emoji:'🇲🇷', center:[-15.9785,18.0735], fact:"Mauritania está entre el desierto del Sahara y el océano Atlántico. Por ella pasa uno de los trenes más largos del mundo, cargado de mineral de hierro, que puede medir más de dos kilómetros. En el desierto hay una formación circular gigante, el Ojo del Sahara, que se ve perfectamente desde el espacio." },
+  { id:'ml-bamako', name:'Bamako', country:'MALÍ', emoji:'🇲🇱', center:[-8.0029,12.6392], fact:"En Malí está Tombuctú, una ciudad del desierto que hace siglos fue famosa por sus bibliotecas llenas de manuscritos. Allí se levanta también la mezquita de Djenné, el edificio de barro más grande del mundo, que se repara cada año entre todos los vecinos. El río Níger cruza el país y es su gran camino de agua." },
+  { id:'ne-niamey', name:'Niamey', country:'NÍGER', emoji:'🇳🇪', center:[2.1254,13.5127], fact:"Níger es un país del Sahel, entre el desierto y la sabana, y su nombre viene del gran río Níger. En su desierto se han encontrado fósiles de dinosaurios enormes y de cocodrilos gigantes. En la reserva de Termit todavía viven algunos de los últimos addax, un antílope del desierto." },
+  { id:'td-yamena', name:'Yamena', country:'CHAD', emoji:'🇹🇩', center:[15.0444,12.1348], fact:"Chad tiene en el norte unos lagos de colores en pleno desierto, los lagos de Ounianga, rodeados de arena. En el sur hay sabanas con elefantes y jirafas. Su capital, Yamena, está junto a un río, justo en la frontera con Camerún." },
+  { id:'sd-jartum', name:'Jartum', country:'SUDÁN', emoji:'🇸🇩', center:[32.5599,15.5007], fact:"En Sudán hay más pirámides que en Egipto: las de Meroe, más pequeñas y puntiagudas, construidas por el reino de Kush. En su capital, Jartum, se juntan el Nilo Azul y el Nilo Blanco para formar un solo gran río. Buena parte del país es desierto atravesado por ese río." },
+  { id:'ss-yuba', name:'Yuba', country:'SUDÁN DEL SUR', emoji:'🇸🇸', center:[31.5825,4.8594], fact:"Sudán del Sur es el país más joven de África, nacido en 2011. Tiene un enorme humedal, el Sudd, formado por el Nilo, donde viven aves y hipopótamos. Cada año, miles y miles de antílopes cruzan sus llanuras en una de las mayores migraciones del mundo." },
+  { id:'er-asmara', name:'Asmara', country:'ERITREA', emoji:'🇪🇷', center:[38.9251,15.3229], fact:"Eritrea está junto al mar Rojo, con arrecifes de coral y muchas islas pequeñas. Su capital, Asmara, está en lo alto de una meseta y tiene edificios de estilo antiguo muy originales, incluida una gasolinera con forma de avión. Un viejo tren de montaña conecta la capital con la costa." },
+  { id:'dj-yibuti', name:'Yibuti', country:'YIBUTI', emoji:'🇩🇯', center:[43.1456,11.5721], fact:"Yibuti es un país pequeño y muy caluroso en el Cuerno de África. Aquí está el lago Assal, uno de los lugares más bajos y salados del planeta, con orillas cubiertas de sal blanca. En sus aguas se pueden ver tiburones ballena en ciertas épocas del año." },
+  { id:'et-adis-abeba', name:'Adís Abeba', country:'ETIOPÍA', emoji:'🇪🇹', center:[38.7578,9.0320], fact:"Etiopía es el lugar donde se descubrió el café hace muchísimo tiempo, y todavía se prepara en una ceremonia especial. Aquí se encontró 'Lucy', un esqueleto humano de más de tres millones de años. En Lalibela hay iglesias excavadas hacia abajo, directamente en la roca." },
+  { id:'so-mogadiscio', name:'Mogadiscio', country:'SOMALIA', emoji:'🇸🇴', center:[45.3182,2.0469], fact:"Somalia tiene la costa más larga de África continental, bañada por el océano Índico. Su gente tiene una fuerte tradición de poesía que se recita de memoria. En sus tierras secas viven camellos, y el país es uno de los que más camellos tiene del mundo." },
+  { id:'ke-nairobi', name:'Nairobi', country:'KENIA', emoji:'🇰🇪', center:[36.8219,-1.2921], fact:"Kenia es famosa por sus safaris, donde se ven leones, elefantes y jirafas en libertad. Cada año, millones de ñus cruzan sus llanuras del Masái Mara en una migración impresionante. Su capital, Nairobi, tiene un parque nacional justo al lado de la ciudad, con rascacielos de fondo." },
+  { id:'ug-kampala', name:'Kampala', country:'UGANDA', emoji:'🇺🇬', center:[32.5825,0.3476], fact:"Uganda está junto al lago Victoria, el lago más grande de África, donde nace el río Nilo. En sus montañas viven gorilas de montaña, unos primates enormes y tranquilos que quedan muy pocos en el mundo. El país está lleno de colinas verdes y cascadas." },
+  { id:'rw-kigali', name:'Kigali', country:'RUANDA', emoji:'🇷🇼', center:[30.0619,-1.9441], fact:"A Ruanda la llaman 'el país de las mil colinas' porque su paisaje sube y baja por todas partes. En sus volcanes viven gorilas de montaña que se pueden visitar con guías. Su capital, Kigali, es conocida por ser una de las ciudades más limpias de África, y allí las bolsas de plástico están prohibidas." },
+  { id:'bi-gitega', name:'Gitega', country:'BURUNDI', emoji:'🇧🇮', center:[29.9246,-3.4271], fact:"Burundi es un país pequeño de colinas verdes junto al lago Tanganica, uno de los lagos más profundos del mundo. Es famoso por sus tambores tradicionales, que se tocan en grupo mientras los músicos bailan y saltan. Gitega es su capital, en el centro del país." },
+  { id:'tz-dodoma', name:'Dodoma', country:'TANZANIA', emoji:'🇹🇿', center:[35.7516,-6.1630], fact:"En Tanzania está el Kilimanjaro, la montaña más alta de África, con nieve en la cima aunque esté cerca del ecuador. También está el cráter del Ngorongoro, un volcán apagado con una llanura llena de animales dentro. Frente a su costa está la isla de Zanzíbar, famosa por sus especias." },
+  { id:'zm-lusaka', name:'Lusaka', country:'ZAMBIA', emoji:'🇿🇲', center:[28.2833,-15.3875], fact:"Zambia comparte con Zimbabue las cataratas Victoria, tan grandes que su nube de rocío se ve desde muy lejos. Los pobladores locales las llaman 'el humo que truena'. En sus parques nacionales se hacen safaris a pie, caminando junto a los guías." },
+  { id:'mw-lilonguee', name:'Lilongüe', country:'MALAUI', emoji:'🇲🇼', center:[33.7741,-13.9626], fact:"Malaui tiene un lago enorme, el lago Malaui, con más especies de peces que casi cualquier otro lago del mundo, muchos de colores brillantes. Lo llaman 'el corazón cálido de África' por la amabilidad de su gente. Es un país largo y estrecho, en su mayor parte ocupado por ese gran lago." },
+  { id:'mz-maputo', name:'Maputo', country:'MOZAMBIQUE', emoji:'🇲🇿', center:[32.5732,-25.9692], fact:"Mozambique tiene una costa larguísima en el océano Índico con arrecifes donde nadan mantarrayas y dugongos. Sus islas del archipiélago de Quirimbas tienen playas de arena blanquísima. Su bandera es una de las pocas del mundo con un libro dibujado en ella." },
+  { id:'zw-harare', name:'Harare', country:'ZIMBABUE', emoji:'🇿🇼', center:[31.0492,-17.8252], fact:"En Zimbabue están las ruinas del Gran Zimbabue, una ciudad de piedra construida sin cemento hace unos 800 años. Comparte con Zambia las cataratas Victoria, una de las cascadas más grandes del planeta. En sus parques hay grandes manadas de elefantes." },
+  { id:'bw-gaborone', name:'Gaborone', country:'BOTSUANA', emoji:'🇧🇼', center:[25.9231,-24.6282], fact:"Botsuana tiene el delta del Okavango, un río que en vez de llegar al mar se abre en un enorme humedal en medio del desierto. Allí se navega en canoas estrechas entre hipopótamos y elefantes. Este país tiene una de las poblaciones de elefantes más grandes del mundo." },
+  { id:'na-windhoek', name:'Windhoek', country:'NAMIBIA', emoji:'🇳🇦', center:[17.0832,-22.5597], fact:"Namibia tiene el desierto del Namib, con dunas anaranjadas altísimas que llegan hasta el mar. En sus tierras secas viven elefantes del desierto que caminan largas distancias buscando agua. De noche el cielo está tan oscuro que se ven miles de estrellas." }
+);
+
+OTHER_DESTINATIONS.push(
+  { id:'za-pretoria', name:'Pretoria', country:'SUDÁFRICA', emoji:'🇿🇦', center:[28.1881,-25.7461], fact:"Sudáfrica es tan especial que tiene tres capitales: Pretoria, Ciudad del Cabo y Bloemfontein, cada una con un trabajo distinto. Aquí viven leones, rinocerontes y pingüinos africanos que se bañan en playas de arena. En su territorio se hablan once idiomas oficiales." },
+  { id:'ls-maseru', name:'Maseru', country:'LESOTO', emoji:'🇱🇸', center:[27.4869,-29.3151], fact:"Lesoto es un país entero rodeado por Sudáfrica y está tan alto que lo llaman 'el reino en el cielo': ningún punto del país está a menos de 1.400 metros de altura. En invierno nieva y hasta se puede esquiar. Su gente se envuelve en mantas de lana con dibujos muy característicos." },
+  { id:'sz-mbabane', name:'Mbabane', country:'ESUATINI', emoji:'🇸🇿', center:[31.1367,-26.3054], fact:"Esuatini, antes llamado Suazilandia, es uno de los países más pequeños de África y todavía tiene un rey. Está lleno de valles verdes y reservas donde viven rinocerontes e hipopótamos. Cada año se celebra una gran fiesta con bailes y cantos tradicionales." },
+  { id:'mg-antananarivo', name:'Antananarivo', country:'MADAGASCAR', emoji:'🇲🇬', center:[47.5079,-18.8792], fact:"Madagascar es una isla gigante donde vive una cantidad enorme de animales y plantas que no existen en ningún otro lugar, como los lémures. Allí crecen los baobabs, árboles gordísimos que parecen plantados al revés. Se separó de los demás continentes hace millones de años, y por eso su naturaleza es tan distinta." },
+  { id:'mu-port-louis', name:'Port Louis', country:'MAURICIO', emoji:'🇲🇺', center:[57.5012,-20.1609], fact:"Mauricio es una isla volcánica del océano Índico rodeada de arrecifes de coral. Aquí vivía el dodo, un ave que no podía volar y que se extinguió hace siglos; hoy es el símbolo del país. Tiene una zona con tierra de siete colores diferentes que forman rayas naturales." },
+  { id:'sc-victoria', name:'Victoria', country:'SEYCHELLES', emoji:'🇸🇨', center:[55.4513,-4.6191], fact:"Seychelles es un grupo de islas con playas de arena blanca y enormes rocas de granito redondeadas. Aquí crece el coco de mar, la semilla más grande del mundo, que puede pesar más que un niño pequeño. También viven tortugas gigantes que llegan a superar los cien años de edad." },
+  { id:'km-moroni', name:'Moroni', country:'COMORAS', emoji:'🇰🇲', center:[43.2551,-11.7172], fact:"Las Comoras son unas islas volcánicas entre Madagascar y África, famosas por su perfume de ylang-ylang y por su vainilla. En sus aguas se encontró vivo el celacanto, un pez que se creía extinguido desde la época de los dinosaurios. Su isla principal tiene un volcán activo muy grande." },
+  { id:'ao-luanda', name:'Luanda', country:'ANGOLA', emoji:'🇦🇴', center:[13.2343,-8.8383], fact:"Angola tiene una costa larga en el Atlántico y en su interior hay sabanas y desiertos. Comparte con Zambia el nacimiento de varios ríos importantes, incluido el que forma el delta del Okavango. En el sur hay unas plantas llamadas welwitschia que pueden vivir más de mil años con muy poquita agua." },
+  { id:'cd-kinsasa', name:'Kinsasa', country:'REPÚBLICA DEMOCRÁTICA DEL CONGO', emoji:'🇨🇩', center:[15.2663,-4.4419], fact:"La República Democrática del Congo tiene la segunda selva tropical más grande del mundo, después del Amazonas. Allí viven okapis, unos animales que parecen mitad jirafa y mitad cebra, y bonobos, primos cercanos de los chimpancés. Su capital, Kinsasa, está a orillas del enorme río Congo." },
+  { id:'cg-brazzaville', name:'Brazzaville', country:'REPÚBLICA DEL CONGO', emoji:'🇨🇬', center:[15.2429,-4.2634], fact:"La República del Congo está cubierta en gran parte de selva, con gorilas de llanura y elefantes de bosque. Su capital, Brazzaville, está justo enfrente de Kinsasa, separadas solo por el río Congo: son dos capitales que se miran de orilla a orilla. Es de los pares de capitales más cercanos del mundo." },
+  { id:'ga-libreville', name:'Libreville', country:'GABÓN', emoji:'🇬🇦', center:[9.4673,0.4162], fact:"Gabón tiene tanta selva que más de la mitad del país está protegido en parques nacionales. En su parque de Loango se pueden ver elefantes e hipopótamos caminando por la playa junto al mar. Por el país pasa justo la línea del ecuador." },
+  { id:'gq-malabo', name:'Malabo', country:'GUINEA ECUATORIAL', emoji:'🇬🇶', center:[8.7832,3.7523], fact:"Guinea Ecuatorial es el único país de África donde el español es idioma oficial. Está formado por una parte en el continente y varias islas volcánicas, y su capital, Malabo, está en una de ellas. Sus selvas son el hogar de monos, loros grises y mariposas enormes." },
+  { id:'cm-yaunde', name:'Yaundé', country:'CAMERÚN', emoji:'🇨🇲', center:[11.5021,3.8480], fact:"A Camerún lo llaman 'África en miniatura' porque tiene de todo: desierto, sabana, selva, montañas y playa. Su punto más alto es un volcán activo junto al mar, el monte Camerún. En el norte hay parques con jirafas y en el sur, selvas con gorilas." },
+  { id:'cf-bangui', name:'Bangui', country:'REPÚBLICA CENTROAFRICANA', emoji:'🇨🇫', center:[18.5582,4.3947], fact:"La República Centroafricana está justo en el centro del continente, sin salida al mar. En su reserva de Dzanga-Sangha hay un claro de bosque al que llegan cientos de elefantes a beber agua con minerales. También viven allí gorilas de llanura occidental." },
+  { id:'ng-abuya', name:'Abuya', country:'NIGERIA', emoji:'🇳🇬', center:[7.4951,9.0579], fact:"Nigeria es el país con más habitantes de África y en él se hablan más de 500 idiomas distintos. Su industria de cine, llamada Nollywood, produce muchísimas películas al año. Su capital, Abuya, se construyó en el centro del país y a su lado hay una roca gigante llamada Aso Rock." },
+  { id:'bj-portonovo', name:'Portonovo', country:'BENÍN', emoji:'🇧🇯', center:[2.6289,6.4969], fact:"Benín tiene un pueblo entero construido sobre pilotes en medio de un lago, llamado Ganvié, donde la gente se mueve en canoas. Aquí nacieron muchas tradiciones de música y danza que después viajaron por el mundo. Su capital oficial es Portonovo, aunque la ciudad más grande es Cotonú." },
+  { id:'tg-lome', name:'Lomé', country:'TOGO', emoji:'🇹🇬', center:[1.2255,6.1725], fact:"Togo es un país largo y estrecho con playas al sur y colinas verdes al norte. En la región de Koutammakou hay casas-torre de barro con forma de castillito, construidas por la gente batammariba. Su capital, Lomé, está justo en la costa, pegada a la frontera con Ghana." },
+  { id:'gh-acra', name:'Acra', country:'GHANA', emoji:'🇬🇭', center:[-0.1870,5.6037], fact:"Ghana fue el primer país del África subsahariana en hacerse independiente, en 1957. Aquí se produce muchísimo cacao, con el que se hace el chocolate del mundo entero. En su selva de Kakum hay puentes colgantes por los que se camina a la altura de las copas de los árboles." },
+  { id:'ci-yamusukro', name:'Yamusukro', country:'COSTA DE MARFIL', emoji:'🇨🇮', center:[-5.2767,6.8276], fact:"Costa de Marfil es uno de los mayores productores de cacao del planeta, así que gran parte del chocolate empieza aquí. Su capital oficial, Yamusukro, tiene una basílica enorme con una cúpula gigantesca. En sus parques hay elefantes de bosque, el animal que da nombre al país." },
+  { id:'bf-uagadugu', name:'Uagadugú', country:'BURKINA FASO', emoji:'🇧🇫', center:[-1.5197,12.3714], fact:"Burkina Faso significa 'la tierra de la gente honrada'. Su capital, Uagadugú, organiza uno de los festivales de cine más importantes de África. En el país hay unas casas pintadas a mano con dibujos geométricos en blanco y negro que hacen las mujeres del pueblo kassena." },
+  { id:'lr-monrovia', name:'Monrovia', country:'LIBERIA', emoji:'🇱🇷', center:[-10.7969,6.2907], fact:"Liberia es uno de los países más antiguos independientes de África y su bandera se parece mucho a la de Estados Unidos. Tiene grandes selvas donde viven hipopótamos pigmeos, mucho más pequeños que los normales. Su costa atlántica tiene playas largas con buenas olas." },
+  { id:'sl-freetown', name:'Freetown', country:'SIERRA LEONA', emoji:'🇸🇱', center:[-13.2317,8.4657], fact:"Sierra Leona tiene playas de arena blanca junto a montañas cubiertas de selva. En sus bosques viven chimpancés, y hay un santuario que cuida a los que se quedaron huérfanos. Su capital, Freetown, tiene un enorme árbol de algodón que es símbolo de la ciudad." },
+  { id:'gn-conakri', name:'Conakri', country:'GUINEA', emoji:'🇬🇳', center:[-13.5784,9.6412], fact:"En Guinea nacen algunos de los ríos más importantes de África occidental, como el Níger, y por eso la llaman 'la torre de agua' de la región. Tiene montañas verdes con cascadas y selvas donde viven chimpancés. Su música con el tambor djembé es conocida en todo el mundo." },
+  { id:'gw-bisau', name:'Bisáu', country:'GUINEA-BISÁU', emoji:'🇬🇼', center:[-15.5977,11.8817], fact:"Guinea-Bisáu tiene un archipiélago precioso, las islas Bijagós, formado por decenas de islas con manglares. Allí anidan tortugas marinas y viven hipopótamos que a veces se meten en el agua salada del mar. Es un país pequeño donde se habla portugués." },
+  { id:'sn-dakar', name:'Dakar', country:'SENEGAL', emoji:'🇸🇳', center:[-17.4467,14.7167], fact:"Senegal está en el punto más occidental de todo el continente africano. Tiene un lago rosado por unas algas diminutas que le dan ese color, y reservas donde llegan miles de aves migratorias. Su capital, Dakar, es famosa por su música y sus percusiones." },
+  { id:'gm-banjul', name:'Banjul', country:'GAMBIA', emoji:'🇬🇲', center:[-16.5790,13.4549], fact:"Gambia es el país más pequeño de África continental y tiene una forma curiosa: es una franja estrecha a los dos lados de un río, rodeada casi por completo por Senegal. Ese río es su gran camino y está lleno de aves, monos y cocodrilos. Se puede recorrer el país entero en barco." },
+  { id:'cv-praia', name:'Praia', country:'CABO VERDE', emoji:'🇨🇻', center:[-23.5087,14.9330], fact:"Cabo Verde son diez islas volcánicas en el Atlántico, frente a la costa de África. En la isla de Fogo hay un volcán activo y la gente cultiva viñedos dentro del cráter. Su música, la morna, es tranquila y se toca con guitarras." },
+  { id:'st-santo-tome', name:'Santo Tomé', country:'SANTO TOMÉ Y PRÍNCIPE', emoji:'🇸🇹', center:[6.7273,0.3302], fact:"Santo Tomé y Príncipe son dos islas pequeñas en el golfo de Guinea, justo sobre la línea del ecuador. Están cubiertas de selva y de plantaciones de cacao, y por eso las llaman 'las islas del chocolate'. En sus playas anidan tortugas marinas y en sus bosques hay aves que no existen en ningún otro sitio." }
+);
+
+OTHER_DESTINATIONS.push(
+  { id:'au-canberra', name:'Canberra', country:'AUSTRALIA', emoji:'🇦🇺', center:[149.1300,-35.2809], fact:"Australia es un país y también un continente entero, con canguros, koalas y ornitorrincos que no viven en libertad en ningún otro lugar. Frente a su costa está la Gran Barrera de Coral, tan grande que se ve desde el espacio. Su capital es Canberra, una ciudad construida a propósito para ser la capital." },
+  { id:'nz-wellington', name:'Wellington', country:'NUEVA ZELANDA', emoji:'🇳🇿', center:[174.7762,-41.2865], fact:"Nueva Zelanda tiene montañas, glaciares y géiseres, y en ella se filmaron muchas películas de fantasía. Aquí vive el kiwi, un ave nocturna que no puede volar y es el símbolo del país. En algunas de sus cuevas el techo brilla por miles de gusanos luminosos." },
+  { id:'pg-port-moresby', name:'Port Moresby', country:'PAPÚA NUEVA GUINEA', emoji:'🇵🇬', center:[147.1803,-9.4438], fact:"En Papúa Nueva Guinea se hablan más de 800 idiomas distintos, más que en cualquier otro país del mundo. Sus selvas son el hogar de las aves del paraíso, que tienen plumas larguísimas y hacen bailes muy llamativos. Buena parte del país es montaña y selva, con pueblos a los que solo se llega en avioneta o caminando." },
+  { id:'fj-suva', name:'Suva', country:'FIYI', emoji:'🇫🇯', center:[178.4419,-18.1416], fact:"Fiyi está formada por más de 300 islas en medio del océano Pacífico, muchas de ellas rodeadas de coral. La gente saluda diciendo '¡Bula!', que significa vida y buena salud. En algunas islas todavía se cocina en hornos hechos con piedras calientes bajo la tierra." },
+  { id:'sb-honiara', name:'Honiara', country:'ISLAS SALOMÓN', emoji:'🇸🇧', center:[159.9729,-9.4456], fact:"Las Islas Salomón son cientos de islas volcánicas cubiertas de selva en el Pacífico. Sus aguas están llenas de arrecifes con peces de colores y son un lugar famoso para bucear. En algunas islas hay lagunas de agua salada rodeadas de manglares." },
+  { id:'vu-port-vila', name:'Port Vila', country:'VANUATU', emoji:'🇻🇺', center:[168.3273,-17.7333], fact:"Vanuatu es un país de islas volcánicas donde se puede asomar al cráter de un volcán activo y ver la lava brillar de noche. Aquí nació la tradición de saltar desde torres de madera atados con lianas, que inspiró el bungee. Es uno de los países con más idiomas por habitante del mundo." },
+  { id:'ws-apia', name:'Apia', country:'SAMOA', emoji:'🇼🇸', center:[-171.7513,-13.8507], fact:"Samoa está en el Pacífico sur y es famosa por sus cascadas y por una piscina natural en un enorme agujero al que se baja por una escalera. Su cultura, la fa'a Samoa, da mucha importancia a la familia y a la comunidad. Aquí se hacen esteras finísimas tejidas a mano que se regalan en ocasiones especiales." },
+  { id:'to-nukualofa', name:'Nukualofa', country:'TONGA', emoji:'🇹🇴', center:[-175.1982,-21.1393], fact:"Tonga es un reino de más de 170 islas y es uno de los pocos países del Pacífico que nunca fue colonizado. Cada año llegan ballenas jorobadas a sus aguas cálidas para tener a sus crías. En algunas de sus costas el mar sale disparado por agujeros en la roca formando chorros altísimos." },
+  { id:'ki-tarawa-sur', name:'Tarawa Sur', country:'KIRIBATI', emoji:'🇰🇮', center:[173.0176,1.3278], fact:"Kiribati está formado por 33 islas repartidas por una zona enorme del océano Pacífico, a ambos lados del ecuador. Es uno de los primeros lugares del mundo donde empieza cada nuevo día. Sus islas son atolones bajitos rodeados de lagunas de agua turquesa." },
+  { id:'tv-funafuti', name:'Funafuti', country:'TUVALU', emoji:'🇹🇻', center:[179.1942,-8.5211], fact:"Tuvalu es uno de los países más pequeños del mundo, con apenas unos kilómetros cuadrados repartidos en nueve islas bajitas. La pista de aterrizaje de su capital es tan tranquila que fuera de los horarios de vuelo la gente la usa para jugar al fútbol. Casi todo el país está a pocos metros sobre el nivel del mar." },
+  { id:'nr-yaren', name:'Yaren', country:'NAURU', emoji:'🇳🇷', center:[166.9209,-0.5477], fact:"Nauru es el país insular más pequeño del mundo: se puede dar la vuelta entera en auto en menos de media hora. No tiene una capital oficial, pero las oficinas del gobierno están en el distrito de Yaren. Está en pleno océano Pacífico, muy cerca del ecuador." },
+  { id:'mh-majuro', name:'Majuro', country:'ISLAS MARSHALL', emoji:'🇲🇭', center:[171.1845,7.0897], fact:"Las Islas Marshall son atolones de coral repartidos por el Pacífico, con lagunas enormes en el centro. Sus navegantes tradicionales inventaron mapas hechos con palitos y conchas para leer las olas y encontrar islas. La mayoría de sus islas son estrechísimas: en algunas se ve el mar a ambos lados a la vez." },
+  { id:'fm-palikir', name:'Palikir', country:'MICRONESIA', emoji:'🇫🇲', center:[158.1610,6.9147], fact:"Micronesia son cientos de islas repartidas por una parte inmensa del océano Pacífico. En la isla de Pohnpei está Nan Madol, una ciudad antigua construida sobre islas artificiales de piedra en medio del agua. Sus arrecifes están llenos de peces de colores y tortugas." },
+  { id:'pw-ngerulmud', name:'Ngerulmud', country:'PALAOS', emoji:'🇵🇼', center:[134.6243,7.5006], fact:"Palaos es famoso por sus islas Rocosas, cientos de montículos verdes con forma de champiñón que salen del mar. Tiene un lago lleno de medusas doradas que casi no pican y que siguen al sol cada día. Fue uno de los primeros países en crear un santuario para proteger a los tiburones." }
+);
+
+// Los tres primeros destinos (El Salvador, Estados Unidos y México) siempre
+// aparecen al principio; todos los demás se barajan en cada carga para que
+// el mundo se sienta distinto cada vez que se abre el juego.
+function shuffleDestinations(arr){
+  const a = arr.slice();
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+// El zoom y la inclinación de la cámara se calculan a partir del id, así que
+// cada capital siempre se ve igual aunque el orden cambie en cada carga.
+const DESTINATIONS = FIRST_DESTINATIONS.concat(shuffleDestinations(OTHER_DESTINATIONS)).map(d => {
+  let h = 0;
+  for(let i = 0; i < d.id.length; i++) h += d.id.charCodeAt(i);
+  return Object.assign({ zoom: 12.8 + (h % 5) * 0.25, pitch: 34 + (h % 4) * 6 }, d);
+});
+
+// Stamps are kept in memory only, for this session — no localStorage.
+// That keeps updates to the app simple: everyone always gets a clean
+// slate instead of carrying over a stale set of collected ids across
+// versions of the game.
+let collected = new Set();
+let activeDest = null;
+
+// ---------------------------------------------------------------
+// Map setup — free raster tiles, no API key required.
+// OSM for the base globe; MapLibre's built-in globe projection
+// gives the "spin the whole Earth" feeling.
+// Everything below is wrapped in try/catch so that if the map
+// library or a tile source fails to load, the welcome screen,
+// start button, and passport still work — the app degrades
+// instead of breaking outright.
+// ---------------------------------------------------------------
+try{
+
+const map = new maplibregl.Map({
+  container:'map',
+  style:{
+    version:8,
+    sources:{
+      'osm':{
+        type:'raster',
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize:256,
+        attribution:'© OpenStreetMap contributors'
+      },
+      'satellite':{
+        type:'raster',
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize:256,
+        attribution:'Esri World Imagery'
+      }
+    },
+    layers:[
+      { id:'osm-layer', type:'raster', source:'osm' }
+    ]
+  },
+  center:[0, 20],
+  zoom:1.6,
+  pitch:0,
+  attributionControl:{ compact:false }
+});
+exploreMap = map;
+
+map.on('load', ()=>{
+  try{ map.setProjection({ type:'globe' }); }catch(e){ /* older builds: falls back to flat map, still fully explorable */ }
+  try{ map.setFog({}); }catch(e){ /* not supported on every build/projection — purely cosmetic */ }
+});
+
+// Deliberately not adding NavigationControl (the built-in +/- zoom
+// buttons) at all, in either mode — pinch/scroll zoom still works.
+map.dragRotate.enable();
+map.touchZoomRotate.enable();
+map.touchPitch.enable();
+
+// Swap to satellite imagery automatically once zoomed in close, so
+// kids see real photo detail on landmarks, and OSM lines/labels when
+// zoomed out. Driven off what's ACTUALLY on the map rather than a
+// tracked boolean, and wrapped in try/catch: addLayer throws
+// "Layer already exists" if called twice, and this fires on every
+// camera move — an exception here would abort whatever code triggered
+// the move (a destination jump, a mode switch), which is exactly the
+// kind of thing that made the app appear to randomly break.
+let usingSatellite = false;
+function updateImagery(){
+  try{
+    // While flying, always show the labelled OSM street map so street
+    // names and markings are readable from the air. Otherwise it's
+    // satellite up close, street map when zoomed out.
+    const wantSatellite = !jetActive && map.getZoom() > 7.5;
+    if(wantSatellite === usingSatellite) return;
+    if(wantSatellite){
+      if(map.getLayer('osm-layer')) map.removeLayer('osm-layer');
+      if(!map.getLayer('sat-layer')) map.addLayer({ id:'sat-layer', type:'raster', source:'satellite' });
+    } else {
+      if(map.getLayer('sat-layer')) map.removeLayer('sat-layer');
+      if(!map.getLayer('osm-layer')) map.addLayer({ id:'osm-layer', type:'raster', source:'osm' });
+    }
+    usingSatellite = wantSatellite;
+    // Keep the road/water overlays above whichever base layer was just
+    // swapped in, otherwise they end up buried underneath it.
+    if(map.getLayer('drive-roads')) map.moveLayer('drive-roads');
+  }catch(e){ console.error('imagery swap skipped', e); }
+}
+map.on('zoom', updateImagery);
+
+// ---------------------------------------------------------------
+// Landmark markers
+// ---------------------------------------------------------------
+DESTINATIONS.forEach(d=>{
+  const el = document.createElement('div');
+  el.textContent = d.emoji;
+  el.style.fontSize = '26px';
+  el.style.cursor = 'pointer';
+  el.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
+  el.className = 'dest-pin';
+  el.title = d.name;
+  el.addEventListener('click', ()=> flyToDestination(d));
+  new maplibregl.Marker({ element:el }).setLngLat(d.center).addTo(map);
+});
+
+const transitionGuard = document.getElementById('transition-guard');
+// How long a journey to a destination should take, scaled by distance.
+// Roughly: a few hundred km is quick, halfway around the world is the
+// full ride. Clamped at both ends so a nearby hop still reads as travel
+// and a global crossing never drags.
+const FLY_MS_MIN = 4400;   // short hop
+const FLY_MS_MAX = 14000;  // other side of the planet
+function flightDurationMs(fromLngLat, toCenter){
+  try{
+    const toRad = deg => deg * Math.PI / 180;
+    const lat1 = toRad(fromLngLat.lat), lat2 = toRad(toCenter[1]);
+    const dLat = lat2 - lat1;
+    const dLng = toRad(toCenter[0] - fromLngLat.lng);
+    // Haversine, in km.
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+    const km = 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+    // The furthest two points on Earth can be is about 20,000km. Square
+    // root so short trips still get a decent share of the time rather
+    // than being over in a blink — linear scaling made them feel abrupt.
+    const t = Math.min(1, Math.sqrt(km / 20000));
+    return Math.round(FLY_MS_MIN + (FLY_MS_MAX - FLY_MS_MIN) * t);
+  }catch(e){
+    return FLY_MS_MAX; // if anything goes wrong, err on the scenic side
+  }
+}
+
+function flyToDestination(d){
+  if(transitionGuard.classList.contains('show')) return; // already mid-flight, ignore
+
+  // Tapping a landmark pin while driving just opens its card — you stay
+  // in Drive mode, right where you are. Deliberately no camera move at
+  // all: the drive loop is still running and re-centres on the vehicle
+  // every frame, so anything we did to the camera here would be undone
+  // on the next frame anyway (that fight was the old source of lag).
+  if(currentMode === 'drive'){
+    activeDest = d;
+    photoPanel.classList.remove('show');
+    closeLightbox();
+    showFactCard(d);
+    return;
+  }
+
+  activeDest = d;
+  transitionGuard.classList.add('show');
+  document.getElementById('topbar').classList.add('dimmed');
+  document.getElementById('dock-wrap').classList.add('dimmed');
+  factCard.classList.remove('show');
+  photoPanel.classList.remove('show');
+  closeLightbox();
+
+  // Explicit flight duration so arrival is predictable. Arrival is
+  // primarily driven by the clock, NOT by 'moveend': a moveend left over
+  // from an earlier camera settle (a pinch-zoom, or the tail of a
+  // previous movement) can land the instant the flight starts, which is
+  // what made the description card pop up early and cut the journey
+  // short. A moveend is only accepted once the flight is essentially
+  // over; otherwise it's ignored as a stray.
+  // Scale the journey to how far it actually is. A hop to the next town
+  // shouldn't take as long as crossing the planet — a fixed duration made
+  // every trip feel the same, and long ones feel far too quick for the
+  // distance covered. Great-circle distance so it's real distance, not
+  // degrees (which would badly overstate east-west hops near the poles).
+  const FLY_MS = flightDurationMs(map.getCenter(), d.center);
+  const startedAt = (typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now();
+  const elapsed = ()=> ((typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now()) - startedAt;
+
+  let settled = false;
+  const arrive = ()=>{
+    if(settled) return;
+    settled = true;
+    transitionGuard.classList.remove('show');
+    document.getElementById('topbar').classList.remove('dimmed');
+    document.getElementById('dock-wrap').classList.remove('dimmed');
+    showFactCard(d);
+  };
+  // Only honour a moveend that arrives when the flight has actually had
+  // time to complete — anything earlier is a stray from a prior move.
+  const arriveIfFlightDone = ()=>{
+    if(elapsed() >= FLY_MS * 0.9) arrive();
+  };
+
+  try{
+    map.flyTo({
+      center:d.center,
+      zoom:d.zoom,
+      pitch:d.pitch,
+      bearing: Math.random()*40-20,
+      duration:FLY_MS,
+      essential:true
+    });
+    map.once('moveend', arriveIfFlightDone);
+  }catch(e){
+    console.error('flight failed, snapping to destination', e);
+    try{ map.jumpTo({ center:d.center, zoom:d.zoom, pitch:d.pitch }); }catch(e2){}
+    arrive();
+    return;
+  }
+  setTimeout(arrive, FLY_MS);        // the journey always lasts its full length
+  setTimeout(arrive, FLY_MS + 2000); // hard backstop if anything stalls
+}
+
+// ---------------------------------------------------------------
+// Destination dock (bottom scroller)
+// ---------------------------------------------------------------
+const dock = document.getElementById('dock');
+function renderDock(){
+  dock.innerHTML = '';
+  DESTINATIONS.forEach(d=>{
+    const card = document.createElement('div');
+    card.className = 'dest-card' + (collected.has(d.id) ? ' visited' : '');
+    card.innerHTML = `<span class="check">✓</span><span class="emoji">${d.emoji}</span><span class="name">${d.name}</span><span class="country">${d.country}</span>`;
+    card.addEventListener('click', ()=> flyToDestination(d));
+    dock.appendChild(card);
+  });
+}
+renderDock();
+
+// ---------------------------------------------------------------
+// Fact card
+// ---------------------------------------------------------------
+const factCard = document.getElementById('fact-card');
+const factTitle = document.getElementById('fact-title');
+const factCountry = document.getElementById('fact-country');
+const factText = document.getElementById('fact-text');
+const stampBtn = document.getElementById('stamp-btn');
+const femoji = document.querySelector('#fact-card .femoji');
+
+function showFactCard(d){
+  femoji.textContent = d.emoji;
+  factTitle.textContent = d.name;
+  factCountry.textContent = d.country;
+  factText.textContent = d.fact;
+  updateStampBtn(d);
+  factCard.classList.add('show');
+  photoPanel.classList.remove('show');
+  closeLightbox();
+}
+function updateStampBtn(d){
+  if(collected.has(d.id)){
+    stampBtn.textContent = '✓ ¡Sello conseguido!';
+    stampBtn.classList.add('already');
+  } else {
+    stampBtn.textContent = '🎟️ ¡Conseguir sello!';
+    stampBtn.classList.remove('already');
+  }
+}
+document.querySelector('#fact-card .fclose').addEventListener('click', ()=>{
+  factCard.classList.remove('show');
+  photoPanel.classList.remove('show');
+  closeLightbox();
+});
+stampBtn.addEventListener('click', ()=>{
+  if(!activeDest || collected.has(activeDest.id)) return;
+  collected.add(activeDest.id);
+  updateStampBtn(activeDest);
+  renderDock();
+  updatePassportCount();
+  celebrateStamp();
+  maybeShowMilestone();
+});
+
+function celebrateStamp(){
+  stampBtn.style.transform = 'scale(1.08)';
+  setTimeout(()=> stampBtn.style.transform = '', 180);
+}
+
+// One escalating title per 4-stamp milestone. 195 capitals / 4 = 48
+// milestones, so there are 49 titles — each one distinct, no repeats — plus
+// a separate final celebration for stamping the very last capital.
+const MILESTONE_TITLES = [
+  '¡Explorador Novato!',
+  '¡Viajero Curioso!',
+  '¡Aventurero Audaz!',
+  '¡Trotamundos!',
+  '¡Buscador de Tesoros!',
+  '¡Cazador de Mapas!',
+  '¡Explorador Valiente!',
+  '¡Navegante Intrépido!',
+  '¡Explorador Experto!',
+  '¡Viajero Legendario!',
+  '¡Maestro de Mapas!',
+  '¡Conquistador de Continentes!',
+  '¡Descubridor de Mundos!',
+  '¡Piloto de Aventuras!',
+  '¡Guardián del Globo!',
+  '¡Capitán de Expediciones!',
+  '¡Leyenda Viajera!',
+  '¡Explorador Supremo!',
+  '¡Campeón del Globo!',
+  '¡Maestro Explorador!',
+  '¡Sabio de los Continentes!',
+  '¡Titán de los Viajes!',
+  '¡Coleccionista de Horizontes!',
+  '¡Emperador de los Mapas!',
+  '¡Embajador del Mundo!',
+  '¡Héroe de la Aventura!',
+  '¡Leyenda del Planeta!',
+  '¡Maravilla Viajera!',
+  '¡Gran Maestro Explorador!',
+  '¡Guardián de la Tierra!',
+  '¡Leyenda Inmortal!',
+  '¡Explorador Definitivo!',
+  '¡Coleccionista de Banderas!',
+  '¡Maestro de Capitales!',
+  '¡Piloto Intercontinental!',
+  '¡Explorador de Océanos!',
+  '¡Cartógrafo Real!',
+  '¡Guía de Continentes!',
+  '¡Almirante del Atlas!',
+  '¡Estrella del Mundo!',
+  '¡Rey de las Rutas!',
+  '¡Faro de los Viajeros!',
+  '¡Maravilla Global!',
+  '¡Comandante del Globo!',
+  '¡Sabio de las Banderas!',
+  '¡Gran Almirante del Mundo!',
+  '¡Leyenda de los Siete Mares!',
+  '¡Corazón Aventurero!',
+  '¡Campeón de las Capitales!',
+  '¡Explorador Eterno!'
+];
+const milestoneModal = document.getElementById('milestone-modal');
+const milestoneTitle = document.getElementById('milestone-title');
+const milestoneSub = document.getElementById('milestone-sub');
+document.getElementById('milestone-close').addEventListener('click', ()=>{
+  milestoneModal.classList.remove('show');
+});
+
+function maybeShowMilestone(){
+  const n = collected.size;
+  const total = DESTINATIONS.length;
+  const isFinal = n === total;
+  // A milestone every 4 stamps, plus one guaranteed celebration when the
+  // very last capital is stamped (195 isn't a multiple of 4, so without
+  // this the final stamp would pass by unnoticed).
+  if(n === 0 || (n % 4 !== 0 && !isFinal)) return;
+  if(isFinal){
+    milestoneTitle.textContent = '¡Campeón del Planeta Entero!';
+    milestoneSub.textContent = `¡Visitaste las ${total} capitales del mundo!`;
+  } else {
+    const tier = Math.min(n / 4, MILESTONE_TITLES.length) - 1;
+    milestoneTitle.textContent = MILESTONE_TITLES[tier];
+    milestoneSub.textContent = `Has conseguido ${n} de ${total} sellos`;
+  }
+  milestoneModal.classList.add('show');
+}
+
+// =================================================================
+// NEARBY PHOTOS — shared by both Explore and Drive mode
+// On-demand only: fetching happens when the button is tapped, not
+// continuously, so driving doesn't hammer the API every few seconds.
+// Uses Wikimedia Commons' free, keyless geosearch API — real geotagged
+// photos near whatever coordinates are passed in.
+// =================================================================
+const photoPanel = document.getElementById('photo-panel');
+const photoShots = document.getElementById('photo-shots');
+let photoPanelLat = null, photoPanelLng = null;
+
+// ---- Lightbox: tap a thumbnail for a closeup with prev/next ----
+const photoLightbox = document.getElementById('photo-lightbox');
+const lightboxImg = document.getElementById('lightbox-img');
+const lightboxCaption = document.getElementById('lightbox-caption');
+const lightboxCounter = document.getElementById('lightbox-counter');
+let currentPhotos = [];
+let currentPhotoIndex = 0;
+
+function openLightbox(i){
+  if(!currentPhotos.length) return;
+  currentPhotoIndex = i;
+  photoLightbox.classList.toggle('single', currentPhotos.length <= 1);
+  updateLightbox();
+  photoLightbox.classList.add('show');
+}
+function updateLightbox(){
+  const p = currentPhotos[currentPhotoIndex];
+  if(!p) return;
+  lightboxImg.src = p.url;
+  lightboxImg.alt = p.caption;
+  lightboxCaption.textContent = p.caption;
+  lightboxCounter.textContent = `${currentPhotoIndex + 1} / ${currentPhotos.length}`;
+}
+function stepLightbox(delta){
+  if(!currentPhotos.length) return;
+  currentPhotoIndex = (currentPhotoIndex + delta + currentPhotos.length) % currentPhotos.length;
+  updateLightbox();
+}
+function closeLightbox(){ photoLightbox.classList.remove('show'); }
+
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-prev').addEventListener('click', ()=> stepLightbox(-1));
+document.getElementById('lightbox-next').addEventListener('click', ()=> stepLightbox(1));
+photoLightbox.addEventListener('click', (e)=>{ if(e.target === photoLightbox) closeLightbox(); });
+window.addEventListener('keydown', (e)=>{
+  if(!photoLightbox.classList.contains('show')) return;
+  if(e.key === 'Escape') closeLightbox();
+  else if(e.key === 'ArrowLeft') stepLightbox(-1);
+  else if(e.key === 'ArrowRight') stepLightbox(1);
+});
+
+function togglePhotoPanel(lat, lng){
+  const alreadyShowingHere = photoPanel.classList.contains('show') && lat === photoPanelLat && lng === photoPanelLng;
+  if(alreadyShowingHere){
+    photoPanel.classList.remove('show');
+    closeLightbox();
+    return;
+  }
+  photoPanel.classList.add('show');
+  fetchNearbyPhotos(lat, lng);
+}
+
+async function fetchNearbyPhotos(lat, lng){
+  photoPanelLat = lat; photoPanelLng = lng;
+  currentPhotos = [];
+  closeLightbox();
+  photoShots.innerHTML = '<div class="ploading">Buscando fotos…</div>';
+  try{
+    const geoUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=4000&gsnamespace=6&gslimit=8&format=json&origin=*`;
+    const geoRes = await fetch(geoUrl);
+    const geoData = await geoRes.json();
+    const results = (geoData.query && geoData.query.geosearch) || [];
+    if(results.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No hay fotos cerca todavía.</div>';
+      return;
+    }
+    const titles = results.slice(0, 4).map(r => r.title).join('|');
+    // 1000px wide so the lightbox closeup is actually sharp rather than
+    // a blown-up thumbnail; the small previews just scale it down.
+    const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*`;
+    const infoRes = await fetch(infoUrl);
+    const infoData = await infoRes.json();
+    const pages = (infoData.query && infoData.query.pages) || {};
+    const shots = Object.values(pages)
+      .filter(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl)
+      .slice(0, 3);
+    if(shots.length === 0){
+      photoShots.innerHTML = '<div class="ploading">No hay fotos cerca todavía.</div>';
+      return;
+    }
+    currentPhotos = shots.map(p=>({
+      url: p.imageinfo[0].thumburl,
+      caption: p.title.replace(/^File:/, '').replace(/\.[a-zA-Z]+$/, '').replace(/_/g, ' ').slice(0, 60)
+    }));
+    photoShots.innerHTML = '';
+    currentPhotos.forEach((p, i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'pshot-btn';
+      btn.setAttribute('aria-label', 'Ver foto de cerca');
+      const img = document.createElement('img');
+      img.src = p.url;
+      img.alt = p.caption;
+      img.loading = 'lazy';
+      const cap = document.createElement('div');
+      cap.className = 'pcaption';
+      cap.textContent = p.caption;
+      btn.appendChild(img);
+      btn.appendChild(cap);
+      btn.addEventListener('click', ()=> openLightbox(i));
+      photoShots.appendChild(btn);
+    });
+  } catch(err){
+    console.error('Nearby photos fetch failed', err);
+    photoShots.innerHTML = '<div class="ploading">No se pudieron cargar las fotos.</div>';
+  }
+}
+
+document.querySelector('.photo-close').addEventListener('click', ()=>{
+  photoPanel.classList.remove('show');
+  closeLightbox();
+});
+document.getElementById('fact-photo-btn').addEventListener('click', ()=>{
+  if(!activeDest) return;
+  togglePhotoPanel(activeDest.center[1], activeDest.center[0]);
+});
+
+// =================================================================
+// DRIVE MODE
+// Uses the browser's built-in geolocation (device location, granted
+// by the user) to drop a car on a real map near them, driven with
+// arrow keys / WASD. "Nearby photos" come from Wikimedia Commons'
+// free, keyless geosearch API — real geotagged photos near wherever
+// the car currently is.
+// =================================================================
+const modeExploreBtn = document.getElementById('mode-explore-btn');
+const modeDriveBtn = document.getElementById('mode-drive-btn');
+const driveHud = document.getElementById('drive-hud');
+const driveSpeedo = document.getElementById('drive-speedo');
+const locateCard = document.getElementById('locate-card');
+const drivePhotoBtn = document.getElementById('drive-photo-btn');
+drivePhotoBtn.addEventListener('click', ()=> togglePhotoPanel(carLat, carLng));
+
+// The exact camera the map opens with — Explore mode always returns to
+// precisely this, every time, so switching modes can never leave the
+// globe in some in-between state.
+const DEFAULT_EXPLORE_VIEW = { center:[0, 20], zoom:1.6, pitch:0, bearing:0 };
+
+let currentMode = 'explore';
+// Incremented on EVERY mode switch. Any async work started under an
+// older session (most importantly the geolocation request, which can
+// take many seconds to resolve) compares its captured value against
+// this and bails out if it's stale. Without this, a geolocation
+// callback could land *after* the user had already returned to
+// Explore and start the drive loop anyway — see switchMode/locate-go.
+let modeSession = 0;
+let carMarker = null;
+let carFlipEl = null;
+const VEHICLE_EMOJIS = ['🚗','🛻','🚙','🚓','🐎'];
+let vehicleIndex = 0;
+let carEmojiEl = null;
+
+// ---- Jet mode ----------------------------------------------------
+// Double-tap a direction and HOLD: the car becomes a jet that flies
+// anywhere at 2048 km/h ignoring roads, with the camera pulled back so
+// the speed is actually readable. Releasing drops straight back to
+// whichever vehicle was selected before.
+const JET_EMOJI = '✈️';
+// Single source of truth for the avatar: the jet while flying, otherwise
+// whichever ground vehicle is selected. Terrain no longer changes it —
+// off-road just means a slower car.
+function applyVehicleIcon(){
+  if(!carEmojiEl) return;
+  carEmojiEl.textContent = jetActive ? JET_EMOJI : VEHICLE_EMOJIS[vehicleIndex];
+  carEmojiEl.classList.remove('pop');
+  void carEmojiEl.offsetWidth; // restart the pop animation on rapid changes
+  carEmojiEl.classList.add('pop');
+}
+const DRIVE_ZOOM = 17.5;   // normal street-level driving
+const JET_ZOOM = 13.2;     // pulled back while flying
+const DOUBLE_TAP_MS = 350; // max gap between the two taps
+const JET_DIR_TOLERANCE = 0.5; // dot product: taps must point roughly the same way
+let jetActive = false;
+let driveZoom = DRIVE_ZOOM;        // the zoom actually applied each frame
+let targetDriveZoom = DRIVE_ZOOM;  // eased toward, so the pull-back is smooth
+let lastTapAt = 0;
+let lastTapDir = { x:0, y:0 };
+
+function engageJet(){
+  if(jetActive) return;
+  jetActive = true;
+  targetDriveZoom = JET_ZOOM;
+  applyVehicleIcon();
+  applyFacing(); // jet points the opposite way by default — re-mirror now
+  driveHud.classList.add('state-jet');
+  updateImagery(); // labelled street map while flying
+}
+function releaseJet(){
+  if(!jetActive) return;
+  jetActive = false;
+  targetDriveZoom = DRIVE_ZOOM;
+  // Landing: shed the jet's velocity immediately rather than coasting
+  // at 2000+ km/h for several seconds while friction catches up. Keeps
+  // the direction, just clamps the speed back to what a car can do.
+  const speed = Math.hypot(carVelN, carVelE);
+  if(speed > ROAD_MAX_SPEED){
+    const scale = ROAD_MAX_SPEED / speed;
+    carVelN *= scale;
+    carVelE *= scale;
+  }
+  // Back to the helicopter if we're off-road, otherwise the chosen vehicle.
+  applyVehicleIcon();
+  applyFacing(); // back to car-style mirroring
+  driveHud.classList.remove('state-jet');
+  updateImagery(); // back to satellite at ground level
+}
+
+// A tap counts as a double-tap only if it lands soon after the last one
+// AND points in roughly the same direction — so tapping left then right
+// doesn't accidentally launch the jet sideways.
+function registerDirectionTap(dir){
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  const mag = Math.hypot(dir.x, dir.y);
+  if(mag === 0) return; // no direction, nothing to double-tap
+  const quick = (now - lastTapAt) < DOUBLE_TAP_MS;
+  const aligned = (dir.x * lastTapDir.x + dir.y * lastTapDir.y) > JET_DIR_TOLERANCE;
+  if(quick && aligned){
+    engageJet();
+    lastTapAt = 0; // consume, so a third tap doesn't immediately re-trigger
+  } else {
+    lastTapAt = now;
+    lastTapDir = dir;
+  }
+}
+let facingRight = false; // vehicle emojis default to facing left
+
+// The car emojis (🚗🛻🚙🚓🐎) and the boat (⛵) all point LEFT by
+// default and only ever get mirrored left/right. The jet is different:
+// it rotates freely through
+// 360° to point exactly where you're steering. ✈️ is drawn pointing
+// up-and-to-the-right (about 45° / north-east) in most emoji fonts, so
+// that offset is subtracted to get a true heading. Tweak this single
+// number if the plane looks rotated on a particular device.
+const JET_EMOJI_BASE_HEADING = 45;
+let jetHeadingDeg = 0; // compass bearing the jet currently points (0 = north)
+
+function applyFacing(){
+  if(!carFlipEl) return;
+  if(jetActive){
+    carFlipEl.style.transform = `rotate(${jetHeadingDeg - JET_EMOJI_BASE_HEADING}deg)`;
+  } else {
+    carFlipEl.style.transform = facingRight ? 'scaleX(-1)' : 'scaleX(1)';
+  }
+}
+let carLng = 0, carLat = 0, carVelN = 0, carVelE = 0;
+const keys = {};
+let driveRAF = null;
+let lastFrameTime = null;
+
+function metersPerDegLng(lat){ return 111320 * Math.cos(lat * Math.PI / 180); }
+const METERS_PER_DEG_LAT = 111320;
+
+// Removes the car marker from the map entirely, if one exists. Called
+// whenever leaving Drive mode AND right before creating a new one, so
+// there is never a moment where two car markers can both exist.
+function removeCarMarker(){
+  if(carMarker){ carMarker.remove(); carMarker = null; carFlipEl = null; carEmojiEl = null; }
+}
+
+// Everything needed to leave Drive mode EXCEPT moving the camera.
+// Shared by switchMode (which then flies home) and by clicking a
+// landmark while driving (which jumps to that landmark instead).
+function exitDriveState(){
+  stopDrive();
+  removeCarMarker();
+  document.getElementById('dock-wrap').style.display = '';
+  driveHud.style.display = 'none';
+  driveHud.classList.remove('state-boost');
+  driveHud.classList.remove('state-jet');
+  drivePhotoBtn.style.display = 'none';
+  photoPanel.classList.remove('show');
+  closeLightbox();
+  // The passport is an Explore-mode feature (stamps are earned by
+  // visiting destinations, which only exist in Explore) — bring it
+  // back now that driving is over.
+  passportBtn.style.display = '';
+  try{
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'none');
+    map.dragRotate.enable();
+    map.dragPan.enable();
+  }catch(e){ console.error('drive teardown issue', e); }
+  updateImagery(); // jetActive is false now, so pick the normal base layer
+}
+
+function switchMode(next){
+  if(next === currentMode) return;
+  currentMode = next;
+  modeSession++; // invalidate any async work started under the old mode
+  modeExploreBtn.classList.toggle('active', next === 'explore');
+  modeDriveBtn.classList.toggle('active', next === 'drive');
+
+  if(next === 'explore'){
+    exitDriveState();
+    // Raise the guard (and grey out the controls it's blocking) BEFORE
+    // touching the map, so it also covers a synchronous map failure —
+    // and so the disabled buttons visibly read as disabled rather than
+    // just silently not responding.
+    transitionGuard.classList.add('show');
+    document.getElementById('topbar').classList.add('dimmed');
+    document.getElementById('dock-wrap').classList.add('dimmed');
+
+    // Runs exactly once, whichever trigger arrives first. The guard
+    // blocks the whole UI, so releasing it must never depend on a
+    // single event firing.
+    let settled = false;
+    const clearGuard = ()=>{
+      if(settled) return;
+      settled = true;
+      transitionGuard.classList.remove('show');
+      document.getElementById('topbar').classList.remove('dimmed');
+      document.getElementById('dock-wrap').classList.remove('dimmed');
+    };
+
+    // All map calls isolated: the UI state above is already correct, and
+    // a map-level failure must never abort the switch partway and leave
+    // the app half in one mode and half in the other.
+    try{
+      // Always reset to the exact same zoomed-out globe view the app
+      // opens with — never resume wherever driving last left the camera.
+      map.flyTo({ ...DEFAULT_EXPLORE_VIEW, speed:0.9, curve:1.3, essential:true });
+      map.once('moveend', clearGuard);
+    }catch(e){
+      console.error('map reset failed, forcing camera home', e);
+      try{ map.jumpTo(DEFAULT_EXPLORE_VIEW); }catch(e2){}
+      clearGuard();
+    }
+    setTimeout(clearGuard, 4000); // hard backstop
+  } else {
+    // Entering Drive mode is always treated like the very first time:
+    // drop any old marker and re-ask for the current location, rather
+    // than trying to "resume" a previous session. That's what was
+    // causing a second, stale car to appear at the old spot.
+    removeCarMarker();
+    document.getElementById('dock-wrap').style.display = 'none';
+    // Nothing in Drive mode can earn a stamp, so the big passport
+    // button in the top right is just clutter here — hide it and
+    // reserve it for Explore mode.
+    passportBtn.style.display = 'none';
+    factCard.classList.remove('show');
+    photoPanel.classList.remove('show');
+    closeLightbox();
+    setLocateLoading(false); // fresh card, never inherit a stuck "Buscando…"
+    locateCard.classList.add('show');
+  }
+}
+modeExploreBtn.addEventListener('click', ()=> switchMode('explore'));
+modeDriveBtn.addEventListener('click', ()=> switchMode('drive'));
+
+// When there's no GPS fix to be had — the player tapped "Ahora no", the
+// prompt was denied, it timed out, or the browser has no geolocation at
+// all — drive at whatever the Explore camera was last looking at rather
+// than bouncing them back with an error. A kid who says no to the
+// permission prompt still gets to play.
+const NO_LOCATION_MSG = '📍 No pudimos obtener tu ubicación';
+// Where the vehicle goes when there's no GPS fix. Always the same
+// place, deliberately: a predictable starting point beats a clever one,
+// and Paris is dense with streets so there's plenty to drive on. The
+// Explore camera is NOT used — it defaults to [0, 20], open water in the
+// Gulf of Guinea, which at street zoom is just "map data not available".
+// Looked up from DESTINATIONS by id so the coordinates live in one place.
+function fallbackDriveSpot(){
+  const d = DESTINATIONS.find(x => x.id === 'fr-paris');
+  return d ? d.center : [2.3522, 48.8566];
+}
+
+function beginDriveAtCurrentView(){
+  const [lng, lat] = fallbackDriveSpot();
+  setLocateLoading(false);
+  locateCard.classList.remove('show');
+  beginDriveAt(lng, lat);
+  // beginDriveAt queues the usual "hold to drive" hint; replace it with
+  // the explanation, shown a little longer since it's saying something.
+  showDriveHint(NO_LOCATION_MSG, 6000);
+}
+
+document.getElementById('locate-cancel').addEventListener('click', ()=>{
+  beginDriveAtCurrentView();
+});
+const locateGoBtn = document.getElementById('locate-go');
+const locateGoLabel = document.getElementById('locate-go-label');
+function setLocateLoading(on){
+  locateGoBtn.classList.toggle('loading', on);
+  locateGoBtn.disabled = on;
+  locateGoLabel.textContent = on ? 'Buscando…' : 'Compartir mi ubicación';
+}
+
+locateGoBtn.addEventListener('click', ()=>{
+  if(locateGoBtn.disabled) return; // already waiting on a fix
+  if(!navigator.geolocation){
+    beginDriveAtCurrentView();
+    return;
+  }
+  // Capture the session at request time. getCurrentPosition is async and
+  // can take many seconds; if the user taps "Explorar" or "Ahora no"
+  // while it's still pending, this callback must NOT start driving.
+  // (That was the transition bug: a late callback would kick off the
+  // drive loop while the UI said Explore, and the loop re-centers the
+  // camera on the car every single frame — pinning the view "in one
+  // area" and making destination clicks look like they did nothing,
+  // because the loop overwrote the camera on the very next frame.)
+  const requestSession = modeSession;
+  const isStale = ()=> requestSession !== modeSession || currentMode !== 'drive';
+  setLocateLoading(true);
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      setLocateLoading(false);
+      if(isStale()) return;
+      locateCard.classList.remove('show');
+      beginDriveAt(pos.coords.longitude, pos.coords.latitude);
+    },
+    ()=>{
+      setLocateLoading(false);
+      if(isStale()) return;
+      beginDriveAtCurrentView();
+    },
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+});
+
+function beginDriveAt(lng, lat){
+  removeCarMarker(); // guarantee there is never more than one car
+  carLng = lng; carLat = lat; carVelN = 0; carVelE = 0;
+  facingRight = false;
+
+  // Structure: outer (MapLibre owns its transform for map positioning —
+  // never set transform on this one directly) > flip (persistent
+  // left/right facing, our transform) > emoji (textContent + the
+  // temporary pop animation on click). Nesting like this lets the flip
+  // and the pop animation each own their own transform without fighting.
+  const outer = document.createElement('div');
+  const flip = document.createElement('div');
+  flip.className = 'car-flip';
+  const emoji = document.createElement('div');
+  emoji.className = 'car-emoji';
+  emoji.textContent = VEHICLE_EMOJIS[vehicleIndex];
+  flip.appendChild(emoji);
+  outer.appendChild(flip);
+
+  emoji.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    // Tapping the jet used to silently change the car you'd get back on
+    // landing, which reads as broken: the tap appears to do nothing, then
+    // the vehicle has changed by itself later. Ignore taps while flying.
+    if(jetActive) return;
+    vehicleIndex = (vehicleIndex + 1) % VEHICLE_EMOJIS.length;
+    applyVehicleIcon();
+  });
+
+  carMarker = new maplibregl.Marker({ element:outer })
+    .setLngLat([carLng, carLat]).addTo(map);
+  carFlipEl = flip;
+  carEmojiEl = emoji;
+
+  driveHud.style.display = 'flex';
+  drivePhotoBtn.style.display = 'block';
+  driveZoom = DRIVE_ZOOM;
+  targetDriveZoom = DRIVE_ZOOM;
+  try{
+    map.dragRotate.disable();
+    map.dragPan.disable(); // so a held drag steers the car instead of panning the map
+    map.jumpTo({ center:[carLng, carLat], zoom:DRIVE_ZOOM, pitch:45, bearing:0 });
+  }catch(e){ console.error('drive camera setup issue', e); }
+  ensureRoadLayer();
+  resumeDrive();
+  if(typeof showDriveHint === 'function') showDriveHint();
+}
+
+// Free, keyless vector road data from OpenFreeMap (OpenStreetMap-based,
+// no API key, no limits) so the car can tell whether it's near a road.
+// Added once, only used while driving — see switchMode() for how
+// visibility is toggled off in Explore mode so it doesn't cost tile
+// requests while spinning the globe.
+function ensureRoadLayer(){
+  // Wrapped: road detection is only an enhancement. If the vector source
+  // or layer can't be added for any reason, driving must still work —
+  // never let this take the app down.
+  try{
+    if(!map.getSource('openmaptiles')){
+      map.addSource('openmaptiles', { type:'vector', url:'https://tiles.openfreemap.org/planet' });
+    }
+    if(!map.getLayer('drive-roads')){
+      map.addLayer({
+        id:'drive-roads', type:'line', source:'openmaptiles', 'source-layer':'transportation',
+        minzoom:10,
+        paint:{ 'line-color':'#fff9c4', 'line-width':3, 'line-opacity':0.55 }
+      });
+    }
+    if(map.getLayer('drive-roads')) map.setLayoutProperty('drive-roads', 'visibility', 'visible');
+  }catch(e){ console.error('road layer unavailable — driving still works', e); }
+}
+
+function resumeDrive(){
+  window.addEventListener('keydown', onDriveKeyDown);
+  window.addEventListener('keyup', onDriveKeyUp);
+  lastFrameTime = null;
+  driveRAF = requestAnimationFrame(driveLoop);
+}
+function stopDrive(){
+  window.removeEventListener('keydown', onDriveKeyDown);
+  window.removeEventListener('keyup', onDriveKeyUp);
+  if(driveRAF) cancelAnimationFrame(driveRAF);
+  driveRAF = null;
+  pointerActive = false;
+  activePointerId = null;
+  releaseJet();       // never leave a session mid-flight
+  lastTapAt = 0;      // don't let a tap from a previous session pair up
+  Object.keys(keys).forEach(k => delete keys[k]);
+}
+// Maps a movement key to its direction vector, for double-tap detection.
+const KEY_DIRS = {
+  arrowup:{x:0,y:1},    w:{x:0,y:1},
+  arrowdown:{x:0,y:-1}, s:{x:0,y:-1},
+  arrowleft:{x:-1,y:0}, a:{x:-1,y:0},
+  arrowright:{x:1,y:0}, d:{x:1,y:0}
+};
+function onDriveKeyDown(e){
+  const k = e.key.toLowerCase();
+  // Holding a key fires keydown over and over (autorepeat). Only treat
+  // it as a tap on the initial press, or every repeat would instantly
+  // look like a double-tap.
+  const isFreshPress = !keys[k];
+  keys[k] = true;
+  if(isFreshPress && KEY_DIRS[k]) registerDirectionTap(KEY_DIRS[k]);
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+}
+function onDriveKeyUp(e){
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  // Once no movement key is held, the jet is released.
+  if(jetActive && !Object.keys(KEY_DIRS).some(key => keys[key])) releaseJet();
+}
+
+// Hold-to-drive: press and hold (finger or mouse) anywhere on the map
+// and the car heads toward that point on the screen. Since the camera
+// always stays centered on the car, "toward the touch point" is just
+// the direction from the middle of the screen to wherever the pointer
+// is. Only active in Drive mode, and ignores presses that start on a
+// map control (like the zoom buttons) so those still work normally.
+//
+// Uses pointer capture + a tracked pointerId so the hold survives the
+// finger sliding near screen edges, a second stray touch landing
+// elsewhere, or the browser trying to treat it as a scroll/pan
+// gesture — all things that were making the hold drop out randomly.
+let pointerActive = false, pointerDX = 0, pointerDY = 0;
+let activePointerId = null;
+const POINTER_DEADZONE = 12; // px — avoids jitter right at screen center
+
+function onMapPointerDown(e){
+  if(currentMode !== 'drive') return;
+  if(activePointerId !== null) return; // already tracking a hold — ignore extra touches
+  if(e.target.closest && e.target.closest('.maplibregl-ctrl')) return;
+  // Don't hijack a press that lands on the car itself — that press needs
+  // to reach the car's own click handler (which cycles the vehicle
+  // emoji). preventDefault() + setPointerCapture below would otherwise
+  // swallow the click before it ever fired.
+  if(e.target.closest && e.target.closest('.car-emoji')) return;
+  // Same for the landmark pins — a press on one is a tap to open its
+  // card, not a command to drive that way.
+  if(e.target.closest && e.target.closest('.dest-pin')) return;
+  e.preventDefault();
+  activePointerId = e.pointerId;
+  pointerActive = true;
+  updatePointerDelta(e);
+  // Check for a double-tap in the same direction — that's what launches
+  // the jet. Done here (on press) so the jet engages the moment the
+  // second tap lands and stays engaged for as long as it's held.
+  const mag = Math.hypot(pointerDX, pointerDY);
+  if(mag >= POINTER_DEADZONE){
+    registerDirectionTap({ x: pointerDX / mag, y: -pointerDY / mag });
+  }
+  if(mapContainerEl.setPointerCapture){
+    try{ mapContainerEl.setPointerCapture(e.pointerId); }catch(err){ /* not critical if unsupported */ }
+  }
+}
+function updatePointerDelta(e){
+  pointerDX = e.clientX - window.innerWidth / 2;
+  pointerDY = e.clientY - window.innerHeight / 2;
+}
+function onMapPointerMove(e){
+  if(!pointerActive || e.pointerId !== activePointerId) return;
+  e.preventDefault();
+  updatePointerDelta(e);
+}
+function onMapPointerUp(e){
+  if(e.pointerId !== undefined && e.pointerId !== activePointerId) return;
+  pointerActive = false;
+  activePointerId = null;
+  releaseJet(); // jet only lasts as long as the hold
+}
+
+const mapContainerEl = map.getContainer();
+mapContainerEl.addEventListener('pointerdown', onMapPointerDown);
+mapContainerEl.addEventListener('pointermove', onMapPointerMove);
+mapContainerEl.addEventListener('pointerup', onMapPointerUp);
+mapContainerEl.addEventListener('pointercancel', onMapPointerUp);
+window.addEventListener('pointerup', onMapPointerUp);
+window.addEventListener('pointercancel', onMapPointerUp);
+window.addEventListener('blur', ()=>{ pointerActive = false; activePointerId = null; releaseJet(); });
+
+
+// Combines keyboard and pointer-hold input into one direction, so the
+// physics below doesn't need to know which one is active. Pointer
+// takes priority whenever it's active.
+function getInputDirection(){
+  if(pointerActive){
+    const mag = Math.hypot(pointerDX, pointerDY);
+    if(mag < POINTER_DEADZONE) return { x:0, y:0 };
+    return { x: pointerDX / mag, y: -pointerDY / mag };
+  }
+  const north = (keys['arrowup'] || keys['w']) ? 1 : 0;
+  const south = (keys['arrowdown'] || keys['s']) ? 1 : 0;
+  const west = (keys['arrowleft'] || keys['a']) ? 1 : 0;
+  const east = (keys['arrowright'] || keys['d']) ? 1 : 0;
+  let x = east - west, y = north - south;
+  const mag = Math.hypot(x, y);
+  if(mag > 1){ x /= mag; y /= mag; }
+  return { x, y };
+}
+
+// Translation-only driving: each arrow/WASD direction pushes the car
+// straight north/south/east/west (map-relative, not car-relative) —
+// no turning or heading to manage. Holding two directions at once
+// (e.g. up + right) drives diagonally.
+//
+// Tuned to be forgiving for a kid: one top speed on roads, exactly
+// half that off-road, and acceleration/braking quick enough that the
+// car goes where you point almost immediately instead of drifting.
+const ROAD_MAX_SPEED = 128 / 3.6;          // m/s on a road (128 km/h)
+const BASE_MAX_SPEED = ROAD_MAX_SPEED * 0.5; // off-road: exactly 50% (64 km/h)
+const ACCEL = 60;                          // reaches top speed in about half a second
+const FRICTION = 80;                       // near-instant stop when you let go
+const JET_MAX_SPEED = 2048 / 3.6;          // m/s while flying (2048 km/h), roads irrelevant
+const JET_ACCEL = 1400;                    // scaled up so the jet also winds up in about a second
+const ROAD_CHECK_PX = 16;    // screen-pixel radius counted as "near a road"
+
+let isNearRoad = false;
+let lastTerrainCheck = 0;
+
+function checkTerrain(t){
+  if(t - lastTerrainCheck < 150) return; // throttle — a few times a second is plenty
+  lastTerrainCheck = t;
+  let nearRoad = false;
+  try{
+    const pt = map.project([carLng, carLat]);
+    if(map.getLayer('drive-roads')){
+      const roadHits = map.queryRenderedFeatures(
+        [[pt.x - ROAD_CHECK_PX, pt.y - ROAD_CHECK_PX], [pt.x + ROAD_CHECK_PX, pt.y + ROAD_CHECK_PX]],
+        { layers:['drive-roads'] }
+      );
+      nearRoad = roadHits.length > 0;
+    }
+  } catch(e){ /* tiles not loaded yet for this area — just skip this check */ }
+
+  // Road status only affects speed now, not which vehicle is shown.
+  isNearRoad = nearRoad;
+}
+
+function driveLoop(t){
+  // Hard safety net: this loop calls map.jumpTo() every frame, so if it
+  // ever survives into Explore mode it pins the camera and makes the
+  // whole app look broken. Never let it run outside Drive mode, no
+  // matter how it got started.
+  if(currentMode !== 'drive' || !carMarker){
+    driveRAF = null;
+    return;
+  }
+  if(lastFrameTime === null) lastFrameTime = t;
+  const dt = Math.min((t - lastFrameTime) / 1000, 0.1);
+  lastFrameTime = t;
+
+  checkTerrain(t);
+  // While flying, roads are irrelevant — the jet goes anywhere at full speed.
+  // Flying ignores roads entirely; on the ground it's road vs off-road.
+  const maxSpeed = jetActive ? JET_MAX_SPEED
+    : (isNearRoad ? ROAD_MAX_SPEED : BASE_MAX_SPEED);
+  const accel = jetActive ? JET_ACCEL : ACCEL;
+
+  const dir = getInputDirection();
+
+  if(jetActive){
+    // Free 360° rotation: point straight at wherever the finger/keys
+    // are steering. Heading is only updated while there IS input, so
+    // letting go leaves the jet pointing where it was rather than
+    // snapping back to north.
+    if(dir.x !== 0 || dir.y !== 0){
+      const raw = Math.atan2(dir.x, dir.y) * 180 / Math.PI; // -180..180
+      // Accumulate continuously instead of assigning the raw value:
+      // atan2 wraps at ±180°, so steering across due south would jump
+      // from 179 to -179 and CSS would spin the jet 358° the long way
+      // round. Always take the shorter turn.
+      let delta = raw - (jetHeadingDeg % 360);
+      while(delta > 180) delta -= 360;
+      while(delta < -180) delta += 360;
+      jetHeadingDeg += delta;
+      applyFacing();
+    }
+    // Still track left/right so the car lands facing the right way.
+    if(dir.x > 0.15) facingRight = true;
+    else if(dir.x < -0.15) facingRight = false;
+  } else if(dir.x > 0.15 && !facingRight){
+    facingRight = true;
+    applyFacing();
+  } else if(dir.x < -0.15 && facingRight){
+    facingRight = false;
+    applyFacing();
+  }
+
+  const targetVN = dir.y * maxSpeed;
+  const targetVE = dir.x * maxSpeed;
+
+  const anyInput = dir.x !== 0 || dir.y !== 0;
+  if(anyInput){
+    carVelN += Math.sign(targetVN - carVelN) * Math.min(Math.abs(targetVN - carVelN), accel * dt);
+    carVelE += Math.sign(targetVE - carVelE) * Math.min(Math.abs(targetVE - carVelE), accel * dt);
+  } else {
+    carVelN -= Math.sign(carVelN) * Math.min(Math.abs(carVelN), FRICTION * dt);
+    carVelE -= Math.sign(carVelE) * Math.min(Math.abs(carVelE), FRICTION * dt);
+  }
+
+  carLat += (carVelN * dt) / METERS_PER_DEG_LAT;
+  carLng += (carVelE * dt) / metersPerDegLng(carLat);
+
+  // A throw anywhere in here would break the requestAnimationFrame
+  // chain permanently — the car would freeze and never recover, with
+  // no way back except a page reload. Keep the loop alive no matter
+  // what a single frame does.
+  // Ease the camera toward the current target zoom (pulled back while
+  // flying, street-level otherwise). Done here rather than with an
+  // easeTo, because this loop calls jumpTo every frame and would
+  // otherwise fight any animation the map tried to run itself.
+  driveZoom += (targetDriveZoom - driveZoom) * Math.min(1, dt * 4);
+
+  try{
+    if(carMarker) carMarker.setLngLat([carLng, carLat]);
+    map.jumpTo({ center:[carLng, carLat], bearing:0, pitch:45, zoom:driveZoom });
+
+    const speed = Math.hypot(carVelN, carVelE);
+    const kmh = Math.round(speed * 3.6);
+    driveSpeedo.textContent = kmh;
+    driveHud.classList.toggle('state-boost', !jetActive && isNearRoad && kmh > 0);
+  }catch(e){ console.error('drive frame skipped', e); }
+
+  driveRAF = requestAnimationFrame(driveLoop);
+}
+
+} catch(mapError){
+  // Map failed to initialize (blocked CDN, offline, etc.) — log it,
+  // but let the rest of the page (welcome screen, passport) keep working.
+  console.error('Earth Expedition: map failed to load —', mapError);
+  const dockLabel = document.getElementById('dock-label');
+  if(dockLabel) dockLabel.textContent = "⚠️ El mapa no pudo cargar — revisa tu conexión a internet y actualiza la página.";
+}
+
+// ---------------------------------------------------------------
+// Passport modal
+// ---------------------------------------------------------------
+const passportModal = document.getElementById('passport-modal');
+const passportBtn = document.getElementById('passport-btn');
+const passportCountEl = document.getElementById('passport-count');
+const passportSub = document.getElementById('passport-sub');
+const stampGrid = document.getElementById('stamp-grid');
+const passportEmpty = document.getElementById('passport-empty');
+
+function updatePassportCount(){
+  passportCountEl.textContent = `${collected.size}/${DESTINATIONS.length}`;
+}
+function renderPassport(){
+  stampGrid.innerHTML = '';
+  DESTINATIONS.forEach((d,i)=>{
+    const slot = document.createElement('div');
+    slot.className = 'stamp-slot' + (collected.has(d.id) ? ' filled' : '');
+    slot.style.setProperty('--tilt', `${(i%2===0?-1:1) * (2+ (i%3))}deg`);
+    slot.innerHTML = collected.has(d.id)
+      ? `<span class="semoji">${d.emoji}</span><span class="sname">${d.name}</span>`
+      : `<span class="semoji" style="opacity:.4">${d.emoji}</span><span class="sname">?</span>`;
+    stampGrid.appendChild(slot);
+  });
+  passportSub.textContent = `${collected.size} de ${DESTINATIONS.length} sellos conseguidos`;
+  passportEmpty.style.display = collected.size === 0 ? 'block' : 'none';
+}
+passportBtn.addEventListener('click', ()=>{
+  renderPassport();
+  passportModal.classList.add('show');
+});
+document.querySelector('.pclose').addEventListener('click', ()=> passportModal.classList.remove('show'));
+passportModal.addEventListener('click', (e)=>{ if(e.target === passportModal) passportModal.classList.remove('show'); });
+
+updatePassportCount();
+
+// ---------------------------------------------------------------
+// Drive-mode hint toast
+// ---------------------------------------------------------------
+const driveHintEl = document.getElementById('drive-hint');
+const DEFAULT_DRIVE_HINT = '👉 Mantén presionado para conducir';
+let driveHintTimer = null;
+function showDriveHint(message, ms){
+  driveHintEl.textContent = message || DEFAULT_DRIVE_HINT;
+  driveHintEl.classList.add('show');
+  if(driveHintTimer) clearTimeout(driveHintTimer);
+  driveHintTimer = setTimeout(hideDriveHint, ms || 4000);
+}
+function hideDriveHint(){ driveHintEl.classList.remove('show'); }
+</script>
+</body>
+</html>
