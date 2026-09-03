@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Page Scanner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d1017">
+<style>
+  :root{
+    --deep:#0d1017;
+    --ink:#161b24;
+    --surface:#1e242f;
+    --rule:#313b4a;
+    --paper:#f2eee5;
+    --muted:#93a0b4;
+    --lamp:#45c8d8;
+    --warn:#e2705d;
+    --gap:12px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--deep);
+    color:var(--paper);
+    font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-text-size-adjust:100%;
+    overscroll-behavior:none;
+    display:flex;flex-direction:column;
+  }
+  button,select{font:inherit}
+  :focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+
+  /* ---------- chrome ---------- */
+  .topbar{
+    flex:0 0 auto;display:flex;align-items:baseline;gap:10px;
+    padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;
+    border-bottom:1px solid var(--rule);background:var(--ink);
+  }
+  .mark{font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .step{color:var(--muted);font-size:13.5px}
+  .count{margin-left:auto;color:var(--muted);font-size:13.5px}
+
+  .stage{flex:1 1 auto;position:relative;overflow:hidden;background:var(--deep);min-height:0}
+  .view{position:absolute;inset:0;display:none;flex-direction:column}
+  .view.on{display:flex}
+
+  .deck{
+    flex:0 0 auto;background:var(--ink);border-top:1px solid var(--rule);
+    padding:12px 12px calc(env(safe-area-inset-bottom) + 12px);
+  }
+  .row{display:flex;gap:var(--gap);align-items:center}
+  .row + .row{margin-top:10px}
+  .spread{justify-content:space-between}
+
+  .btn{
+    background:var(--surface);color:var(--paper);border:1px solid var(--rule);
+    border-radius:10px;padding:11px 14px;cursor:pointer;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.4;cursor:default}
+  .btn.primary{background:var(--lamp);color:#06232a;border-color:transparent;font-weight:600}
+  .btn.wide{flex:1;text-align:center}
+  .btn.quiet{background:transparent}
+  .btn.small{padding:7px 10px;font-size:13.5px;border-radius:8px}
+  .btn.danger{color:var(--warn)}
+
+  /* ---------- capture ---------- */
+  #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  .camnote{
+    position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);
+    text-align:center;color:var(--muted);font-size:14px;line-height:1.6;
+  }
+  .camnote strong{color:var(--paper);display:block;margin-bottom:6px;font-size:15px}
+  .shutter{
+    width:74px;height:74px;border-radius:50%;background:var(--paper);
+    border:4px solid var(--deep);box-shadow:0 0 0 2px var(--paper);
+    cursor:pointer;padding:0;
+  }
+  .shutter:active{background:var(--lamp)}
+  .shutter[disabled]{opacity:.35}
+  .side{min-width:88px}
+
+  /* ---------- crop ---------- */
+  #cropWrap{position:absolute;inset:0}
+  #cropCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+  .hint{
+    position:absolute;left:0;right:0;top:0;padding:10px 16px;pointer-events:none;
+    background:linear-gradient(#0d1017cc,#0d101700);color:var(--muted);font-size:13.5px;
+  }
+  .seg{display:flex;border:1px solid var(--rule);border-radius:10px;overflow:hidden;flex:1}
+  .seg button{flex:1;background:transparent;color:var(--muted);border:0;padding:10px 4px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--paper)}
+  .seg button + button{border-left:1px solid var(--rule)}
+
+  /* ---------- library ---------- */
+  .list{position:absolute;inset:0;overflow:auto;padding:8px 12px 12px;-webkit-overflow-scrolling:touch}
+  .page{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule)}
+  .idx{width:22px;text-align:right;color:var(--muted);font-size:13.5px;flex:0 0 auto}
+  .thumb{width:58px;height:76px;object-fit:cover;background:#000;border:1px solid var(--rule);flex:0 0 auto}
+  .meta{flex:1;min-width:0;font-size:13.5px;color:var(--muted)}
+  .meta b{display:block;color:var(--paper);font-weight:500;font-size:15px}
+  .tools{display:flex;gap:6px;flex:0 0 auto}
+  .empty{
+    position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+    padding:0 28px;text-align:center;color:var(--muted);gap:8px;
+  }
+  .empty b{color:var(--paper);font-size:17px;font-weight:600}
+  select{
+    background:var(--surface);color:var(--paper);border:1px solid var(--rule);
+    border-radius:10px;padding:10px 12px;
+  }
+  .note{color:var(--muted);font-size:12.5px;margin-top:8px}
+  .note a{color:var(--lamp)}
+
+  /* ---------- busy ---------- */
+  #busy{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    background:#0d1017e6;z-index:5;color:var(--paper);font-size:15px;
+  }
+  #busy.on{display:flex}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="mark">Page Scanner</span>
+  <span class="step" id="step">Point at a page</span>
+  <span class="count" id="count">0 pages</span>
+</div>
+
+<div class="stage">
+  <!-- ============ CAPTURE ============ -->
+  <section class="view on" id="v-capture">
+    <video id="cam" playsinline autoplay muted></video>
+    <div class="camnote hidden" id="camnote"></div>
+  </section>
+
+  <!-- ============ CROP ============ -->
+  <section class="view" id="v-crop">
+    <div id="cropWrap"><canvas id="cropCanvas"></canvas></div>
+    <div class="hint" id="cropHint">Drag each corner onto a corner of the paper.</div>
+  </section>
+
+  <!-- ============ LIBRARY ============ -->
+  <section class="view" id="v-library">
+    <div class="list" id="list"></div>
+    <div class="empty" id="empty">
+      <b>No pages yet</b>
+      <span>Scan a page and it lands here, ready to export.</span>
+    </div>
+  </section>
+
+  <div id="busy">Straightening page…</div>
+</div>
+
+<!-- ============ DECKS ============ -->
+<div class="deck" id="deck-capture">
+  <div class="row spread">
+    <div class="side"><button class="btn quiet small" id="pickFile">Choose photo</button></div>
+    <button class="shutter" id="shutter" aria-label="Take photo"></button>
+    <div class="side" style="text-align:right"><button class="btn quiet small" id="toLibrary">Pages</button></div>
+  </div>
+</div>
+
+<div class="deck hidden" id="deck-crop">
+  <div class="row">
+    <div class="seg" role="group" aria-label="Look">
+      <button data-mode="color" aria-pressed="true">Color</button>
+      <button data-mode="gray" aria-pressed="false">Gray</button>
+      <button data-mode="bw" aria-pressed="false">High contrast</button>
+    </div>
+  </div>
+  <div class="row">
+    <button class="btn" id="cropBack">Discard</button>
+    <button class="btn" id="rotate">Rotate</button>
+    <button class="btn" id="resetCorners">Reset corners</button>
+    <button class="btn primary wide" id="usePage">Use this page</button>
+  </div>
+</div>
+
+<div class="deck hidden" id="deck-library">
+  <div class="row">
+    <button class="btn wide" id="addPage">Add another page</button>
+    <select id="paper" aria-label="Paper size">
+      <option value="letter">Letter</option>
+      <option value="a4">A4</option>
+      <option value="fit">Fit to scan</option>
+    </select>
+    <button class="btn primary" id="exportPdf">Export PDF</button>
+  </div>
+  <div class="note" id="exportNote">Pages live in this tab only. Export before you close it.</div>
+</div>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" class="hidden">
+<input type="file" id="filePick" accept="image/*" multiple class="hidden">
+
+<script>
+"use strict";
+
+/* ============================================================
+   State
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const pages = [];           // { bytes:Uint8Array, w, h, thumb:string }
+let queue = [];             // pending files to crop
+let stream = null;
+let mode = "color";
+
+// crop-stage state
+let srcCanvas = document.createElement("canvas");
+let srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true });
+let corners = [];           // image-space, order: TL, TR, BR, BL
+let fit = { scale: 1, ox: 0, oy: 0, cw: 0, ch: 0 };
+let dragging = -1;
+
+const MAX_SRC = 3000;       // cap source dimension (memory)
+const MAX_OUT = 2400;       // cap output dimension
+
+/* ============================================================
+   View switching
+   ============================================================ */
+const views = { capture: "v-capture", crop: "v-crop", library: "v-library" };
+const decks = { capture: "deck-capture", crop: "deck-crop", library: "deck-library" };
+const steps = { capture: "Point at a page", crop: "Set the page corners", library: "Review and export" };
+let current = "capture";
+
+function show(name) {
+  current = name;
+  for (const k in views) {
+    document.getElementById(views[k]).classList.toggle("on", k === name);
+    document.getElementById(decks[k]).classList.toggle("hidden", k !== name);
+  }
+  $("#step").textContent = steps[name];
+  if (name === "capture") startCamera(); else stopCamera();
+  if (name === "crop") requestAnimationFrame(layoutCrop);
+  if (name === "library") renderList();
+}
+function updateCount() {
+  $("#count").textContent = pages.length === 1 ? "1 page" : pages.length + " pages";
+}
+function busy(on, text) {
+  if (text) $("#busy").textContent = text;
+  $("#busy").classList.toggle("on", !!on);
+}
+
+/* ============================================================
+   Camera
+   ============================================================ */
+const video = $("#cam");
+
+async function startCamera() {
+  if (stream) return;
+  const note = $("#camnote");
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return camFail("Live preview needs a browser camera API.");
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 4096 }, height: { ideal: 4096 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    note.classList.add("hidden");
+    video.classList.remove("hidden");
+    $("#shutter").disabled = false;
+  } catch (e) {
+    camFail(e && e.name === "NotAllowedError"
+      ? "Camera access was blocked for this page."
+      : "Live preview isn't available here.");
+  }
+}
+function camFail(msg) {
+  stream = null;
+  video.classList.add("hidden");
+  const note = $("#camnote");
+  note.classList.remove("hidden");
+  note.innerHTML = "<strong>" + msg + "</strong>" +
+    "Tap the shutter to shoot with the phone camera app instead, or serve this file over https:// to get the live preview back.";
+  $("#shutter").disabled = false;
+}
+function stopCamera() {
+  if (!stream) return;
+  stream.getTracks().forEach(t => t.stop());
+  stream = null;
+  video.srcObject = null;
+}
+
+$("#shutter").addEventListener("click", () => {
+  if (stream && video.videoWidth) {
+    const c = document.createElement("canvas");
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+    c.getContext("2d").drawImage(video, 0, 0);
+    c.toBlob(b => { queue = [b]; nextFromQueue(); }, "image/jpeg", 0.95);
+  } else {
+    $("#fileCam").click();   // native camera app fallback
+  }
+});
+$("#pickFile").addEventListener("click", () => $("#filePick").click());
+$("#toLibrary").addEventListener("click", () => show("library"));
+$("#addPage").addEventListener("click", () => show("capture"));
+
+function onFiles(e) {
+  const files = [...(e.target.files || [])];
+  e.target.value = "";
+  if (!files.length) return;
+  queue = files;
+  nextFromQueue();
+}
+$("#fileCam").addEventListener("change", onFiles);
+$("#filePick").addEventListener("change", onFiles);
+
+async function nextFromQueue() {
+  const blob = queue.shift();
+  if (!blob) { show("library"); return; }
+  busy(true, "Loading photo…");
+  try {
+    await loadIntoCrop(blob);
+    show("crop");
+    $("#cropHint").textContent = queue.length
+      ? "Drag each corner onto a corner of the paper. " + (queue.length + 1) + " photos in this batch."
+      : "Drag each corner onto a corner of the paper.";
+  } catch (err) {
+    alert("That image couldn't be opened. Try another photo.");
+    show("capture");
+  } finally {
+    busy(false);
+  }
+}
+
+async function decode(blob) {
+  if (window.createImageBitmap) {
+    try { return await createImageBitmap(blob, { imageOrientation: "from-image" }); }
+    catch (e) { try { return await createImageBitmap(blob); } catch (e2) {} }
+  }
+  return await new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("decode"));
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
+async function loadIntoCrop(blob) {
+  const src = await decode(blob);
+  const iw = src.width || src.naturalWidth, ih = src.height || src.naturalHeight;
+  const s = Math.min(1, MAX_SRC / Math.max(iw, ih));
+  srcCanvas.width = Math.round(iw * s);
+  srcCanvas.height = Math.round(ih * s);
+  srcCtx.drawImage(src, 0, 0, srcCanvas.width, srcCanvas.height);
+  if (src.close) src.close();
+  resetCorners();
+}
+
+function resetCorners() {
+  const w = srcCanvas.width, h = srcCanvas.height;
+  const mx = w * 0.08, my = h * 0.08;
+  corners = [
+    { x: mx, y: my }, { x: w - mx, y: my },
+    { x: w - mx, y: h - my }, { x: mx, y: h - my }
+  ];
+  drawCrop();
+}
+
+/* ============================================================
+   Crop stage: fit, draw, drag
+   ============================================================ */
+const cropCanvas = $("#cropCanvas");
+const cctx = cropCanvas.getContext("2d");
+
+function layoutCrop() {
+  const r = cropCanvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cropCanvas.width = Math.max(1, Math.round(r.width * dpr));
+  cropCanvas.height = Math.max(1, Math.round(r.height * dpr));
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fit.cw = r.width; fit.ch = r.height;
+  const pad = 22;
+  fit.scale = Math.min((r.width - pad * 2) / srcCanvas.width, (r.height - pad * 2) / srcCanvas.height);
+  fit.ox = (r.width - srcCanvas.width * fit.scale) / 2;
+  fit.oy = (r.height - srcCanvas.height * fit.scale) / 2;
+  drawCrop();
+}
+window.addEventListener("resize", () => { if (current === "crop") layoutCrop(); });
+window.addEventListener("orientationchange", () => setTimeout(() => { if (current === "crop") layoutCrop(); }, 300));
+
+const toD = p => ({ x: fit.ox + p.x * fit.scale, y: fit.oy + p.y * fit.scale });
+const toI = (x, y) => ({ x: (x - fit.ox) / fit.scale, y: (y - fit.oy) / fit.scale });
+
+function drawCrop() {
+  if (!srcCanvas.width || !fit.cw) return;
+  const g = cctx;
+  g.clearRect(0, 0, fit.cw, fit.ch);
+  g.fillStyle = "#0d1017";
+  g.fillRect(0, 0, fit.cw, fit.ch);
+  g.drawImage(srcCanvas, fit.ox, fit.oy, srcCanvas.width * fit.scale, srcCanvas.height * fit.scale);
+
+  const q = corners.map(toD);
+
+  // dim everything outside the quad
+  g.save();
+  g.beginPath();
+  g.rect(0, 0, fit.cw, fit.ch);
+  g.moveTo(q[0].x, q[0].y);
+  for (let i = 1; i < 4; i++) g.lineTo(q[i].x, q[i].y);
+  g.closePath();
+  g.fillStyle = "rgba(8,11,16,.62)";
+  g.fill("evenodd");
+  g.restore();
+
+  // thirds guides inside the quad
+  g.save();
+  g.beginPath();
+  g.moveTo(q[0].x, q[0].y);
+  for (let i = 1; i < 4; i++) g.lineTo(q[i].x, q[i].y);
+  g.closePath();
+  g.clip();
+  g.strokeStyle = "rgba(242,238,229,.16)";
+  g.lineWidth = 1;
+  for (let t = 1; t <= 2; t++) {
+    const a = lerp(q[0], q[1], t / 3), b = lerp(q[3], q[2], t / 3);
+    const c = lerp(q[0], q[3], t / 3), d = lerp(q[1], q[2], t / 3);
+    g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+    g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(d.x, d.y); g.stroke();
+  }
+  g.restore();
+
+  // quad edges
+  g.beginPath();
+  g.moveTo(q[0].x, q[0].y);
+  for (let i = 1; i < 4; i++) g.lineTo(q[i].x, q[i].y);
+  g.closePath();
+  g.strokeStyle = "#45c8d8";
+  g.lineWidth = 2;
+  g.stroke();
+
+  // corner handles
+  for (let i = 0; i < 4; i++) {
+    const active = i === dragging;
+    g.beginPath();
+    g.arc(q[i].x, q[i].y, active ? 15 : 12, 0, Math.PI * 2);
+    g.fillStyle = active ? "rgba(69,200,216,.35)" : "rgba(13,16,23,.45)";
+    g.fill();
+    g.strokeStyle = "#f2eee5";
+    g.lineWidth = 2.5;
+    g.stroke();
+    g.beginPath();
+    g.arc(q[i].x, q[i].y, 2.5, 0, Math.PI * 2);
+    g.fillStyle = "#f2eee5";
+    g.fill();
+  }
+
+  if (dragging >= 0) drawLoupe(dragging);
+}
+const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
+function drawLoupe(i) {
+  const g = cctx, R = 54, zoom = 3;
+  const c = toD(corners[i]);
+  let lx = c.x, ly = c.y - R - 42;
+  if (ly - R < 6) ly = c.y + R + 42;
+  lx = Math.max(R + 6, Math.min(fit.cw - R - 6, lx));
+  ly = Math.max(R + 6, Math.min(fit.ch - R - 6, ly));
+
+  g.save();
+  g.beginPath(); g.arc(lx, ly, R, 0, Math.PI * 2); g.clip();
+  g.fillStyle = "#000"; g.fillRect(lx - R, ly - R, R * 2, R * 2);
+  const s = fit.scale * zoom;
+  g.imageSmoothingEnabled = true;
+  g.drawImage(srcCanvas,
+    lx - corners[i].x * s, ly - corners[i].y * s,
+    srcCanvas.width * s, srcCanvas.height * s);
+  g.strokeStyle = "rgba(69,200,216,.9)";
+  g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(lx - R, ly); g.lineTo(lx + R, ly);
+  g.moveTo(lx, ly - R); g.lineTo(lx, ly + R);
+  g.stroke();
+  g.restore();
+
+  g.beginPath(); g.arc(lx, ly, R, 0, Math.PI * 2);
+  g.strokeStyle = "#f2eee5"; g.lineWidth = 2; g.stroke();
+}
+
+function pointerPos(e) {
+  const r = cropCanvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+cropCanvas.addEventListener("pointerdown", e => {
+  const p = pointerPos(e);
+  let best = -1, bd = 34;
+  for (let i = 0; i < 4; i++) {
+    const c = toD(corners[i]);
+    const d = Math.hypot(c.x - p.x, c.y - p.y);
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best < 0) return;
+  dragging = best;
+  cropCanvas.setPointerCapture(e.pointerId);
+  drawCrop();
+});
+cropCanvas.addEventListener("pointermove", e => {
+  if (dragging < 0) return;
+  e.preventDefault();
+  const p = pointerPos(e);
+  const ip = toI(p.x, p.y);
+  corners[dragging] = {
+    x: Math.max(0, Math.min(srcCanvas.width, ip.x)),
+    y: Math.max(0, Math.min(srcCanvas.height, ip.y))
+  };
+  drawCrop();
+});
+function endDrag() { if (dragging < 0) return; dragging = -1; drawCrop(); }
+cropCanvas.addEventListener("pointerup", endDrag);
+cropCanvas.addEventListener("pointercancel", endDrag);
+
+/* look selector */
+document.querySelectorAll(".seg button").forEach(b => {
+  b.addEventListener("click", () => {
+    mode = b.dataset.mode;
+    document.querySelectorAll(".seg button").forEach(o =>
+      o.setAttribute("aria-pressed", String(o === b)));
+  });
+});
+
+$("#resetCorners").addEventListener("click", resetCorners);
+$("#cropBack").addEventListener("click", () => {
+  if (queue.length) nextFromQueue(); else show(pages.length ? "library" : "capture");
+});
+
+/* rotate source 90° clockwise, carrying the corners along */
+$("#rotate").addEventListener("click", () => {
+  const w = srcCanvas.width, h = srcCanvas.height;
+  const c = document.createElement("canvas");
+  c.width = h; c.height = w;
+  const g = c.getContext("2d");
+  g.translate(h, 0);
+  g.rotate(Math.PI / 2);
+  g.drawImage(srcCanvas, 0, 0);
+  srcCanvas = c;
+  srcCtx = c.getContext("2d", { willReadFrequently: true });
+  const moved = corners.map(p => ({ x: h - p.y, y: p.x }));
+  corners = [moved[3], moved[0], moved[1], moved[2]];
+  layoutCrop();
+});
+
+/* ============================================================
+   Perspective warp
+   ============================================================ */
+function solve(A, b) {
+  const n = b.length;
+  for (let i = 0; i < n; i++) {
+    let p = i;
+    for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+    [A[i], A[p]] = [A[p], A[i]];
+    [b[i], b[p]] = [b[p], b[i]];
+    const piv = A[i][i];
+    if (Math.abs(piv) < 1e-12) throw new Error("degenerate quad");
+    for (let r = i + 1; r < n; r++) {
+      const f = A[r][i] / piv;
+      if (!f) continue;
+      for (let c = i; c < n; c++) A[r][c] -= f * A[i][c];
+      b[r] -= f * b[i];
+    }
+  }
+  const x = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = b[i];
+    for (let c = i + 1; c < n; c++) s -= A[i][c] * x[c];
+    x[i] = s / A[i][i];
+  }
+  return x;
+}
+/* homography mapping `from` quad onto `to` quad */
+function homography(from, to) {
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const x = from[i].x, y = from[i].y, X = to[i].x, Y = to[i].y;
+    A.push([x, y, 1, 0, 0, 0, -x * X, -y * X]); b.push(X);
+    A.push([0, 0, 0, x, y, 1, -x * Y, -y * Y]); b.push(Y);
+  }
+  return solve(A, b);
+}
+
+function warp() {
+  const [tl, tr, br, bl] = corners;
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  let W = Math.round(Math.max(d(tl, tr), d(bl, br)));
+  let H = Math.round(Math.max(d(tl, bl), d(tr, br)));
+  if (W < 16 || H < 16) throw new Error("The selected area is too small.");
+  const cap = Math.min(1, MAX_OUT / Math.max(W, H));
+  W = Math.max(16, Math.round(W * cap));
+  H = Math.max(16, Math.round(H * cap));
+
+  const dst = [{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+  const h = homography(dst, corners);   // destination pixel -> source pixel
+
+  const sw = srcCanvas.width, sh = srcCanvas.height;
+  const src = srcCtx.getImageData(0, 0, sw, sh).data;
+  const out = new Uint8ClampedArray(W * H * 4);
+
+  for (let y = 0; y < H; y++) {
+    const yc = y + 0.5;
+    for (let x = 0; x < W; x++) {
+      const xc = x + 0.5;
+      const den = h[6] * xc + h[7] * yc + 1;
+      let sx = (h[0] * xc + h[1] * yc + h[2]) / den;
+      let sy = (h[3] * xc + h[4] * yc + h[5]) / den;
+      const o = (y * W + x) * 4;
+      if (sx < -1 || sy < -1 || sx > sw || sy > sh) {
+        out[o] = out[o + 1] = out[o + 2] = 255; out[o + 3] = 255;
+        continue;
+      }
+      sx = Math.max(0, Math.min(sw - 1.001, sx));
+      sy = Math.max(0, Math.min(sh - 1.001, sy));
+      const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+      const x1 = x0 + 1 < sw ? x0 + 1 : x0, y1 = y0 + 1 < sh ? y0 + 1 : y0;
+      const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      const i00 = (y0 * sw + x0) * 4, i10 = (y0 * sw + x1) * 4,
+            i01 = (y1 * sw + x0) * 4, i11 = (y1 * sw + x1) * 4;
+      for (let k = 0; k < 3; k++) {
+        out[o + k] = src[i00 + k] * w00 + src[i10 + k] * w10 + src[i01 + k] * w01 + src[i11 + k] * w11;
+      }
+      out[o + 3] = 255;
+    }
+  }
+
+  if (mode !== "color") enhance(out, mode);
+
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  c.getContext("2d").putImageData(new ImageData(out, W, H), 0, 0);
+  return c;
+}
+
+/* grayscale + histogram stretch; "bw" adds an S-curve for crisp text */
+function enhance(px, kind) {
+  const n = px.length / 4;
+  const gray = new Uint8ClampedArray(n);
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    const v = (px[o] * 0.299 + px[o + 1] * 0.587 + px[o + 2] * 0.114) | 0;
+    gray[i] = v; hist[v]++;
+  }
+  const pct = p => {
+    let target = n * p, acc = 0;
+    for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= target) return v; }
+    return 255;
+  };
+  const lo = pct(kind === "bw" ? 0.10 : 0.03);
+  const hi = pct(kind === "bw" ? 0.80 : 0.92);
+  const span = Math.max(8, hi - lo);
+  for (let i = 0; i < n; i++) {
+    let t = (gray[i] - lo) / span;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    let v;
+    if (kind === "bw") v = 255 / (1 + Math.exp(-11 * (t - 0.52)));
+    else v = 255 * t;
+    const o = i * 4;
+    px[o] = px[o + 1] = px[o + 2] = v;
+  }
+}
+
+/* ============================================================
+   Commit a page
+   ============================================================ */
+$("#usePage").addEventListener("click", async () => {
+  busy(true, "Straightening page…");
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    const c = warp();
+    const blob = await new Promise(res => c.toBlob(res, "image/jpeg", 0.86));
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+
+    const t = document.createElement("canvas");
+    const ts = 180 / Math.max(c.width, c.height);
+    t.width = Math.max(1, Math.round(c.width * ts));
+    t.height = Math.max(1, Math.round(c.height * ts));
+    t.getContext("2d").drawImage(c, 0, 0, t.width, t.height);
+
+    pages.push({ bytes, w: c.width, h: c.height, thumb: t.toDataURL("image/jpeg", 0.7) });
+    updateCount();
+    busy(false);
+    if (queue.length) nextFromQueue(); else show("library");
+  } catch (e) {
+    busy(false);
+    alert(e.message || "That crop couldn't be processed. Move the corners and try again.");
+  }
+});
+
+/* ============================================================
+   Library
+   ============================================================ */
+function renderList() {
+  const list = $("#list");
+  $("#empty").classList.toggle("hidden", pages.length > 0);
+  $("#exportPdf").disabled = pages.length === 0;
+  list.innerHTML = "";
+  pages.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "page";
+    row.innerHTML =
+      '<span class="idx">' + (i + 1) + '</span>' +
+      '<img class="thumb" alt="Page ' + (i + 1) + '">' +
+      '<span class="meta"><b>Page ' + (i + 1) + '</b>' + p.w + ' × ' + p.h + ' px · ' +
+        Math.round(p.bytes.length / 1024) + ' KB</span>' +
+      '<span class="tools">' +
+        '<button class="btn small" data-up="' + i + '" aria-label="Move earlier"' + (i === 0 ? " disabled" : "") + '>↑</button>' +
+        '<button class="btn small" data-down="' + i + '" aria-label="Move later"' + (i === pages.length - 1 ? " disabled" : "") + '>↓</button>' +
+        '<button class="btn small danger" data-del="' + i + '">Delete</button>' +
+      '</span>';
+    row.querySelector("img").src = p.thumb;
+    list.appendChild(row);
+  });
+  list.querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => {
+      if (b.dataset.del !== undefined) pages.splice(+b.dataset.del, 1);
+      else if (b.dataset.up !== undefined) { const i = +b.dataset.up; [pages[i - 1], pages[i]] = [pages[i], pages[i - 1]]; }
+      else if (b.dataset.down !== undefined) { const i = +b.dataset.down; [pages[i + 1], pages[i]] = [pages[i], pages[i + 1]]; }
+      updateCount();
+      renderList();
+    });
+  });
+}
+
+/* ============================================================
+   PDF writer (JPEGs embedded directly, no libraries)
+   ============================================================ */
+function buildPdf(items, paper) {
+  const chunks = [];
+  let len = 0;
+  const put = s => {
+    if (typeof s === "string") {
+      const b = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 0xff;
+      chunks.push(b); len += b.length;
+    } else { chunks.push(s); len += s.length; }
+  };
+  const offsets = [];
+  const obj = (num, dict, stream) => {
+    offsets[num] = len;
+    put(num + " 0 obj\n" + dict + "\n");
+    if (stream) { put("stream\n"); put(stream); put("\nendstream\n"); }
+    put("endobj\n");
+  };
+
+  const N = items.length;
+  const kids = [];
+  for (let i = 0; i < N; i++) kids.push((3 + i * 3) + " 0 R");
+
+  put("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, "<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + N + " >>");
+
+  items.forEach((p, i) => {
+    const pageNum = 3 + i * 3, contNum = pageNum + 1, imgNum = pageNum + 2;
+    const land = p.w > p.h;
+
+    let PW, PH;
+    if (paper === "fit") {
+      const dpi = 200;
+      PW = p.w * 72 / dpi; PH = p.h * 72 / dpi;
+    } else {
+      const base = paper === "a4" ? [595.28, 841.89] : [612, 792];
+      PW = land ? base[1] : base[0];
+      PH = land ? base[0] : base[1];
+    }
+    const s = Math.min(PW / p.w, PH / p.h);
+    const dw = p.w * s, dh = p.h * s;
+    const dx = (PW - dw) / 2, dy = (PH - dh) / 2;
+
+    const content = "q\n" + dw.toFixed(2) + " 0 0 " + dh.toFixed(2) + " " +
+      dx.toFixed(2) + " " + dy.toFixed(2) + " cm\n/Im0 Do\nQ\n";
+
+    obj(pageNum,
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PW.toFixed(2) + " " + PH.toFixed(2) + "]" +
+      " /Resources << /XObject << /Im0 " + imgNum + " 0 R >> /ProcSet [/PDF /ImageC] >>" +
+      " /Contents " + contNum + " 0 R >>");
+    obj(contNum, "<< /Length " + content.length + " >>", content);
+    obj(imgNum,
+      "<< /Type /XObject /Subtype /Image /Width " + p.w + " /Height " + p.h +
+      " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + p.bytes.length + " >>",
+      p.bytes);
+  });
+
+  const total = 2 + N * 3;
+  const xref = len;
+  let table = "xref\n0 " + (total + 1) + "\n0000000000 65535 f \n";
+  for (let i = 1; i <= total; i++) {
+    table += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
+  }
+  put(table);
+  put("trailer\n<< /Size " + (total + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+
+  const outBytes = new Uint8Array(len);
+  let at = 0;
+  for (const c of chunks) { outBytes.set(c, at); at += c.length; }
+  return outBytes;
+}
+
+$("#exportPdf").addEventListener("click", async () => {
+  if (!pages.length) return;
+  busy(true, "Writing PDF…");
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    const bytes = buildPdf(pages, $("#paper").value);
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const d = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const name = "scan-" + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
+      "-" + pad(d.getHours()) + pad(d.getMinutes()) + ".pdf";
+
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    $("#exportNote").innerHTML = name + " is ready — " +
+      Math.round(bytes.length / 1024) + " KB. " +
+      '<a href="' + url + '" download="' + name + '" target="_blank" rel="noopener">Open it</a> ' +
+      "if your browser didn't save it.";
+    setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+  } catch (e) {
+    alert("The PDF couldn't be written: " + (e.message || e));
+  } finally {
+    busy(false);
+  }
+});
+
+/* ============================================================
+   Boot
+   ============================================================ */
+window.addEventListener("beforeunload", e => {
+  if (pages.length) { e.preventDefault(); e.returnValue = ""; }
+});
+document.addEventListener("gesturestart", e => e.preventDefault());
+updateCount();
+show("capture");
+</script>
+</body>
+</html>
