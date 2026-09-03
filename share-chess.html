@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Share Chess</title>
+<script id="state" type="application/json">
+{"v":1,"history":[],"armed":false,"seat":null,"chain":"0000000000000000"}
+</script>
+<style>
+:root{
+  --ink:#0d1c25;
+  --ink-2:#132833;
+  --panel:#11242f;
+  --edge:#28444f;
+  --parch:#e7ded0;
+  --parch-dim:#a9b3b6;
+  --sq-light:#d6cbb2;
+  --sq-dark:#4a6c74;
+  --brass:#d9a34c;
+  --seal:#b34a3f;
+  --ok:#7fae7a;
+  --pc-white:#faf4e6;
+  --pc-black:#131f26;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1a3543 0%, rgba(26,53,67,0) 60%),
+    var(--ink);
+  color:var(--parch);
+  font-family:var(--sans);
+  -webkit-text-size-adjust:100%;
+  min-height:100vh;
+  padding:18px 16px 48px;
+  padding-bottom:calc(48px + env(safe-area-inset-bottom));
+}
+.wrap{max-width:960px;margin:0 auto}
+header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{
+  font-family:var(--serif);
+  font-size:clamp(28px,7vw,42px);
+  font-weight:600;
+  letter-spacing:-.015em;
+  line-height:1;
+  margin:0;
+}
+h1 .sc-and{color:var(--brass)}
+.tag{font-size:13.5px;color:var(--parch-dim);max-width:44ch;line-height:1.45;margin:0}
+
+/* two column on wide screens */
+.cols{display:grid;gap:22px;grid-template-columns:1fr}
+@media (min-width:820px){
+  .cols{grid-template-columns:minmax(0,1fr) 296px;align-items:start}
+}
+
+/* status */
+.status{
+  display:flex;align-items:center;gap:14px;
+  border:1px solid var(--edge);
+  border-radius:3px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0));
+  padding:12px 14px;margin-bottom:14px;
+}
+.seal{
+  flex:0 0 auto;width:56px;height:56px;border-radius:50%;
+  border:2px solid var(--seal);color:var(--seal);
+  display:grid;place-content:center;text-align:center;
+  font-family:var(--mono);font-size:10px;line-height:1.15;letter-spacing:.02em;
+  transform:rotate(-8deg);
+  opacity:.9;
+}
+.seal b{display:block;font-size:17px;letter-spacing:0}
+.seal.sealed{animation:stamp .38s cubic-bezier(.2,1.5,.4,1) both}
+.seal.mine{border-color:var(--brass);color:var(--brass)}
+.seal.done{border-color:var(--parch-dim);color:var(--parch-dim)}
+@keyframes stamp{
+  0%{transform:rotate(-22deg) scale(1.7);opacity:0}
+  60%{opacity:1}
+  100%{transform:rotate(-8deg) scale(1);opacity:.9}
+}
+@media (prefers-reduced-motion:reduce){.seal.sealed{animation:none}}
+.status-txt{min-width:0}
+.status-txt .line1{font-family:var(--serif);font-size:19px;line-height:1.25}
+.status-txt .line2{font-size:13px;color:var(--parch-dim);margin-top:3px;line-height:1.4}
+.check{color:var(--seal)}
+
+/* board */
+.board-frame{
+  border:1px solid var(--edge);
+  border-radius:3px;
+  padding:10px 10px 4px;
+  background:rgba(0,0,0,.16);
+}
+.board{
+  display:grid;
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  grid-template-rows:repeat(8,minmax(0,1fr));
+  width:100%;aspect-ratio:1/1;
+  border:1px solid #0a1418;
+  user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;
+}
+.sq{
+  position:relative;display:grid;place-items:center;
+  min-width:0;min-height:0;overflow:hidden;
+  font-size:min(9vw,50px);line-height:1;
+  cursor:default;
+  -webkit-tap-highlight-color:transparent;
+}
+@supports (font-size:1cqw){
+  .board{container-type:inline-size}
+  .sq{font-size:10.5cqw}
+}
+.live .sq:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
+.sq.l{background:var(--sq-light)}
+.sq.d{background:var(--sq-dark)}
+.live .sq{cursor:pointer}
+.pc{
+  position:relative;z-index:2;pointer-events:none;
+  display:block;width:1em;height:1em;line-height:1;text-align:center;
+}
+.pc.w{color:var(--pc-white);text-shadow:0 1px 0 rgba(0,0,0,.35),0 0 2px rgba(0,0,0,.45)}
+.pc.b{color:var(--pc-black);text-shadow:0 1px 0 rgba(255,255,255,.18)}
+.sq.last::before{
+  content:"";position:absolute;inset:0;z-index:1;
+  background:rgba(217,163,76,.34);
+}
+.sq.sel::before{
+  content:"";position:absolute;inset:0;z-index:1;
+  box-shadow:inset 0 0 0 3px var(--brass);
+  background:rgba(217,163,76,.2);
+}
+.sq.tgt::after{
+  content:"";position:absolute;z-index:3;
+  width:26%;height:26%;border-radius:50%;
+  background:rgba(19,31,38,.42);
+}
+.sq.d.tgt::after{background:rgba(231,222,208,.5)}
+.sq.tgt.cap::after{
+  width:86%;height:86%;border-radius:50%;background:none;
+  box-shadow:inset 0 0 0 4px rgba(179,74,63,.75);
+}
+.sq.chk::before{
+  content:"";position:absolute;inset:0;z-index:1;
+  background:radial-gradient(circle,rgba(179,74,63,.85) 12%,rgba(179,74,63,0) 72%);
+}
+.coords{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));font-family:var(--mono);
+  font-size:10px;color:var(--parch-dim);text-align:center;padding-top:5px}
+
+/* buttons */
+.actions{margin-top:16px;display:flex;flex-direction:column;gap:9px}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{
+  border:1px solid var(--brass);background:var(--brass);color:#1b1206;
+  padding:15px 18px;border-radius:3px;font-size:16.5px;font-weight:600;
+  letter-spacing:.005em;width:100%;
+  transition:filter .15s ease;
+}
+.btn:hover{filter:brightness(1.07)}
+.btn:disabled{background:none;color:#5b7480;border-color:#294450;cursor:not-allowed;filter:none}
+.btn-quiet{
+  border:1px solid var(--edge);background:none;color:var(--parch);
+  padding:11px 14px;border-radius:3px;font-size:14px;width:100%;
+}
+.btn-quiet:hover{border-color:var(--parch-dim)}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.hint{font-size:12.5px;color:var(--parch-dim);line-height:1.5;margin:2px 0 0}
+
+/* ledger */
+.side{display:flex;flex-direction:column;gap:16px}
+.card{border:1px solid var(--edge);border-radius:3px;padding:13px 14px}
+.card h2{font-family:var(--serif);font-size:16px;font-weight:600;margin:0 0 9px}
+.ledger{font-family:var(--mono);font-size:13px;max-height:260px;overflow:auto}
+.ledger table{width:100%;border-collapse:collapse}
+.ledger td{padding:2.5px 4px;white-space:nowrap}
+.ledger td.n{color:var(--parch-dim);width:2.4em;text-align:right}
+.ledger tr:last-child td{color:var(--brass)}
+.empty{font-family:var(--sans);font-size:13px;color:var(--parch-dim);line-height:1.5}
+.meta{font-family:var(--mono);font-size:11px;color:var(--parch-dim);line-height:1.6;overflow-wrap:anywhere}
+details{border-top:1px solid var(--edge);padding-top:12px;margin-top:4px}
+summary{font-size:14px;cursor:pointer;color:var(--parch-dim)}
+summary:hover{color:var(--parch)}
+details p{font-size:13.5px;line-height:1.6;color:var(--parch-dim);max-width:66ch}
+details ol{font-size:13.5px;line-height:1.65;color:var(--parch-dim);padding-left:20px;max-width:66ch}
+
+/* new game */
+.challenge{
+  border:1px solid var(--edge);border-left:3px solid var(--brass);
+  border-radius:3px;padding:16px 18px;margin-bottom:14px;
+}
+.challenge h2{
+  font-family:var(--serif);font-size:clamp(21px,5.2vw,26px);font-weight:600;
+  letter-spacing:-.012em;margin:0 0 7px;
+}
+.challenge p{margin:0;font-size:14.5px;line-height:1.6;color:var(--parch-dim);max-width:58ch}
+.challenge p + p{margin-top:9px}
+
+/* promotion */
+.modal{
+  position:fixed;inset:0;z-index:50;display:grid;place-items:center;
+  background:rgba(6,15,20,.78);padding:20px;
+}
+.modal .box{border:1px solid var(--brass);background:var(--panel);border-radius:3px;padding:16px;max-width:320px;width:100%}
+.modal h3{font-family:var(--serif);font-size:17px;margin:0 0 12px;font-weight:600}
+.promos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.promos button{
+  border:1px solid var(--edge);background:rgba(255,255,255,.04);border-radius:3px;
+  padding:8px 0;font-size:30px;line-height:1;
+}
+.promos button:hover{border-color:var(--brass)}
+.banner{
+  border:1px solid var(--seal);border-left-width:4px;border-radius:3px;
+  padding:11px 13px;margin-bottom:14px;font-size:13.5px;line-height:1.55;
+}
+.result{
+  border:1px solid var(--brass);border-radius:3px;padding:14px;margin-bottom:14px;
+}
+.result .r{font-family:var(--serif);font-size:22px;margin-bottom:3px}
+.result .d{font-size:13px;color:var(--parch-dim)}
+.toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  background:var(--panel);border:1px solid var(--brass);border-radius:3px;
+  padding:11px 16px;font-size:13.5px;z-index:60;max-width:min(90vw,420px);
+  box-shadow:0 8px 30px rgba(0,0,0,.5);
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Share Chess</h1>
+    <p class="tag">One move per file. Send it on, and the move becomes theirs to make.</p>
+  </header>
+  <div id="app"></div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================== ENGINE START ============================== */
+const FILES = "abcdefgh";
+const KN = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const BD = [[1,1],[1,-1],[-1,-1],[-1,1]];
+const RD = [[1,0],[-1,0],[0,1],[0,-1]];
+const KD = BD.concat(RD);
+
+function sqName(i){ return FILES[i & 7] + (8 - (i >> 3)); }
+function nameSq(s){ return (8 - parseInt(s[1],10)) * 8 + FILES.indexOf(s[0]); }
+function colorOf(p){ return p ? (p === p.toUpperCase() ? "w" : "b") : null; }
+function other(c){ return c === "w" ? "b" : "w"; }
+
+function initialPosition(){
+  const b = new Array(64).fill("");
+  const back = ["r","n","b","q","k","b","n","r"];
+  for (let f = 0; f < 8; f++){
+    b[f] = back[f];
+    b[8 + f] = "p";
+    b[48 + f] = "P";
+    b[56 + f] = back[f].toUpperCase();
+  }
+  return { board:b, turn:"w", cast:{K:true,Q:true,k:true,q:true}, ep:-1, half:0, full:1 };
+}
+
+function findKing(b, c){
+  const k = c === "w" ? "K" : "k";
+  for (let i = 0; i < 64; i++) if (b[i] === k) return i;
+  return -1;
+}
+
+function attacked(b, sq, by){
+  const f = sq & 7, r = sq >> 3;
+  // pawn attackers sit one rank "behind" relative to their march direction
+  const pr = by === "w" ? r + 1 : r - 1;
+  if (pr >= 0 && pr < 8){
+    const pawn = by === "w" ? "P" : "p";
+    if (f > 0 && b[pr * 8 + f - 1] === pawn) return true;
+    if (f < 7 && b[pr * 8 + f + 1] === pawn) return true;
+  }
+  const N = by === "w" ? "N" : "n";
+  for (let i = 0; i < KN.length; i++){
+    const nf = f + KN[i][0], nr = r + KN[i][1];
+    if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue;
+    if (b[nr * 8 + nf] === N) return true;
+  }
+  const K = by === "w" ? "K" : "k";
+  for (let i = 0; i < KD.length; i++){
+    const nf = f + KD[i][0], nr = r + KD[i][1];
+    if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue;
+    if (b[nr * 8 + nf] === K) return true;
+  }
+  const B = by === "w" ? "B" : "b", Q = by === "w" ? "Q" : "q", R = by === "w" ? "R" : "r";
+  for (let i = 0; i < BD.length; i++){
+    let nf = f + BD[i][0], nr = r + BD[i][1];
+    while (nf >= 0 && nf < 8 && nr >= 0 && nr < 8){
+      const p = b[nr * 8 + nf];
+      if (p){ if (p === B || p === Q) return true; break; }
+      nf += BD[i][0]; nr += BD[i][1];
+    }
+  }
+  for (let i = 0; i < RD.length; i++){
+    let nf = f + RD[i][0], nr = r + RD[i][1];
+    while (nf >= 0 && nf < 8 && nr >= 0 && nr < 8){
+      const p = b[nr * 8 + nf];
+      if (p){ if (p === R || p === Q) return true; break; }
+      nf += RD[i][0]; nr += RD[i][1];
+    }
+  }
+  return false;
+}
+
+function inCheck(pos, c){
+  const k = findKing(pos.board, c);
+  return k < 0 ? false : attacked(pos.board, k, other(c));
+}
+
+function pseudoMoves(pos, color){
+  const b = pos.board, out = [];
+  const promoPush = (from, to, isLast) => {
+    if (isLast){
+      out.push({from,to,promo:"q"}); out.push({from,to,promo:"r"});
+      out.push({from,to,promo:"b"}); out.push({from,to,promo:"n"});
+    } else out.push({from,to});
+  };
+  for (let i = 0; i < 64; i++){
+    const p = b[i];
+    if (!p || colorOf(p) !== color) continue;
+    const f = i & 7, r = i >> 3, t = p.toLowerCase();
+    if (t === "p"){
+      const d = color === "w" ? -1 : 1;
+      const home = color === "w" ? 6 : 1;
+      const last = color === "w" ? 0 : 7;
+      const nr = r + d;
+      if (nr >= 0 && nr < 8){
+        if (!b[nr * 8 + f]){
+          promoPush(i, nr * 8 + f, nr === last);
+          const dr = r + 2 * d;
+          if (r === home && !b[dr * 8 + f]) out.push({from:i, to:dr * 8 + f, dbl:true});
+        }
+        for (let k = -1; k <= 1; k += 2){
+          const nf = f + k;
+          if (nf < 0 || nf > 7) continue;
+          const j = nr * 8 + nf;
+          if (b[j]){ if (colorOf(b[j]) !== color) promoPush(i, j, nr === last); }
+          else if (j === pos.ep) out.push({from:i, to:j, ep:true});
+        }
+      }
+    } else if (t === "n" || t === "k"){
+      const dirs = t === "n" ? KN : KD;
+      for (let k = 0; k < dirs.length; k++){
+        const nf = f + dirs[k][0], nr = r + dirs[k][1];
+        if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue;
+        const j = nr * 8 + nf;
+        if (!b[j] || colorOf(b[j]) !== color) out.push({from:i, to:j});
+      }
+    } else {
+      const dirs = t === "b" ? BD : t === "r" ? RD : KD;
+      for (let k = 0; k < dirs.length; k++){
+        let nf = f + dirs[k][0], nr = r + dirs[k][1];
+        while (nf >= 0 && nf < 8 && nr >= 0 && nr < 8){
+          const j = nr * 8 + nf;
+          if (b[j]){ if (colorOf(b[j]) !== color) out.push({from:i, to:j}); break; }
+          out.push({from:i, to:j});
+          nf += dirs[k][0]; nr += dirs[k][1];
+        }
+      }
+    }
+  }
+  // castling
+  const opp = other(color);
+  if (color === "w"){
+    if (pos.cast.K && b[60] === "K" && b[63] === "R" && !b[61] && !b[62]
+        && !attacked(b,60,opp) && !attacked(b,61,opp)) out.push({from:60,to:62,castle:"K"});
+    if (pos.cast.Q && b[60] === "K" && b[56] === "R" && !b[57] && !b[58] && !b[59]
+        && !attacked(b,60,opp) && !attacked(b,59,opp)) out.push({from:60,to:58,castle:"Q"});
+  } else {
+    if (pos.cast.k && b[4] === "k" && b[7] === "r" && !b[5] && !b[6]
+        && !attacked(b,4,opp) && !attacked(b,5,opp)) out.push({from:4,to:6,castle:"k"});
+    if (pos.cast.q && b[4] === "k" && b[0] === "r" && !b[1] && !b[2] && !b[3]
+        && !attacked(b,4,opp) && !attacked(b,3,opp)) out.push({from:4,to:2,castle:"q"});
+  }
+  return out;
+}
+
+function applyMove(pos, mv){
+  const b = pos.board.slice();
+  const p = b[mv.from];
+  const c = colorOf(p);
+  const cast = {K:pos.cast.K, Q:pos.cast.Q, k:pos.cast.k, q:pos.cast.q};
+  let ep = -1;
+  let half = pos.half + 1;
+  if (p.toLowerCase() === "p" || b[mv.to]) half = 0;
+  b[mv.to] = mv.promo ? (c === "w" ? mv.promo.toUpperCase() : mv.promo) : p;
+  b[mv.from] = "";
+  if (mv.ep){ b[mv.to + (c === "w" ? 8 : -8)] = ""; half = 0; }
+  if (mv.dbl) ep = mv.from + (c === "w" ? -8 : 8);
+  if (mv.castle){
+    const map = {K:[63,61], Q:[56,59], k:[7,5], q:[0,3]};
+    const rf = map[mv.castle][0], rt = map[mv.castle][1];
+    b[rt] = b[rf]; b[rf] = "";
+  }
+  if (p === "K"){ cast.K = false; cast.Q = false; }
+  if (p === "k"){ cast.k = false; cast.q = false; }
+  if (mv.from === 63 || mv.to === 63) cast.K = false;
+  if (mv.from === 56 || mv.to === 56) cast.Q = false;
+  if (mv.from === 7  || mv.to === 7 ) cast.k = false;
+  if (mv.from === 0  || mv.to === 0 ) cast.q = false;
+  return { board:b, turn:other(c), cast:cast, ep:ep, half:half, full:pos.full + (c === "b" ? 1 : 0) };
+}
+
+function legalMoves(pos){
+  const out = [];
+  const ms = pseudoMoves(pos, pos.turn);
+  for (let i = 0; i < ms.length; i++){
+    if (!inCheck(applyMove(pos, ms[i]), pos.turn)) out.push(ms[i]);
+  }
+  return out;
+}
+
+function uciOf(m){ return sqName(m.from) + sqName(m.to) + (m.promo || ""); }
+
+function toSAN(pos, mv, all){
+  const b = pos.board, p = b[mv.from], t = p.toLowerCase();
+  let s;
+  if (mv.castle){
+    s = (mv.castle === "K" || mv.castle === "k") ? "O-O" : "O-O-O";
+  } else if (t === "p"){
+    const cap = !!b[mv.to] || !!mv.ep;
+    s = cap ? FILES[mv.from & 7] + "x" + sqName(mv.to) : sqName(mv.to);
+    if (mv.promo) s += "=" + mv.promo.toUpperCase();
+  } else {
+    let dis = "";
+    const rivals = all.filter(m =>
+      m.from !== mv.from && m.to === mv.to && b[m.from] && b[m.from].toLowerCase() === t
+      && colorOf(b[m.from]) === colorOf(p));
+    if (rivals.length){
+      const sameFile = rivals.some(m => (m.from & 7) === (mv.from & 7));
+      const sameRank = rivals.some(m => (m.from >> 3) === (mv.from >> 3));
+      if (!sameFile) dis = FILES[mv.from & 7];
+      else if (!sameRank) dis = String(8 - (mv.from >> 3));
+      else dis = sqName(mv.from);
+    }
+    s = t.toUpperCase() + dis + ((b[mv.to]) ? "x" : "") + sqName(mv.to);
+  }
+  const after = applyMove(pos, mv);
+  if (inCheck(after, after.turn)) s += legalMoves(after).length ? "+" : "#";
+  return s;
+}
+
+function posKey(pos){
+  return pos.board.join("") + "|" + pos.turn + "|" +
+    (pos.cast.K?"K":"") + (pos.cast.Q?"Q":"") + (pos.cast.k?"k":"") + (pos.cast.q?"q":"") +
+    "|" + pos.ep;
+}
+
+function toFEN(pos){
+  let out = "";
+  for (let r = 0; r < 8; r++){
+    let run = 0;
+    for (let f = 0; f < 8; f++){
+      const p = pos.board[r * 8 + f];
+      if (!p) run++;
+      else { if (run){ out += run; run = 0; } out += p; }
+    }
+    if (run) out += run;
+    if (r < 7) out += "/";
+  }
+  const c = (pos.cast.K?"K":"") + (pos.cast.Q?"Q":"") + (pos.cast.k?"k":"") + (pos.cast.q?"q":"");
+  return out + " " + pos.turn + " " + (c || "-") + " " +
+    (pos.ep >= 0 ? sqName(pos.ep) : "-") + " " + pos.half + " " + pos.full;
+}
+
+function insufficient(b){
+  const minors = [];
+  for (let i = 0; i < 64; i++){
+    const p = b[i];
+    if (!p) continue;
+    const t = p.toLowerCase();
+    if (t === "k") continue;
+    if (t === "p" || t === "r" || t === "q") return false;
+    minors.push({t:t, dark:(((i & 7) + (i >> 3)) % 2) === 1, c:colorOf(p)});
+  }
+  if (minors.length === 0) return true;
+  if (minors.length === 1) return true;
+  if (minors.every(m => m.t === "b") && minors.every(m => m.dark === minors[0].dark)) return true;
+  return false;
+}
+
+function replay(history){
+  let pos = initialPosition();
+  const plies = [];
+  const keys = [posKey(pos)];
+  for (let i = 0; i < history.length; i++){
+    const all = legalMoves(pos);
+    let mv = null;
+    for (let k = 0; k < all.length; k++) if (uciOf(all[k]) === history[i]) { mv = all[k]; break; }
+    if (!mv) return { ok:false, at:i, pos:pos, plies:plies, keys:keys };
+    plies.push({ uci:history[i], san:toSAN(pos, mv, all), from:mv.from, to:mv.to });
+    pos = applyMove(pos, mv);
+    keys.push(posKey(pos));
+  }
+  return { ok:true, pos:pos, plies:plies, keys:keys };
+}
+
+function gameStatus(pos, keys){
+  const moves = legalMoves(pos);
+  const chk = inCheck(pos, pos.turn);
+  if (!moves.length){
+    if (chk) return { over:true, result: pos.turn === "w" ? "0-1" : "1-0",
+      head: (pos.turn === "w" ? "Black wins" : "White wins"), why:"Checkmate", moves:moves, check:true };
+    return { over:true, result:"1/2-1/2", head:"Drawn", why:"Stalemate", moves:moves, check:false };
+  }
+  if (insufficient(pos.board))
+    return { over:true, result:"1/2-1/2", head:"Drawn", why:"Neither side has enough material to mate", moves:moves, check:chk };
+  if (pos.half >= 100)
+    return { over:true, result:"1/2-1/2", head:"Drawn", why:"Fifty moves without a capture or pawn move", moves:moves, check:chk };
+  let reps = 0;
+  const last = keys[keys.length - 1];
+  for (let i = 0; i < keys.length; i++) if (keys[i] === last) reps++;
+  if (reps >= 3)
+    return { over:true, result:"1/2-1/2", head:"Drawn", why:"Same position for the third time", moves:moves, check:chk };
+  return { over:false, moves:moves, check:chk };
+}
+
+/* checksum chain: catches casual edits, not a determined forger */
+function h32(s, seed){
+  let h = seed >>> 0;
+  for (let i = 0; i < s.length; i++){
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+function hex8(n){ return ("00000000" + n.toString(16)).slice(-8); }
+function chainStep(prev, uci){
+  return hex8(h32(prev + ">" + uci, 0x811c9dc5)) + hex8(h32(uci + "<" + prev, 0x9e3779b9));
+}
+function chainOf(history){
+  let c = "0000000000000000";
+  for (let i = 0; i < history.length; i++) c = chainStep(c, history[i]);
+  return c;
+}
+/* =============================== ENGINE END =============================== */
+
+/* Snapshot the untouched source before any rendering happens. */
+const PRISTINE = document.documentElement.outerHTML;
+const STATE_OPEN = 'id="state" type="application/json">';
+const CLOSE_TAG = "</" + "script>";
+
+const GLYPH = { k:"\u265A", q:"\u265B", r:"\u265C", b:"\u265D", n:"\u265E", p:"\u265F" };
+const COLOR_NAME = { w:"White", b:"Black" };
+
+let file0 = null;      // state as loaded from the file
+let seat = null;       // colour this device plays
+let phase = "new";     // new | move | seal | sent | wait | over | broken
+let history = [];      // uci list
+let game = null;       // replay result
+let stat = null;       // game status
+let selected = -1;
+let pendingPromo = null;
+let toastTimer = null;
+
+function loadState(){
+  const el = document.getElementById("state");
+  let s;
+  try { s = JSON.parse(el.textContent); }
+  catch (e){ return { v:1, history:[], armed:false, seat:null, chain:"0000000000000000", bad:"unreadable" }; }
+  if (!s || !Array.isArray(s.history)) s = { v:1, history:[], armed:false, seat:null, chain:"0000000000000000" };
+  return s;
+}
+
+function boot(){
+  file0 = loadState();
+  history = file0.history.slice();
+  game = replay(history);
+
+  if (file0.bad === "unreadable"){
+    phase = "broken";
+    document.getElementById("app").innerHTML =
+      '<div class="banner">The game record in this file could not be read. Ask the other player to send their copy again.</div>';
+    return;
+  }
+  if (!game.ok){
+    phase = "broken";
+    render();
+    return;
+  }
+  if (chainOf(history) !== (file0.chain || "0000000000000000")){
+    phase = "broken";
+    render();
+    return;
+  }
+  stat = gameStatus(game.pos, game.keys);
+
+  if (stat.over){
+    seat = file0.seat;
+    phase = "over";
+  } else if (history.length === 0 && !file0.armed && !file0.seat){
+    seat = "b";
+    phase = "challenge";
+  } else if (file0.armed && file0.seat === game.pos.turn){
+    seat = file0.seat;
+    phase = "move";
+  } else if (file0.armed){
+    // armed for the wrong side — the record and the permission disagree
+    phase = "broken";
+  } else {
+    seat = file0.seat || null;
+    phase = "wait";
+  }
+  render();
+}
+
+/* ---------- state to write into the next file ---------- */
+function nextState(){
+  const over = stat && stat.over;
+  return {
+    v: 1,
+    history: history.slice(),
+    armed: !over,
+    seat: over ? (seat || null) : game.pos.turn,
+    chain: chainOf(history)
+  };
+}
+
+function buildFile(st){
+  const start = PRISTINE.indexOf(STATE_OPEN) + STATE_OPEN.length;
+  const end = PRISTINE.indexOf(CLOSE_TAG, start);
+  const json = JSON.stringify(st).replace(/</g, "\\u003c");
+  return "<!DOCTYPE html>\n" + PRISTINE.slice(0, start) + "\n" + json + "\n" + PRISTINE.slice(end);
+}
+
+function stamp(){
+  const d = new Date(), p = n => ("0" + n).slice(-2);
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" +
+    p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+}
+
+function fileName(st){
+  const who = st.armed ? COLOR_NAME[st.seat].toLowerCase() : "final";
+  const turn = Math.floor(st.history.length / 2) + 1;
+  return who + "-" + turn + "-" + stamp() + ".sharechess.html";
+}
+
+function shareText(st){
+  if (!st.armed) return "Share Chess — the game is over. Open the file in a browser to see it.";
+  if (!st.history.length) return "Share Chess — a challenge. You play White, so you open. " +
+    "Put the file in a browser, make one move, then send it back to me.";
+  return "Share Chess — your move. " + COLOR_NAME[st.seat] + " to play after " +
+    st.history.length + " move" + (st.history.length === 1 ? "" : "s") +
+    ". Open the file in a browser, make one move, then send it back.";
+}
+
+function download(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+async function sendMove(){
+  const st = nextState();
+  const name = fileName(st);
+  const blob = new Blob([buildFile(st)], { type:"text/html" });
+  const f = new File([blob], name, { type:"text/html" });
+  let shared = false;
+  if (navigator.canShare && navigator.canShare({ files:[f] })){
+    try {
+      await navigator.share({ files:[f], title:"Share Chess", text:shareText(st) });
+      shared = true;
+    } catch (e){
+      if (e && e.name === "AbortError") return;   // user backed out; stay put
+      shared = false;
+    }
+  }
+  if (!shared) download(blob, name);
+  phase = st.armed ? "sent" : "over";
+  render();
+  toast(shared ? "Sent. The move is theirs now." : "Saved as " + name + " — send that file to them.");
+}
+
+function toast(msg){
+  const old = document.querySelector(".toast");
+  if (old) old.remove();
+  const d = document.createElement("div");
+  d.className = "toast";
+  d.setAttribute("role", "status");
+  d.textContent = msg;
+  document.body.appendChild(d);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => d.remove(), 5200);
+}
+
+/* ---------- interaction ---------- */
+function onSquare(i){
+  if (phase !== "move") return;
+  const legal = stat.moves;
+  if (selected >= 0){
+    const cands = legal.filter(m => m.from === selected && m.to === i);
+    if (cands.length === 1){ commit(cands[0]); return; }
+    if (cands.length > 1){ pendingPromo = cands; render(); return; }
+  }
+  const p = game.pos.board[i];
+  selected = (p && colorOf(p) === game.pos.turn && legal.some(m => m.from === i)) ? i : -1;
+  render();
+}
+
+function commit(mv){
+  history.push(uciOf(mv));
+  game = replay(history);
+  stat = gameStatus(game.pos, game.keys);
+  selected = -1;
+  pendingPromo = null;
+  phase = "seal";
+  render();
+}
+
+function undoMove(){
+  history.pop();
+  game = replay(history);
+  stat = gameStatus(game.pos, game.keys);
+  selected = -1;
+  phase = "move";
+  render();
+}
+
+function restart(){
+  history = [];
+  seat = "b";
+  game = replay(history);
+  stat = gameStatus(game.pos, game.keys);
+  phase = "challenge";
+  selected = -1;
+  render();
+}
+
+/* ---------- rendering ---------- */
+function h(str){ return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function boardHTML(){
+  const flip = seat === "b";
+  const last = game.plies.length ? game.plies[game.plies.length - 1] : null;
+  const live = phase === "move";
+  const legal = live ? stat.moves : [];
+  const tgts = selected >= 0 ? legal.filter(m => m.from === selected).map(m => m.to) : [];
+  const kingSq = stat && stat.check ? findKing(game.pos.board, game.pos.turn) : -1;
+  let out = '<div class="board' + (live ? " live" : "") + '" id="board" role="grid">';
+  for (let row = 0; row < 8; row++){
+    for (let col = 0; col < 8; col++){
+      const r = flip ? 7 - row : row;
+      const f = flip ? 7 - col : col;
+      const i = r * 8 + f;
+      const p = game.pos.board[i];
+      const cls = ["sq", ((f + r) % 2 === 0) ? "l" : "d"];
+      if (last && (i === last.from || i === last.to)) cls.push("last");
+      if (i === selected) cls.push("sel");
+      if (tgts.indexOf(i) >= 0){ cls.push("tgt"); if (p) cls.push("cap"); }
+      if (i === kingSq) cls.push("chk");
+      const focusable = live && (p && colorOf(p) === game.pos.turn && legal.some(m => m.from === i) || tgts.indexOf(i) >= 0);
+      out += '<div class="' + cls.join(" ") + '" data-i="' + i + '"' +
+        (live ? ' role="gridcell"' : "") + (focusable ? ' tabindex="0"' : "") +
+        ' aria-label="' + sqName(i) + (p ? " " + COLOR_NAME[colorOf(p)] + " " + p.toLowerCase() : " empty") + '">';
+      if (p) out += '<span class="pc ' + colorOf(p) + '">' + GLYPH[p.toLowerCase()] + "</span>";
+      out += "</div>";
+    }
+  }
+  out += "</div>";
+  out += '<div class="coords">';
+  for (let c = 0; c < 8; c++) out += "<span>" + FILES[flip ? 7 - c : c] + "</span>";
+  out += "</div>";
+  return '<div class="board-frame">' + out + "</div>";
+}
+
+function ledgerHTML(){
+  if (!game.plies.length)
+    return '<div class="card"><h2>Move log</h2><p class="empty">No moves yet. Every move ever played in this game travels inside the file, so either player can check the whole record.</p></div>';
+  let rows = "";
+  for (let i = 0; i < game.plies.length; i += 2){
+    rows += "<tr><td class='n'>" + (i / 2 + 1) + ".</td><td>" + h(game.plies[i].san) + "</td><td>" +
+      (game.plies[i + 1] ? h(game.plies[i + 1].san) : "") + "</td></tr>";
+  }
+  return '<div class="card"><h2>Move log</h2><div class="ledger"><table>' + rows + "</table></div></div>";
+}
+
+function sealHTML(){
+  const n = Math.floor(history.length / 2) + 1;
+  let cls = "seal", top = "", big = "", bot = "";
+  if (phase === "over"){
+    cls += " done"; top = "game"; big = "\u2715"; bot = stat.result;
+  } else if (phase === "move"){
+    cls += " mine"; top = "move"; big = String(n); bot = "yours";
+  } else if (phase === "seal"){
+    cls += " sealed"; top = "move"; big = String(n); bot = "sealed";
+  } else if (phase === "sent" || phase === "wait"){
+    top = "move"; big = String(n); bot = "sent";
+  } else {
+    top = "move"; big = "?"; bot = "\u2014";
+  }
+  return '<div class="' + cls + '" aria-hidden="true">' + top + "<b>" + big + "</b>" + bot + "</div>";
+}
+
+function statusHTML(){
+  const turnName = COLOR_NAME[game.pos.turn];
+  let l1 = "", l2 = "";
+  if (phase === "move"){
+    l1 = "Your move" + (stat.check ? ' \u2014 <span class="check">you are in check</span>' : "");
+    l2 = "You are " + COLOR_NAME[seat] + ". Make one move, then send the file on.";
+  } else if (phase === "seal"){
+    if (stat.over){
+      l1 = "That ends it";
+      l2 = "Send the final file so they can see the finish.";
+    } else {
+      l1 = "Move sealed";
+      l2 = "It is " + turnName + "'s turn. Nothing else happens here until you send the file.";
+    }
+  } else if (phase === "sent"){
+    l1 = "Waiting for their move";
+    l2 = "You cannot move again until their file comes back. Close this tab whenever you like.";
+  } else if (phase === "wait"){
+    l1 = "Waiting for their move";
+    l2 = "This copy has already been passed on. Open the file they send back to play your next move.";
+  } else if (phase === "over"){
+    l1 = stat.head;
+    l2 = stat.why + ".";
+  } else if (phase === "broken"){
+    l1 = "This record does not add up";
+    l2 = "The move log has been altered or damaged, so play cannot continue from it.";
+  }
+  return '<div class="status">' + sealHTML() +
+    '<div class="status-txt"><div class="line1">' + l1 +
+    '</div><div class="line2">' + h(l2) + "</div></div></div>";
+}
+
+function actionsHTML(){
+  if (phase === "challenge"){
+    return '<div class="actions"><button class="btn" id="send">Send the challenge</button>' +
+      '<p class="hint">Send it to yourself if you just want the file. Nothing happens on this ' +
+      'copy until a played file comes back.</p></div>';
+  }
+  if (phase === "move"){
+    return '<div class="actions"><button class="btn" disabled>Send your move</button>' +
+      '<p class="hint">The button wakes up once you have moved. Your move is not final until you send it.</p></div>';
+  }
+  if (phase === "seal"){
+    const label = stat.over ? "Send the finished game" : "Send your move";
+    let out = '<div class="actions"><button class="btn" id="send">' + label + "</button>";
+    if (history.length) out += '<button class="btn-quiet" id="undo">Take it back</button>';
+    out += '<p class="hint">' + (stat.over
+      ? "The game is decided. Sending lets them see how it finished."
+      : "Sending hands the next move to " + COLOR_NAME[game.pos.turn] +
+        ". This copy will not let you move again.") + "</p></div>";
+    return out;
+  }
+  if (phase === "sent" || phase === "wait"){
+    return '<div class="actions"><button class="btn" disabled>Waiting for ' + COLOR_NAME[game.pos.turn] + "</button>" +
+      '<button class="btn-quiet" id="resend">Send this copy again</button>' +
+      '<p class="hint">Use this if the file never arrived. It is the same position, so it cannot buy you a second move.</p></div>';
+  }
+  if (phase === "over"){
+    return '<div class="actions"><button class="btn" id="newgame">Challenge somebody again</button></div>';
+  }
+  if (phase === "broken"){
+    return '<div class="actions"><button class="btn" id="newgame">Challenge somebody again</button></div>';
+  }
+  return "";
+}
+
+function howHTML(){
+  return '<details><summary>How this works</summary>' +
+    '<ol><li>The whole game lives in this one file: every move played, whose turn it is, and a single permission slip that says one move may be made here. A brand-new file holds no permission, so you send it before anyone can play.</li>' +
+    '<li>Making your move spends that permission. This copy will not let you move twice.</li>' +
+    '<li>Sending writes a fresh file with your move added and the permission handed to the other side, then passes it to whatever you share with \u2014 messages, mail, a chat app.</li>' +
+    '<li>Your opponent opens that file, moves once, and sends it back.</li></ol>' +
+    '<p>No server, no account, nothing to install. It works offline; the file is the whole game. ' +
+    'The move log and a checksum travel with it, so a doctored file usually refuses to open \u2014 but this is a friendly game, not a vault: anyone patient enough with a text editor could still rewrite it.</p>' +
+    '</details>';
+}
+
+function metaHTML(){
+  return '<div class="card"><h2>Position</h2><div class="meta">' + h(toFEN(game.pos)) +
+    "<br>seal " + h(chainOf(history)) + "</div></div>";
+}
+
+function challengeHTML(){
+  return '<div class="challenge"><h2>Challenge somebody</h2>' +
+    '<p>Send this file to whoever you want to play. They open it, make the first move as White, ' +
+    'and send it back. You play Black.</p></div>';
+}
+
+function promoHTML(){
+  if (!pendingPromo) return "";
+  const c = game.pos.turn;
+  const order = ["q","r","b","n"];
+  let btns = "";
+  for (let i = 0; i < order.length; i++){
+    btns += '<button data-promo="' + order[i] + '" aria-label="promote to ' + order[i] + '">' +
+      '<span class="pc ' + c + '">' + GLYPH[order[i]] + "</span></button>";
+  }
+  return '<div class="modal" id="promo"><div class="box"><h3>Your pawn reaches the end. Make it a\u2026</h3>' +
+    '<div class="promos">' + btns + "</div></div></div>";
+}
+
+function render(){
+  const app = document.getElementById("app");
+  if (phase === "challenge"){
+    app.innerHTML = '<div class="cols"><div>' + challengeHTML() + boardHTML() + actionsHTML() +
+      howHTML() + '</div><div class="side">' + ledgerHTML() + "</div></div>";
+  } else {
+    let left = "";
+    if (stat && stat.over) left += '<div class="result"><div class="r">' + h(stat.head) +
+      " &middot; " + h(stat.result) + '</div><div class="d">' + h(stat.why) + "</div></div>";
+    if (phase === "broken") left += '<div class="banner">The move log in this file does not replay into a legal game. ' +
+      'Nobody can carry on from here \u2014 ask for the last good file, or start fresh.</div>';
+    left += statusHTML() + boardHTML() + actionsHTML() + howHTML();
+    app.innerHTML = '<div class="cols"><div>' + left + '</div><div class="side">' +
+      ledgerHTML() + metaHTML() + "</div></div>" + promoHTML();
+  }
+  wire();
+}
+
+function wire(){
+  const b = document.getElementById("board");
+  if (b){
+    b.addEventListener("click", e => {
+      const sq = e.target.closest(".sq");
+      if (sq) onSquare(parseInt(sq.dataset.i, 10));
+    });
+    b.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const sq = e.target.closest(".sq");
+      if (!sq) return;
+      e.preventDefault();
+      onSquare(parseInt(sq.dataset.i, 10));
+    });
+  }
+  const send = document.getElementById("send");
+  if (send) send.addEventListener("click", sendMove);
+  const resend = document.getElementById("resend");
+  if (resend) resend.addEventListener("click", sendMove);
+  const undo = document.getElementById("undo");
+  if (undo) undo.addEventListener("click", undoMove);
+  const ng = document.getElementById("newgame");
+  if (ng) ng.addEventListener("click", restart);
+  const pr = document.getElementById("promo");
+  if (pr) pr.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-promo]");
+    if (btn){
+      const pick = pendingPromo.find(m => m.promo === btn.dataset.promo);
+      if (pick) commit(pick);
+    } else if (e.target.id === "promo"){
+      pendingPromo = null; render();
+    }
+  });
+}
+
+boot();
+</script>
+</body>
+</html>
