@@ -191,6 +191,7 @@ details{border-top:1px solid var(--edge);padding-top:12px;margin-top:4px}
 summary{font-size:14px;cursor:pointer;color:var(--parch-dim)}
 summary:hover{color:var(--parch)}
 details p{font-size:13.5px;line-height:1.6;color:var(--parch-dim);max-width:66ch}
+details p b{color:var(--parch);font-weight:600}
 details ol{font-size:13.5px;line-height:1.65;color:var(--parch-dim);padding-left:20px;max-width:66ch}
 
 /* new game */
@@ -244,7 +245,7 @@ details ol{font-size:13.5px;line-height:1.65;color:var(--parch-dim);padding-left
   <header>
     <div class="head-row">
       <h1>Share Chess</h1>
-      <!-- BUILD --><span class="build" title="build 2026-09-04 17:34 UTC">1788543262</span><!-- /BUILD -->
+      <!-- BUILD --><span class="build" title="build 2026-09-04 17:44 UTC">1788543893</span><!-- /BUILD -->
     </div>
     <p class="tag">One move per file. Send it on, and the move becomes theirs to make.</p>
   </header>
@@ -681,7 +682,9 @@ function fileName(st){
   return who + "-" + turn + "-" + stamp() + ".sharechess.html";
 }
 
-function download(blob, name){
+function download(text, name){
+  // octet-stream, not text/html: Safari opens an html blob in a tab instead of saving it.
+  const blob = new Blob([text], { type:"application/octet-stream" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = name;
@@ -692,8 +695,8 @@ function download(blob, name){
 async function sendMove(saveOnly){
   const st = nextState();
   const name = fileName(st);
-  const blob = new Blob([buildFile(st)], { type:"text/html" });
-  const f = new File([blob], name, { type:"text/html" });
+  const html = buildFile(st);
+  const f = new File([html], name, { type:"text/html" });
   let shared = false;
   if (!saveOnly && navigator.canShare && navigator.canShare({ files:[f] })){
     try {
@@ -705,13 +708,13 @@ async function sendMove(saveOnly){
       shared = false;
     }
   }
-  if (!shared) download(blob, name);
+  if (!shared) download(html, name);
   iSent = true;
   phase = st.armed ? "sent" : "over";
   render();
   toast(shared
     ? "Sent. Check the file itself went \u2014 some apps send only the message."
-    : "Saved as " + name + ". Send them that file.");
+    : "Saved as " + name + ". Look in Downloads or Files, then send it on.");
 }
 
 function toast(msg){
@@ -898,9 +901,9 @@ function statusHTML(){
 function actionsHTML(){
   if (phase === "challenge"){
     return '<div class="actions"><button class="btn" id="send">Send the challenge</button>' +
-      '<p class="hint">Pick something that carries attachments \u2014 mail, a drive, AirDrop. Many chat ' +
-      'apps quietly drop .html files and send only a message. Nothing happens on this copy until a ' +
-      'played file comes back.</p></div>';
+      '<p class="hint">Pick something that carries attachments \u2014 Mail, AirDrop, or a drive. Messages ' +
+      'and most chat apps quietly drop .html files. Nothing happens on this copy until a played ' +
+      'file comes back.</p></div>';
   }
   if (phase === "move"){
     return '<div class="actions"><button class="btn" disabled>Send your move</button>' +
@@ -922,9 +925,9 @@ function actionsHTML(){
     return '<div class="actions"><button class="btn" disabled>Waiting for ' + COLOR_NAME[game.pos.turn] + "</button>" +
       '<button class="btn-quiet" id="resend">Send this copy again</button>' +
       '<button class="btn-quiet" id="save">Save the file</button>' +
-      '<p class="hint">If only a message arrived and no file, the app stripped it \u2014 chat apps often ' +
-      'refuse .html attachments. Save the file and send it through mail, a drive, or AirDrop. Either ' +
-      'button sends the same position, so neither can buy you a second move.</p></div>';
+      '<p class="hint">If no file arrived, the app stripped it \u2014 Messages and most chat apps refuse ' +
+      '.html attachments. Save the file and send it by Mail, AirDrop or a drive instead. Both ' +
+      'buttons produce the same position, so neither can buy you a second move.</p></div>';
   }
   if (phase === "over"){
     if (iSent){
@@ -950,6 +953,10 @@ function howHTML(){
     '<li>Your opponent opens that file, moves once, and sends it back.</li>' +
     '<li>Instead of moving you can resign, which finishes the game in the file you send.</li>' +
     '<li>When a game ends, whoever receives the final file opens the next one and plays White.</li></ol>' +
+    '<p><b>On iPhone:</b> tapping the file in Messages or Mail opens a preview that cannot send it ' +
+    'back. Save it first \u2014 share sheet, then Save to Files \u2014 and open it from Files in Safari. ' +
+    'When you send, Save to Files, Mail and AirDrop all carry the attachment; Messages often ' +
+    'delivers the note and quietly drops it.</p>' +
     '<p>No server, no account, nothing to install. It works offline; the file is the whole game. ' +
     'The move log and a checksum travel with it, so a doctored file usually refuses to open \u2014 but this is a friendly game, not a vault: anyone patient enough with a text editor could still rewrite it.</p>' +
     '</details>';
