@@ -40,7 +40,12 @@ body{
   padding-bottom:calc(48px + env(safe-area-inset-bottom));
 }
 .wrap{max-width:960px;margin:0 auto}
-header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+header{margin-bottom:14px}
+.head-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+.build{
+  flex:0 0 auto;font-family:var(--mono);font-size:10px;letter-spacing:.02em;
+  color:#5f7480;user-select:all;
+}
 h1{
   font-family:var(--serif);
   font-size:clamp(28px,7vw,42px);
@@ -50,7 +55,7 @@ h1{
   margin:0;
 }
 h1 .sc-and{color:var(--brass)}
-.tag{font-size:13.5px;color:var(--parch-dim);max-width:44ch;line-height:1.45;margin:0}
+.tag{font-size:13.5px;color:var(--parch-dim);max-width:44ch;line-height:1.45;margin:6px 0 0}
 
 /* two column on wide screens */
 .cols{display:grid;gap:22px;grid-template-columns:1fr}
@@ -237,7 +242,10 @@ details ol{font-size:13.5px;line-height:1.65;color:var(--parch-dim);padding-left
 <body>
 <div class="wrap">
   <header>
-    <h1>Share Chess</h1>
+    <div class="head-row">
+      <h1>Share Chess</h1>
+      <!-- BUILD --><span class="build" title="build 2026-09-04 17:34 UTC">1788543262</span><!-- /BUILD -->
+    </div>
     <p class="tag">One move per file. Send it on, and the move becomes theirs to make.</p>
   </header>
   <div id="app"></div>
@@ -673,22 +681,6 @@ function fileName(st){
   return who + "-" + turn + "-" + stamp() + ".sharechess.html";
 }
 
-function shareText(st){
-  if (!st.armed){
-    const tail = " Open the file in a browser to see the finish, then start the next game.";
-    if (stat.result === "1/2-1/2")
-      return "Share Chess — drawn: " + stat.why.toLowerCase() + "." + tail;
-    const theyWon = (stat.result === "1-0") === (st.seat === "w");
-    return "Share Chess — " + (theyWon ? "I resign, you win." : stat.why + ", you lose.") + tail;
-  }
-  if (!st.history.length) return "Share Chess — a challenge. You play White, so you open. " +
-    "Put the file in a browser, make one move, then send it back to me.";
-  return "Share Chess — your move. " + COLOR_NAME[st.seat] + " to play after " +
-    st.history.length + " move" + (st.history.length === 1 ? "" : "s") + "." +
-    (stat.check ? " You are in check." : "") +
-    " Open the file in a browser, make one move, then send it back.";
-}
-
 function download(blob, name){
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -697,15 +689,16 @@ function download(blob, name){
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-async function sendMove(){
+async function sendMove(saveOnly){
   const st = nextState();
   const name = fileName(st);
   const blob = new Blob([buildFile(st)], { type:"text/html" });
   const f = new File([blob], name, { type:"text/html" });
   let shared = false;
-  if (navigator.canShare && navigator.canShare({ files:[f] })){
+  if (!saveOnly && navigator.canShare && navigator.canShare({ files:[f] })){
     try {
-      await navigator.share({ files:[f], title:"Share Chess", text:shareText(st) });
+      // Files only. Adding title/text here makes some apps send the words and bin the file.
+      await navigator.share({ files:[f] });
       shared = true;
     } catch (e){
       if (e && e.name === "AbortError") return;   // user backed out; stay put
@@ -716,7 +709,9 @@ async function sendMove(){
   iSent = true;
   phase = st.armed ? "sent" : "over";
   render();
-  toast(shared ? "Sent. The move is theirs now." : "Saved as " + name + " — send that file to them.");
+  toast(shared
+    ? "Sent. Check the file itself went \u2014 some apps send only the message."
+    : "Saved as " + name + ". Send them that file.");
 }
 
 function toast(msg){
@@ -903,8 +898,9 @@ function statusHTML(){
 function actionsHTML(){
   if (phase === "challenge"){
     return '<div class="actions"><button class="btn" id="send">Send the challenge</button>' +
-      '<p class="hint">Send it to yourself if you just want the file. Nothing happens on this ' +
-      'copy until a played file comes back.</p></div>';
+      '<p class="hint">Pick something that carries attachments \u2014 mail, a drive, AirDrop. Many chat ' +
+      'apps quietly drop .html files and send only a message. Nothing happens on this copy until a ' +
+      'played file comes back.</p></div>';
   }
   if (phase === "move"){
     return '<div class="actions"><button class="btn" disabled>Send your move</button>' +
@@ -925,12 +921,17 @@ function actionsHTML(){
   if (phase === "sent" || phase === "wait"){
     return '<div class="actions"><button class="btn" disabled>Waiting for ' + COLOR_NAME[game.pos.turn] + "</button>" +
       '<button class="btn-quiet" id="resend">Send this copy again</button>' +
-      '<p class="hint">Use this if the file never arrived. It is the same position, so it cannot buy you a second move.</p></div>';
+      '<button class="btn-quiet" id="save">Save the file</button>' +
+      '<p class="hint">If only a message arrived and no file, the app stripped it \u2014 chat apps often ' +
+      'refuse .html attachments. Save the file and send it through mail, a drive, or AirDrop. Either ' +
+      'button sends the same position, so neither can buy you a second move.</p></div>';
   }
   if (phase === "over"){
     if (iSent){
       return '<div class="actions"><button class="btn-quiet" id="newgame">Challenge somebody new</button>' +
-        '<p class="hint">Sent. The next game is theirs to open.</p></div>';
+        '<button class="btn-quiet" id="save">Save the file</button>' +
+        '<p class="hint">Sent. The next game is theirs to open. If no file reached them, save it ' +
+        'and send it another way.</p></div>';
     }
     return '<div class="actions"><button class="btn" id="rematch">Play again \u2014 you take White</button>' +
       '<p class="hint">You move first this time. Make your move, then send it over.</p></div>';
@@ -1022,9 +1023,9 @@ function wire(){
     });
   }
   const send = document.getElementById("send");
-  if (send) send.addEventListener("click", sendMove);
+  if (send) send.addEventListener("click", () => sendMove(false));
   const resend = document.getElementById("resend");
-  if (resend) resend.addEventListener("click", sendMove);
+  if (resend) resend.addEventListener("click", () => sendMove(false));
   const rsn = document.getElementById("resign");
   if (rsn) rsn.addEventListener("click", askResign);
   const rmt = document.getElementById("rematch");
@@ -1034,6 +1035,8 @@ function wire(){
     if (e.target.id === "resign-yes") doResign();
     else if (e.target.id === "resign-no" || e.target.id === "confirm"){ confirming = false; render(); }
   });
+  const sv = document.getElementById("save");
+  if (sv) sv.addEventListener("click", () => sendMove(true));
   const undo = document.getElementById("undo");
   if (undo) undo.addEventListener("click", undoMove);
   const ng = document.getElementById("newgame");
