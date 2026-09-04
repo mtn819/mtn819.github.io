@@ -206,7 +206,11 @@ details ol{font-size:13.5px;line-height:1.65;color:var(--parch-dim);padding-left
   background:rgba(6,15,20,.78);padding:20px;
 }
 .modal .box{border:1px solid var(--brass);background:var(--panel);border-radius:3px;padding:16px;max-width:320px;width:100%}
-.modal h3{font-family:var(--serif);font-size:17px;margin:0 0 12px;font-weight:600}
+.modal h3{font-family:var(--serif);font-size:17px;margin:0 0 10px;font-weight:600}
+.modal .box p{font-size:13.5px;line-height:1.55;color:var(--parch-dim);margin:0 0 14px}
+.confirm-row{display:flex;gap:9px}
+.confirm-row .btn{flex:1 1 auto}
+.confirm-row .btn-quiet{flex:0 0 auto;width:auto;padding-left:16px;padding-right:16px}
 .promos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .promos button{
   border:1px solid var(--edge);background:rgba(255,255,255,.04);border-radius:3px;
@@ -539,11 +543,13 @@ function hex8(n){ return ("00000000" + n.toString(16)).slice(-8); }
 function chainStep(prev, uci){
   return hex8(h32(prev + ">" + uci, 0x811c9dc5)) + hex8(h32(uci + "<" + prev, 0x9e3779b9));
 }
-function chainOf(history){
+function chainOf(history, resigned){
   let c = "0000000000000000";
   for (let i = 0; i < history.length; i++) c = chainStep(c, history[i]);
+  if (resigned) c = chainStep(c, "resign-" + resigned);
   return c;
 }
+
 /* =============================== ENGINE END =============================== */
 
 /* Snapshot the untouched source before any rendering happens. */
@@ -554,6 +560,20 @@ const CLOSE_TAG = "</" + "script>";
 const GLYPH = { k:"\u265A", q:"\u265B", r:"\u265C", b:"\u265D", n:"\u265E", p:"\u265F" };
 const COLOR_NAME = { w:"White", b:"Black" };
 
+function resignStat(who){
+  return { over:true, result: who === "w" ? "0-1" : "1-0",
+    head: who === "w" ? "Black wins" : "White wins",
+    why: COLOR_NAME[who] + " resigned", moves:[], check:false };
+}
+
+/* The outcome written from this device's point of view. */
+function outcomeLine(){
+  if (!stat || !stat.over) return "";
+  if (stat.result === "1/2-1/2") return "Drawn";
+  if (!seat) return stat.head;
+  return ((stat.result === "1-0") === (seat === "w")) ? "You win" : "You lost";
+}
+
 let file0 = null;      // state as loaded from the file
 let seat = null;       // colour this device plays
 let phase = "new";     // new | move | seal | sent | wait | over | broken
@@ -561,6 +581,9 @@ let history = [];      // uci list
 let game = null;       // replay result
 let stat = null;       // game status
 let selected = -1;
+let resigned = null;      // colour that gave up, if any
+let iSent = false;        // did this copy send the finished game, or receive it?
+let confirming = false;
 let pendingPromo = null;
 let toastTimer = null;
 
@@ -576,6 +599,8 @@ function loadState(){
 function boot(){
   file0 = loadState();
   history = file0.history.slice();
+  resigned = (file0.resigned === "w" || file0.resigned === "b") ? file0.resigned : null;
+  iSent = false;
   game = replay(history);
 
   if (file0.bad === "unreadable"){
@@ -589,12 +614,13 @@ function boot(){
     render();
     return;
   }
-  if (chainOf(history) !== (file0.chain || "0000000000000000")){
+  if (chainOf(history, resigned) !== (file0.chain || "0000000000000000")){
     phase = "broken";
     render();
     return;
   }
   stat = gameStatus(game.pos, game.keys);
+  if (resigned) stat = resignStat(resigned);
 
   if (stat.over){
     seat = file0.seat;
@@ -621,9 +647,10 @@ function nextState(){
   return {
     v: 1,
     history: history.slice(),
+    resigned: resigned || null,
     armed: !over,
-    seat: over ? (seat || null) : game.pos.turn,
-    chain: chainOf(history)
+    seat: over ? (seat ? other(seat) : game.pos.turn) : game.pos.turn,
+    chain: chainOf(history, resigned)
   };
 }
 
@@ -647,12 +674,19 @@ function fileName(st){
 }
 
 function shareText(st){
-  if (!st.armed) return "Share Chess — the game is over. Open the file in a browser to see it.";
+  if (!st.armed){
+    const tail = " Open the file in a browser to see the finish, then start the next game.";
+    if (stat.result === "1/2-1/2")
+      return "Share Chess — drawn: " + stat.why.toLowerCase() + "." + tail;
+    const theyWon = (stat.result === "1-0") === (st.seat === "w");
+    return "Share Chess — " + (theyWon ? "I resign, you win." : stat.why + ", you lose.") + tail;
+  }
   if (!st.history.length) return "Share Chess — a challenge. You play White, so you open. " +
     "Put the file in a browser, make one move, then send it back to me.";
   return "Share Chess — your move. " + COLOR_NAME[st.seat] + " to play after " +
-    st.history.length + " move" + (st.history.length === 1 ? "" : "s") +
-    ". Open the file in a browser, make one move, then send it back.";
+    st.history.length + " move" + (st.history.length === 1 ? "" : "s") + "." +
+    (stat.check ? " You are in check." : "") +
+    " Open the file in a browser, make one move, then send it back.";
 }
 
 function download(blob, name){
@@ -679,6 +713,7 @@ async function sendMove(){
     }
   }
   if (!shared) download(blob, name);
+  iSent = true;
   phase = st.armed ? "sent" : "over";
   render();
   toast(shared ? "Sent. The move is theirs now." : "Saved as " + name + " — send that file to them.");
@@ -720,8 +755,20 @@ function commit(mv){
   render();
 }
 
+function askResign(){ confirming = true; render(); }
+
+function doResign(){
+  resigned = seat;
+  stat = resignStat(resigned);
+  confirming = false;
+  selected = -1;
+  phase = "seal";
+  render();
+}
+
 function undoMove(){
-  history.pop();
+  if (resigned) resigned = null;
+  else history.pop();
   game = replay(history);
   stat = gameStatus(game.pos, game.keys);
   selected = -1;
@@ -729,8 +776,23 @@ function undoMove(){
   render();
 }
 
+/* The player who receives a finished game opens the next one, with White. */
+function rematch(){
+  history = [];
+  resigned = null;
+  iSent = false;
+  seat = "w";
+  game = replay(history);
+  stat = gameStatus(game.pos, game.keys);
+  phase = "move";
+  selected = -1;
+  render();
+}
+
 function restart(){
   history = [];
+  resigned = null;
+  iSent = false;
   seat = "b";
   game = replay(history);
   stat = gameStatus(game.pos, game.keys);
@@ -825,8 +887,10 @@ function statusHTML(){
     l1 = "Waiting for their move";
     l2 = "This copy has already been passed on. Open the file they send back to play your next move.";
   } else if (phase === "over"){
-    l1 = stat.head;
-    l2 = stat.why + ".";
+    l1 = outcomeLine();
+    l2 = iSent
+      ? stat.why + ". They have the result now, and they open the next game."
+      : stat.why + ". Start the next game whenever you like \u2014 you take White.";
   } else if (phase === "broken"){
     l1 = "This record does not add up";
     l2 = "The move log has been altered or damaged, so play cannot continue from it.";
@@ -844,14 +908,16 @@ function actionsHTML(){
   }
   if (phase === "move"){
     return '<div class="actions"><button class="btn" disabled>Send your move</button>' +
+      '<button class="btn-quiet" id="resign">Resign</button>' +
       '<p class="hint">The button wakes up once you have moved. Your move is not final until you send it.</p></div>';
   }
   if (phase === "seal"){
     const label = stat.over ? "Send the finished game" : "Send your move";
     let out = '<div class="actions"><button class="btn" id="send">' + label + "</button>";
-    if (history.length) out += '<button class="btn-quiet" id="undo">Take it back</button>';
+    if (history.length || resigned)
+      out += '<button class="btn-quiet" id="undo">' + (resigned ? "Play on after all" : "Take it back") + "</button>";
     out += '<p class="hint">' + (stat.over
-      ? "The game is decided. Sending lets them see how it finished."
+      ? "The game is decided. Sending is how they find out, and it is their turn to open the next game."
       : "Sending hands the next move to " + COLOR_NAME[game.pos.turn] +
         ". This copy will not let you move again.") + "</p></div>";
     return out;
@@ -862,7 +928,12 @@ function actionsHTML(){
       '<p class="hint">Use this if the file never arrived. It is the same position, so it cannot buy you a second move.</p></div>';
   }
   if (phase === "over"){
-    return '<div class="actions"><button class="btn" id="newgame">Challenge somebody again</button></div>';
+    if (iSent){
+      return '<div class="actions"><button class="btn-quiet" id="newgame">Challenge somebody new</button>' +
+        '<p class="hint">Sent. The next game is theirs to open.</p></div>';
+    }
+    return '<div class="actions"><button class="btn" id="rematch">Play again \u2014 you take White</button>' +
+      '<p class="hint">You move first this time. Make your move, then send it over.</p></div>';
   }
   if (phase === "broken"){
     return '<div class="actions"><button class="btn" id="newgame">Challenge somebody again</button></div>';
@@ -875,7 +946,9 @@ function howHTML(){
     '<ol><li>The whole game lives in this one file: every move played, whose turn it is, and a single permission slip that says one move may be made here. A brand-new file holds no permission, so you send it before anyone can play.</li>' +
     '<li>Making your move spends that permission. This copy will not let you move twice.</li>' +
     '<li>Sending writes a fresh file with your move added and the permission handed to the other side, then passes it to whatever you share with \u2014 messages, mail, a chat app.</li>' +
-    '<li>Your opponent opens that file, moves once, and sends it back.</li></ol>' +
+    '<li>Your opponent opens that file, moves once, and sends it back.</li>' +
+    '<li>Instead of moving you can resign, which finishes the game in the file you send.</li>' +
+    '<li>When a game ends, whoever receives the final file opens the next one and plays White.</li></ol>' +
     '<p>No server, no account, nothing to install. It works offline; the file is the whole game. ' +
     'The move log and a checksum travel with it, so a doctored file usually refuses to open \u2014 but this is a friendly game, not a vault: anyone patient enough with a text editor could still rewrite it.</p>' +
     '</details>';
@@ -883,13 +956,22 @@ function howHTML(){
 
 function metaHTML(){
   return '<div class="card"><h2>Position</h2><div class="meta">' + h(toFEN(game.pos)) +
-    "<br>seal " + h(chainOf(history)) + "</div></div>";
+    "<br>seal " + h(chainOf(history, resigned)) + "</div></div>";
 }
 
 function challengeHTML(){
   return '<div class="challenge"><h2>Challenge somebody</h2>' +
     '<p>Send this file to whoever you want to play. They open it, make the first move as White, ' +
     'and send it back. You play Black.</p></div>';
+}
+
+function confirmHTML(){
+  if (!confirming) return "";
+  return '<div class="modal" id="confirm"><div class="box"><h3>Resign this game?</h3>' +
+    "<p>" + COLOR_NAME[other(seat)] + " wins. The file you send says so, and they get to open " +
+    "the next game.</p>" +
+    '<div class="confirm-row"><button class="btn" id="resign-yes">Resign</button>' +
+    '<button class="btn-quiet" id="resign-no">Keep playing</button></div></div></div>';
 }
 
 function promoHTML(){
@@ -912,13 +994,14 @@ function render(){
       howHTML() + '</div><div class="side">' + ledgerHTML() + "</div></div>";
   } else {
     let left = "";
-    if (stat && stat.over) left += '<div class="result"><div class="r">' + h(stat.head) +
-      " &middot; " + h(stat.result) + '</div><div class="d">' + h(stat.why) + "</div></div>";
+    if (stat && stat.over) left += '<div class="result"><div class="r">' + h(outcomeLine()) +
+      '</div><div class="d">' + h(stat.why + " \u00b7 " + stat.head + " \u00b7 " + stat.result) +
+      "</div></div>";
     if (phase === "broken") left += '<div class="banner">The move log in this file does not replay into a legal game. ' +
       'Nobody can carry on from here \u2014 ask for the last good file, or start fresh.</div>';
     left += statusHTML() + boardHTML() + actionsHTML() + howHTML();
     app.innerHTML = '<div class="cols"><div>' + left + '</div><div class="side">' +
-      ledgerHTML() + metaHTML() + "</div></div>" + promoHTML();
+      ledgerHTML() + metaHTML() + "</div></div>" + promoHTML() + confirmHTML();
   }
   wire();
 }
@@ -942,6 +1025,15 @@ function wire(){
   if (send) send.addEventListener("click", sendMove);
   const resend = document.getElementById("resend");
   if (resend) resend.addEventListener("click", sendMove);
+  const rsn = document.getElementById("resign");
+  if (rsn) rsn.addEventListener("click", askResign);
+  const rmt = document.getElementById("rematch");
+  if (rmt) rmt.addEventListener("click", rematch);
+  const cf = document.getElementById("confirm");
+  if (cf) cf.addEventListener("click", e => {
+    if (e.target.id === "resign-yes") doResign();
+    else if (e.target.id === "resign-no" || e.target.id === "confirm"){ confirming = false; render(); }
+  });
   const undo = document.getElementById("undo");
   if (undo) undo.addEventListener("click", undoMove);
   const ng = document.getElementById("newgame");
