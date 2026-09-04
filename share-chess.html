@@ -195,6 +195,14 @@ details p b{color:var(--parch);font-weight:600}
 details ol{font-size:13.5px;line-height:1.65;color:var(--parch-dim);padding-left:20px;max-width:66ch}
 
 /* new game */
+.noapp{
+  border:1px solid var(--brass);border-left-width:3px;border-radius:3px;
+  padding:16px 18px;margin-bottom:14px;
+}
+.noapp h2{font-family:var(--serif);font-size:20px;font-weight:600;margin:0 0 8px}
+.noapp p{margin:0;font-size:14px;line-height:1.6;color:var(--parch-dim);max-width:60ch}
+.noapp p + p{margin-top:9px}
+.noapp .steps{font-family:var(--mono);font-size:12.5px;color:var(--parch);line-height:1.7}
 .challenge{
   border:1px solid var(--edge);border-left:3px solid var(--brass);
   border-radius:3px;padding:16px 18px;margin-bottom:14px;
@@ -245,11 +253,17 @@ details ol{font-size:13.5px;line-height:1.65;color:var(--parch-dim);padding-left
   <header>
     <div class="head-row">
       <h1>Share Chess</h1>
-      <!-- BUILD --><span class="build" title="build 2026-09-04 17:44 UTC">1788543893</span><!-- /BUILD -->
+      <!-- BUILD --><span class="build" title="build 2026-09-04 22:48 UTC">1788562117</span><!-- /BUILD -->
     </div>
     <p class="tag">One move per file. Send it on, and the move becomes theirs to make.</p>
   </header>
-  <div id="app"></div>
+  <div id="app"><div class="noapp">
+    <h2>Open this in a browser</h2>
+    <p>No board below? You are looking at a file preview, and previews cannot run the game.
+       The file is fine — it just needs a real browser.</p>
+    <p class="steps">Share icon &rarr; Save to Files &rarr; open the Files app &rarr; tap the file.</p>
+    <p>On Android: save it, then open it with Chrome. On a computer, double-click the saved file.</p>
+  </div></div>
 </div>
 
 <script>
@@ -901,9 +915,9 @@ function statusHTML(){
 function actionsHTML(){
   if (phase === "challenge"){
     return '<div class="actions"><button class="btn" id="send">Send the challenge</button>' +
-      '<p class="hint">Pick something that carries attachments \u2014 Mail, AirDrop, or a drive. Messages ' +
-      'and most chat apps quietly drop .html files. Nothing happens on this copy until a played ' +
-      'file comes back.</p></div>';
+      '<p class="hint">Most apps carry it fine \u2014 WhatsApp, Mail, AirDrop, a drive. Tell them to save ' +
+      'it and open it in a browser: tapping it in a chat shows a preview that cannot run the game. ' +
+      'Nothing happens on this copy until a played file comes back.</p></div>';
   }
   if (phase === "move"){
     return '<div class="actions"><button class="btn" disabled>Send your move</button>' +
@@ -925,9 +939,10 @@ function actionsHTML(){
     return '<div class="actions"><button class="btn" disabled>Waiting for ' + COLOR_NAME[game.pos.turn] + "</button>" +
       '<button class="btn-quiet" id="resend">Send this copy again</button>' +
       '<button class="btn-quiet" id="save">Save the file</button>' +
-      '<p class="hint">If no file arrived, the app stripped it \u2014 Messages and most chat apps refuse ' +
-      '.html attachments. Save the file and send it by Mail, AirDrop or a drive instead. Both ' +
-      'buttons produce the same position, so neither can buy you a second move.</p></div>';
+      '<p class="hint">If they see a blank page, they are in a preview \u2014 it has to be saved and ' +
+      'opened in a browser. If no file arrived at all, the app stripped it: save it here and send ' +
+      'it by Mail or AirDrop instead. Both buttons produce the same position, so neither can buy ' +
+      'you a second move.</p></div>';
   }
   if (phase === "over"){
     if (iSent){
@@ -953,10 +968,10 @@ function howHTML(){
     '<li>Your opponent opens that file, moves once, and sends it back.</li>' +
     '<li>Instead of moving you can resign, which finishes the game in the file you send.</li>' +
     '<li>When a game ends, whoever receives the final file opens the next one and plays White.</li></ol>' +
-    '<p><b>On iPhone:</b> tapping the file in Messages or Mail opens a preview that cannot send it ' +
-    'back. Save it first \u2014 share sheet, then Save to Files \u2014 and open it from Files in Safari. ' +
-    'When you send, Save to Files, Mail and AirDrop all carry the attachment; Messages often ' +
-    'delivers the note and quietly drops it.</p>' +
+    '<p><b>Opening a file you receive:</b> tapping it in WhatsApp, Messages or Mail shows a preview, ' +
+    'and previews do not run JavaScript \u2014 you will see the title and a blank page. Save the file ' +
+    'first, then open it from your files app so it lands in a real browser. On iPhone that is the ' +
+    'share icon, then Save to Files, then tap it in Files.</p>' +
     '<p>No server, no account, nothing to install. It works offline; the file is the whole game. ' +
     'The move log and a checksum travel with it, so a doctored file usually refuses to open \u2014 but this is a friendly game, not a vault: anyone patient enough with a text editor could still rewrite it.</p>' +
     '</details>';
@@ -1060,7 +1075,12 @@ function wire(){
   });
 }
 
-boot();
+try {
+  boot();
+} catch (err){
+  document.getElementById("app").innerHTML =
+    '<div class="banner">This file could not be opened. Ask the other player to send their copy again.</div>';
+}
 </script>
 </body>
 </html>
