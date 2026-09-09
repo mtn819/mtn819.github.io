@@ -209,6 +209,7 @@
   <div class="row"><span>Open a different PDF</span><button class="mini" id="openB">Open</button></div>
   <div class="row"><span>Export a marked PDF</span><button class="mini" id="expP">Export</button></div>
   <div class="row"><span>Fullscreen</span><button class="mini" id="full">Enter</button></div>
+  <div class="row"><span>Warn before closing this tab</span><button class="mini" id="guardB">On</button></div>
 
   <h2>Markings</h2>
   <div class="row"><span>Erase every mark on this page</span><button class="mini danger" id="clearPg">Clear</button></div>
@@ -284,7 +285,8 @@ var S = {
   zoom: 1, rendered: 1, zt: null,
   marks: {}, bookmarks: [], undo: [], slots: [], tasks: [],
   cache: new Map(), pending: new Map(), pf: null,
-  pedal: null, learning: null
+  pedal: null, learning: null,
+  guard: true, dirty: false
 };
 
 var $ = function (id) { return document.getElementById(id); };
@@ -313,14 +315,19 @@ function download(blob, filename) {
   setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
 }
 function baseName() {
-  return S.name.replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '').trim() || 'score';
+  return S.name
+    .replace(/\.pdf$/i, '')
+    .replace(/\.notml$/i, '')          // reopened export
+    .replace(/-\d{8}-\d{4}$/, '')      // and its timestamp, so names don't pile up
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .trim() || 'score';
 }
 function stamp() {
   var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
   return String(d.getFullYear()) + p(d.getMonth() + 1) + p(d.getDate()) +
          '-' + p(d.getHours()) + p(d.getMinutes());
 }
-function outName(ext) { return 'notml-' + baseName() + '-' + stamp() + '.' + ext; }
+function outName(ext) { return baseName() + '-' + stamp() + '.notml.' + ext; }
 
 /* ---------- library bootstrap ---------- */
 function loadScript(src) {
@@ -362,6 +369,8 @@ async function openBytes(bytes, name, restore) {
   S.pedal = (restore && restore.pedal) || null;
   S.undo = [];
   S.zoom = S.rendered = 1;
+  S.guard = !restore || restore.guard !== false;
+  S.dirty = false;
   cancelTasks(); dropCache(); S.pending = new Map();
 
   S.page = clamp(((restore && restore.page + 1) || 1) - 1, 0, S.pages - 1);
@@ -369,6 +378,7 @@ async function openBytes(bytes, name, restore) {
   document.body.classList.add('loaded');
   busy(false);
   paintPedal();
+  paintGuard();
   paintBookmarks();
   await render();
 }
@@ -578,6 +588,8 @@ function resetZoom() {
   clearTimeout(S.zt);
   if (S.zoom === 1 && S.rendered === 1) return;
   S.zoom = S.rendered = 1;
+  S.guard = !restore || restore.guard !== false;
+  S.dirty = false;
   dropCache();
   render();
 }
@@ -654,6 +666,7 @@ function undo() {
   if (!u) { toast('Nothing to undo.'); return; }
   var arr = JSON.parse(u.before);
   if (arr.length) S.marks[u.page] = arr; else delete S.marks[u.page];
+  S.dirty = true;
   S.slots.forEach(function (s) { if (s.index === u.page) redraw(s); });
 }
 
@@ -671,7 +684,7 @@ function bindInk(slot) {
     for (var i = list.length - 1; i >= 0; i--) {
       if (near(list[i], pt, rad + list[i].w / 2)) { list.splice(i, 1); hit = true; }
     }
-    if (hit) { if (!list.length) delete S.marks[slot.index]; redraw(slot); dirty = true; }
+    if (hit) { if (!list.length) delete S.marks[slot.index]; redraw(slot); dirty = true; S.dirty = true; }
   }
   function abortStroke() {
     if (live) {
@@ -749,6 +762,7 @@ function bindInk(slot) {
     erasing = false;
     if (live && live.p.length === 2) redraw(slot);
     if (active && !dirty) S.undo.pop();
+    if (dirty) S.dirty = true;
     live = null; last = null;
     try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
   }
@@ -838,7 +852,7 @@ async function saveHtml() {
   }
 
   var data = {
-    v: 3, name: S.name, page: S.page, pedal: S.pedal,
+    v: 4, name: S.name, page: S.page, pedal: S.pedal, guard: S.guard,
     marks: S.marks, bookmarks: S.bookmarks, pdf: b64(S.bytes)
   };
   var pay = clone.ownerDocument.createElement('script');
@@ -848,6 +862,7 @@ async function saveHtml() {
 
   var html = '<!DOCTYPE html>\n' + clone.outerHTML;
   download(new Blob([html], { type: 'text/html' }), outName('html'));
+  S.dirty = false;
   busy(false);
   toast(offline ? 'Saved. That file opens on its own, offline.'
                 : 'Saved, but the PDF engine could not be bundled — the copy needs internet.', 4200);
@@ -947,6 +962,17 @@ async function printPdf(win) {
   busy(false);
 }
 
+/* ---------- closing guard ----------
+   A stray Ctrl+W mid-performance should cost a confirmation, not the score. */
+window.addEventListener('beforeunload', function (e) {
+  if (!S.doc) return;
+  if (!S.guard && !S.dirty) return;
+  e.preventDefault();
+  e.returnValue = '';        // browsers show their own wording, not ours
+  return '';
+});
+function paintGuard() { $('guardB').textContent = S.guard ? 'On' : 'Off'; }
+
 /* ---------- bookmarks ----------
    Held in the file itself rather than the browser, so they survive a save. */
 function bookmarkAt(p) {
@@ -973,6 +999,7 @@ function paintBookmarks() {
     x.addEventListener('click', function () {
       var at = bookmarkAt(bm.p);
       if (at >= 0) S.bookmarks.splice(at, 1);
+      S.dirty = true;
       paintBookmarks();
     });
     row.appendChild(jump); row.appendChild(x);
@@ -997,6 +1024,7 @@ function addBookmark(label) {
     S.bookmarks.push({ p: target, t: (label || '').trim() });
     toast('Page ' + (target + 1) + ' bookmarked.');
   }
+  S.dirty = true;
   paintBookmarks();
 }
 
@@ -1144,13 +1172,21 @@ $('bmkLabel').addEventListener('keydown', function (e) {
   e.stopPropagation();
   if (e.key === 'Enter') { addBookmark(this.value); this.value = ''; }
 });
+$('guardB').addEventListener('click', function () {
+  S.guard = !S.guard;
+  paintGuard();
+  toast(S.guard ? 'You will be asked before this tab closes.'
+                : 'Closing will still be confirmed if you have unsaved markings.', 3200);
+});
 $('learn').addEventListener('click', learnPedal);
 $('clearPg').addEventListener('click', function () {
   S.slots.forEach(function (s) { snapshot(s.index); delete S.marks[s.index]; redraw(s); });
+  S.dirty = true;
   toast('Page cleared.');
 });
 $('clearAll').addEventListener('click', function () {
   S.marks = {}; S.undo = [];
+  S.dirty = true;
   S.slots.forEach(function (s) { redraw(s); });
   toast('All markings cleared.');
 });
@@ -1170,7 +1206,8 @@ async function boot() {
   try {
     var d = JSON.parse(el.textContent);
     await openBytes(unb64(d.pdf), d.name,
-      { page: d.page, marks: d.marks || {}, bookmarks: d.bookmarks || [], pedal: d.pedal });
+      { page: d.page, marks: d.marks || {}, bookmarks: d.bookmarks || [],
+        pedal: d.pedal, guard: d.guard });
   } catch (e) {
     busy(false);
     toast('The music stored in this file could not be read.', 5000);
