@@ -30,7 +30,7 @@
   #viewer::-webkit-scrollbar{display:none}
   #sizer{position:relative;margin:auto;flex:none}
   #stage{position:absolute;top:0;left:0;transform-origin:0 0;display:flex;align-items:center;gap:14px;padding:14px}
-  .pg{position:relative;background:#fff;box-shadow:var(--paper-shadow);border-radius:2px;overflow:hidden}
+  .pg{position:relative;flex:none;background:#fff;box-shadow:var(--paper-shadow);border-radius:2px;overflow:hidden}
   .pg canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   .pg .ink{mix-blend-mode:multiply;touch-action:none}
   body:not(.edit) .pg .ink{pointer-events:none}
@@ -79,9 +79,13 @@
   body.fs:not(.edit) #viewer,
   body.fs:not(.edit) #edge-l,
   body.fs:not(.edit) #edge-r{top:0}
-  body.fs:not(.edit) #bar{transform:translateY(-100%);opacity:0;pointer-events:none;
-    transition:transform .18s ease,opacity .18s ease}
-  body.fs.peek:not(.edit) #bar{transform:none;opacity:1;pointer-events:auto}
+  body.fs:not(.edit) #bar{display:none}
+  #fsExit{position:fixed;top:10px;left:10px;z-index:55;display:none;
+    width:30px;height:30px;padding:0;border-radius:8px;cursor:pointer;
+    place-items:center;color:var(--ink);
+    background:rgba(23,26,32,.7);border:1px solid var(--edge);backdrop-filter:blur(10px)}
+  #fsExit:hover{background:rgba(35,40,48,.86)}
+  body.fs:not(.edit) #fsExit{display:grid}
 
   /* ---- panels ---- */
   .sheet{position:fixed;z-index:60;top:50px;right:8px;width:min(370px,calc(100vw - 16px));
@@ -166,6 +170,9 @@
 <div id="viewer"><div id="sizer"><div id="stage"></div></div></div>
 <div id="edge-l"></div><div id="edge-r"></div>
 <div id="frame"></div>
+<button id="fsExit" title="Exit fullscreen (Esc)" aria-label="Exit fullscreen">
+  <svg class="ic" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+</button>
 
 <header id="bar">
   <button class="btn when-view" id="editT" title="Mark up the music (E)">
@@ -214,7 +221,7 @@
     <button class="mini" id="bmkAdd">Add page</button>
   </div>
   <div id="bmkList"></div>
-  <p>Bookmarks live inside this file, so they travel with it when you save and still work offline.</p>
+  <p>Bookmarks live inside this file, so they travel with it when you save. The address bar also tracks the page, so browser bookmarks work as long as this file stays where it is.</p>
 </div>
 
 <div class="sheet" id="panel" hidden>
@@ -241,9 +248,9 @@
   <div class="row"><span>Back to full page</span><span class="key">0</span></div>
   <div class="row"><span>Undo the last mark</span><span class="key">Ctrl+Z</span></div>
   <div class="row"><span>Fullscreen</span><span class="key">F or F11</span></div>
-  <div class="row"><span>Print</span><span class="key">P</span></div>
+  <div class="row"><span>Print</span><span class="key">P or Ctrl+P</span></div>
   <div class="row"><span>Bookmark this page</span><span class="key">M</span></div>
-  <p>Saving writes a new copy of this page holding the music and your markings. It opens offline, on any browser, at the page you left.</p>
+  <p>Ctrl+S saves. Saving writes a new copy of this page holding the music and your markings. It opens offline, on any browser, at the page you left.</p>
 </div>
 
 <div id="welcome">
@@ -392,7 +399,8 @@ async function openBytes(bytes, name, restore) {
   S.dirty = false;
   cancelTasks(); dropCache(); S.pending = new Map();
 
-  S.page = clamp(((restore && restore.page + 1) || 1) - 1, 0, S.pages - 1);
+  var start = hashPage() || (restore && restore.page + 1) || 1;
+  S.page = clamp(start - 1, 0, S.pages - 1);
 
   document.body.classList.add('loaded');
   busy(false);
@@ -537,6 +545,7 @@ async function render() {
   if (S.zoom > 1) { viewer.scrollLeft = sl; viewer.scrollTop = st; }
   else viewer.scrollTo(0, 0);
   paintWhere();
+  syncHash();
   if (S.zoom === 1) prefetch(token);
 }
 render._token = 0;
@@ -570,11 +579,25 @@ function prefetch(token) {
    S.rendered is the scale baked into the canvases; S.zoom is what the eye sees.
    Gestures move S.zoom instantly with a transform, then the pages are redrawn
    sharp at the new scale once the fingers settle. */
+/* The stage is absolutely positioned inside the sizer, so offsetWidth returns a
+   value clamped by whatever the sizer currently is. Size it from the pages. */
+function stageSize() {
+  var pad = 28, gap = 14, w = pad, h = 0;
+  for (var i = 0; i < S.slots.length; i++) {
+    w += S.slots[i].W + (i ? gap : 0);
+    if (S.slots[i].H > h) h = S.slots[i].H;
+  }
+  return { w: w, h: h + pad };
+}
+
 function applyTransform() {
   var k = S.zoom / S.rendered;
+  var n = stageSize();
+  stage.style.width = n.w + 'px';
+  stage.style.height = n.h + 'px';
   stage.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';
-  sizer.style.width = Math.round(stage.offsetWidth * k) + 'px';
-  sizer.style.height = Math.round(stage.offsetHeight * k) + 'px';
+  sizer.style.width = Math.round(n.w * k) + 'px';
+  sizer.style.height = Math.round(n.h * k) + 'px';
 }
 
 function zoomTo(z, cx, cy) {
@@ -605,11 +628,10 @@ function settleZoom() {
 
 function resetZoom() {
   clearTimeout(S.zt);
-  if (S.zoom === 1 && S.rendered === 1) return;
   S.zoom = S.rendered = 1;
-  S.guard = !restore || restore.guard !== false;
-  S.dirty = false;
+  stage.style.transform = 'none';
   dropCache();
+  viewer.scrollTo(0, 0);
   render();
 }
 
@@ -645,6 +667,24 @@ function flash(id) {
   var e = $(id); e.classList.add('on');
   setTimeout(function () { e.classList.remove('on'); }, 160);
 }
+
+/* ---------- the address bar follows the page ----------
+   Good for browser bookmarks and the back button while this file stays put.
+   The in-file bookmarks are what survive a save. */
+function hashPage() {
+  var m = /[#&]p=(\d+)/.exec(location.hash || '');
+  return m ? parseInt(m[1], 10) : 0;
+}
+function syncHash() {
+  var want = '#p=' + (S.page + 1);
+  if (location.hash === want) return;
+  try { history.replaceState(null, '', want); }
+  catch (e) { location.hash = want; }
+}
+window.addEventListener('hashchange', function () {
+  var n = hashPage();
+  if (n && S.doc && n - 1 !== S.page) jumpTo(n);
+});
 
 /* ---------- marks ---------- */
 function redraw(slot) {
@@ -810,9 +850,7 @@ function setEdit(on) {
   if (S.edit === on) return;
   S.edit = on;
   document.body.classList.toggle('edit', on);
-  document.body.classList.remove('peek');
-  var zoomed = S.zoom !== 1 || S.rendered !== 1;
-  if (!on && zoomed) resetZoom();
+  if (!on) resetZoom();
   else if (document.fullscreenElement) { dropCache(); render(); }
   if (on) toast('Marking up. Pinch or ctrl+scroll to zoom in.', 2600);
 }
@@ -1074,6 +1112,23 @@ function learnPedal() {
   };
 }
 
+/* Claimed on the capture phase so the browser's own Save and Print never run,
+   and so a focused text field cannot swallow them either. */
+window.addEventListener('keydown', function (e) {
+  if (S.learning) return;
+  if (!S.doc) return;              // on the opening screen these stay the browser's,
+                                   // so Ctrl+S can save this file itself
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  var code = e.code || e.key;
+  if (code === 'KeyS') {
+    e.preventDefault(); e.stopPropagation();
+    saveHtml();
+  } else if (code === 'KeyP') {
+    e.preventDefault(); e.stopPropagation();
+    printPdf(window.open('', '_blank'));
+  }
+}, true);
+
 document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') return;
@@ -1081,9 +1136,7 @@ document.addEventListener('keydown', function (e) {
 
   if (S.learning) { e.preventDefault(); S.learning(code); return; }
 
-  if ((e.ctrlKey || e.metaKey) && code === 'KeyS') { e.preventDefault(); saveHtml(); return; }
   if ((e.ctrlKey || e.metaKey) && code === 'KeyZ') { e.preventDefault(); undo(); return; }
-  if ((e.ctrlKey || e.metaKey) && code === 'KeyP') { e.preventDefault(); printPdf(window.open('', '_blank')); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
   if (pedalSet('next').indexOf(code) >= 0) { e.preventDefault(); go(1, e.shiftKey); return; }
@@ -1114,10 +1167,6 @@ document.addEventListener('keydown', function (e) {
 /* ---------- pointer on the paper ---------- */
 viewer.addEventListener('click', function (e) {
   if (S.edit || !S.doc) return;
-  if (document.body.classList.contains('fs') && e.clientY < 44) {
-    peek(!document.body.classList.contains('peek'));
-    return;
-  }
   go(e.clientX < window.innerWidth / 2 ? -1 : 1);
 });
 viewer.addEventListener('wheel', function (e) {
@@ -1136,22 +1185,9 @@ document.addEventListener('fullscreenchange', function () {
   var on = !!document.fullscreenElement;
   $('full').textContent = on ? 'Leave' : 'Enter';
   document.body.classList.toggle('fs', on);
-  document.body.classList.remove('peek');
   setTimeout(function () { dropCache(); render(); }, 90);
 });
 
-/* The shelf is out of reach in fullscreen, so the top edge summons it. */
-function peek(on) {
-  if (!document.body.classList.contains('fs') || S.edit) return;
-  document.body.classList.toggle('peek', on);
-  clearTimeout(peek._t);
-  if (on) peek._t = setTimeout(function () { document.body.classList.remove('peek'); }, 3600);
-}
-window.addEventListener('pointermove', function (e) {
-  if (e.clientY <= 4) peek(true);
-});
-$('bar').addEventListener('pointerenter', function () { peek(true); });
-$('bar').addEventListener('pointerleave', function () { peek(false); });
 
 /* ---------- resize ---------- */
 var rz;
@@ -1186,6 +1222,7 @@ $('prev').addEventListener('click', function () { go(-1); });
 $('next').addEventListener('click', function () { go(1); });
 $('pageIn').addEventListener('focus', function () { this.select(); });
 $('pageIn').addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.metaKey) return;
   if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
   if (e.key === 'Escape') { e.preventDefault(); paintWhere(); this.blur(); }
   e.stopPropagation();
@@ -1199,6 +1236,7 @@ $('printB').addEventListener('click', function () { printPdf(window.open('', '_b
 $('expP').addEventListener('click', function () { $('panel').hidden = true; exportPdf(); });
 $('full').addEventListener('click', function () { $('panel').hidden = true; toggleFull(); });
 $('fullB').addEventListener('click', toggleFull);
+$('fsExit').addEventListener('click', toggleFull);
 $('cog').addEventListener('click', function () {
   $('bmkPanel').hidden = true;
   $('panel').hidden = !$('panel').hidden;
@@ -1212,6 +1250,7 @@ $('bmkAdd').addEventListener('click', function () {
   addBookmark($('bmkLabel').value); $('bmkLabel').value = '';
 });
 $('bmkLabel').addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.metaKey) return;
   e.stopPropagation();
   if (e.key === 'Enter') { addBookmark(this.value); this.value = ''; }
 });
