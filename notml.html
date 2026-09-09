@@ -74,6 +74,15 @@
     border:2px solid var(--mark);border-top-width:0}
   body.edit #frame{display:block}
 
+  /* Fullscreen while playing: no shelf at all, every pixel is music.
+     The shelf comes back on its own while marking up, where it is needed. */
+  body.fs:not(.edit) #viewer,
+  body.fs:not(.edit) #edge-l,
+  body.fs:not(.edit) #edge-r{top:0}
+  body.fs:not(.edit) #bar{transform:translateY(-100%);opacity:0;pointer-events:none;
+    transition:transform .18s ease,opacity .18s ease}
+  body.fs.peek:not(.edit) #bar{transform:none;opacity:1;pointer-events:auto}
+
   /* ---- panels ---- */
   .sheet{position:fixed;z-index:60;top:50px;right:8px;width:min(370px,calc(100vw - 16px));
     max-height:calc(100dvh - 62px);overflow:auto;
@@ -111,6 +120,8 @@
   #welcome{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:24px;
     background:radial-gradient(120% 90% at 50% 0%,#1b1f26,#0d0f13 70%)}
   body.loaded #welcome{display:none}
+  #build{position:absolute;top:10px;right:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:11px;color:rgba(255,255,255,.32);letter-spacing:.02em;user-select:text}
   body[data-embedded] #welcome{display:none}
   body[data-embedded] #busy{display:grid}
   .intro{max-width:430px}
@@ -163,6 +174,8 @@
     <svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
   <button class="btn when-view" id="bmkB" aria-pressed="false" title="Bookmarks (M)">
     <svg class="ic" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-5-6 5V3z"/></svg></button>
+  <button class="btn when-view" id="fullB" title="Fullscreen (F)">
+    <svg class="ic" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   <button class="btn when-view" id="printB" title="Print (P)">
     <svg class="ic" viewBox="0 0 24 24"><path d="M7 9V3h10v6"/><path d="M5 9h14a2 2 0 0 1 2 2v5h-4v4H7v-4H3v-5a2 2 0 0 1 2-2z"/></svg></button>
 
@@ -234,6 +247,7 @@
 </div>
 
 <div id="welcome">
+  <span id="build" title="build time"></span>
   <div class="intro">
     <h1>notml</h1>
     <p class="sub">Sheet music that turns pages when your foot says so.</p>
@@ -258,6 +272,11 @@
 <script>
 (function () {
 'use strict';
+
+/* Unix time this file was built. Bump it on every deploy — it is printed in the
+   corner of the opening screen, so you can tell at a glance whether the copy
+   github.io is serving is the one you just pushed. */
+var BUILD = 1788919886;
 
 var CDN = {
   pdfjs:  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
@@ -791,8 +810,11 @@ function setEdit(on) {
   if (S.edit === on) return;
   S.edit = on;
   document.body.classList.toggle('edit', on);
-  if (!on) resetZoom();
-  else toast('Marking up. Pinch or ctrl+scroll to zoom in.', 2600);
+  document.body.classList.remove('peek');
+  var zoomed = S.zoom !== 1 || S.rendered !== 1;
+  if (!on && zoomed) resetZoom();
+  else if (document.fullscreenElement) { dropCache(); render(); }
+  if (on) toast('Marking up. Pinch or ctrl+scroll to zoom in.', 2600);
 }
 function setTool(name) {
   S.tool = name;
@@ -1092,6 +1114,10 @@ document.addEventListener('keydown', function (e) {
 /* ---------- pointer on the paper ---------- */
 viewer.addEventListener('click', function (e) {
   if (S.edit || !S.doc) return;
+  if (document.body.classList.contains('fs') && e.clientY < 44) {
+    peek(!document.body.classList.contains('peek'));
+    return;
+  }
   go(e.clientX < window.innerWidth / 2 ? -1 : 1);
 });
 viewer.addEventListener('wheel', function (e) {
@@ -1107,9 +1133,25 @@ function toggleFull() {
   else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
 }
 document.addEventListener('fullscreenchange', function () {
-  $('full').textContent = document.fullscreenElement ? 'Leave' : 'Enter';
+  var on = !!document.fullscreenElement;
+  $('full').textContent = on ? 'Leave' : 'Enter';
+  document.body.classList.toggle('fs', on);
+  document.body.classList.remove('peek');
   setTimeout(function () { dropCache(); render(); }, 90);
 });
+
+/* The shelf is out of reach in fullscreen, so the top edge summons it. */
+function peek(on) {
+  if (!document.body.classList.contains('fs') || S.edit) return;
+  document.body.classList.toggle('peek', on);
+  clearTimeout(peek._t);
+  if (on) peek._t = setTimeout(function () { document.body.classList.remove('peek'); }, 3600);
+}
+window.addEventListener('pointermove', function (e) {
+  if (e.clientY <= 4) peek(true);
+});
+$('bar').addEventListener('pointerenter', function () { peek(true); });
+$('bar').addEventListener('pointerleave', function () { peek(false); });
 
 /* ---------- resize ---------- */
 var rz;
@@ -1156,6 +1198,7 @@ $('saveH').addEventListener('click', saveHtml);
 $('printB').addEventListener('click', function () { printPdf(window.open('', '_blank')); });
 $('expP').addEventListener('click', function () { $('panel').hidden = true; exportPdf(); });
 $('full').addEventListener('click', function () { $('panel').hidden = true; toggleFull(); });
+$('fullB').addEventListener('click', toggleFull);
 $('cog').addEventListener('click', function () {
   $('bmkPanel').hidden = true;
   $('panel').hidden = !$('panel').hidden;
@@ -1196,6 +1239,14 @@ document.addEventListener('click', function (e) {
   if (!$('bmkPanel').hidden && !$('bmkPanel').contains(e.target) && !$('bmkB').contains(e.target))
     $('bmkPanel').hidden = true;
 });
+
+(function stampBuild() {
+  var el = document.getElementById('build');
+  if (!el) return;
+  el.textContent = BUILD;
+  try { el.title = new Date(BUILD * 1000).toISOString().replace('T', ' ').replace(/\..+/, ' UTC'); }
+  catch (e) {}
+})();
 
 /* ---------- boot ----------
    The payload is appended at the end of the body, after this script, so the
