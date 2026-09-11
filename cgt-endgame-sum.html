@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endgame Sum — Combinatorial Game Values for Pawn Endings</title>
+<style>
+  :root{
+    --bg:#1c2422;
+    --panel:#222b28;
+    --panel-line:#3c4a45;
+    --ink:#e9e4d6;
+    --ink-dim:#93a49c;
+    --white-acc:#d9b45c;
+    --black-acc:#7fa4c9;
+    --star-acc:#c98a6b;
+    --line:#3c4a45;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 85% -10%, #263531 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    line-height:1.55;
+    padding:36px 20px 90px;
+  }
+  .wrap{max-width:1060px;margin:0 auto;}
+
+  .kicker{
+    font-family:"Courier New",ui-monospace,monospace;
+    font-size:12.5px;
+    letter-spacing:.04em;
+    color:var(--white-acc);
+    margin-bottom:10px;
+  }
+  h1{font-size:32px;font-weight:600;margin:0 0 10px;max-width:640px;}
+  header p{max-width:620px;color:var(--ink-dim);font-size:15.5px;margin:0 0 6px;}
+  header{margin-bottom:32px;}
+
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:26px;}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
+
+  .panel{background:var(--panel);border:1px solid var(--panel-line);border-radius:var(--radius);padding:22px;}
+  .panel + .panel{margin-top:22px;}
+
+  label.field-label{font-size:12.5px;color:var(--ink-dim);display:block;margin-bottom:6px;}
+  input[type=text], input[type=text]:focus, select{
+    width:100%;
+    background:#161c1a;
+    border:1px solid var(--panel-line);
+    color:var(--ink);
+    padding:9px 10px;
+    border-radius:var(--radius);
+    font-family:inherit;
+    font-size:14px;
+    margin-bottom:14px;
+  }
+  input[type=text]{font-family:"Courier New",monospace;}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+  .star-toggle{
+    display:flex;align-items:center;gap:8px;
+    font-size:13.5px;color:var(--ink-dim);
+    margin:-4px 0 14px;
+  }
+  .star-toggle input{width:auto;margin:0;}
+
+  .add-btn{
+    width:100%;
+    background:var(--white-acc);
+    color:#1c1508;
+    border:none;
+    padding:11px;
+    font-weight:600;
+    font-size:14px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .add-btn:hover{filter:brightness(1.07);}
+
+  .hint{font-size:12.5px;color:var(--ink-dim);margin-top:10px;}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  thead th{
+    text-align:left;font-size:11.5px;color:var(--ink-dim);
+    font-weight:600;padding:0 8px 8px 0;
+    border-bottom:1px solid var(--panel-line);
+    font-family:"Courier New",monospace;
+  }
+  tbody td{padding:9px 8px 9px 0;border-bottom:1px solid #2a332f;vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  .val-tag{
+    font-family:"Courier New",monospace;
+    font-size:13.5px;
+    padding:2px 7px;
+    border-radius:10px;
+    display:inline-block;
+  }
+  .val-tag.pos{background:#3a331c;color:var(--white-acc);}
+  .val-tag.neg{background:#1e2c38;color:var(--black-acc);}
+  .val-tag.confused{background:#332319;color:var(--star-acc);}
+  .val-tag.zero{background:#2a332f;color:var(--ink-dim);}
+  .rm-btn{background:none;border:none;color:var(--ink-dim);cursor:pointer;font-size:14px;}
+  .rm-btn:hover{color:#c25c4e;}
+  .empty-row td{color:var(--ink-dim);font-size:13.5px;padding:16px 0;}
+
+  .total-block{margin-top:20px;padding-top:18px;border-top:1px solid var(--panel-line);}
+  .total-label{font-size:12px;color:var(--ink-dim);font-family:"Courier New",monospace;margin-bottom:6px;}
+  .total-value{font-family:"Courier New",monospace;font-size:32px;font-weight:700;}
+  .total-value.pos{color:var(--white-acc);}
+  .total-value.neg{color:var(--black-acc);}
+  .total-value.confused{color:var(--star-acc);}
+  .total-value.zero{color:var(--ink-dim);}
+  .verdict{font-size:14.5px;color:var(--ink-dim);margin-top:10px;max-width:520px;}
+  .verdict strong{color:var(--ink);}
+
+  .mover-select{margin-top:16px;display:none;}
+  .mover-select.show{display:block;}
+  .mover-select .field-label{margin-bottom:8px;}
+
+  .key-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:10px;margin-top:6px;
+  }
+  .key-item{
+    background:#161c1a;border:1px solid var(--panel-line);
+    border-radius:var(--radius);padding:9px 11px;font-size:12.5px;color:var(--ink-dim);
+  }
+  .key-item b{color:var(--ink);font-family:"Courier New",monospace;font-size:14px;display:block;margin-bottom:2px;}
+
+  details{margin-top:26px;}
+  summary{cursor:pointer;font-size:13.5px;color:var(--white-acc);font-family:"Courier New",monospace;padding:4px 0;}
+  .explain{font-size:14.5px;color:var(--ink-dim);margin-top:12px;max-width:760px;}
+  .explain h3{color:var(--ink);font-size:14.5px;margin:18px 0 6px;font-weight:600;}
+  .explain p{margin:0 0 10px;}
+  .explain code{background:#161c1a;padding:1px 5px;border-radius:2px;font-family:"Courier New",monospace;font-size:13px;color:var(--white-acc);}
+  .cite{font-size:12.5px;color:var(--ink-dim);margin-top:16px;border-top:1px solid var(--panel-line);padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">ENDGAME SUM</div>
+    <h1>When a pawn ending splits into separate battles, add up their values</h1>
+    <p>Some king-and-pawn endings fall apart into zones the kings can't cross in time to affect each other. Each zone then has a combinatorial game value — a number, or an infinitesimal like <code>↑</code> or <code>*</code> — and the values simply add. The sign of the sum, not the search tree, tells you who's winning.</p>
+  </header>
+
+  <div class="layout">
+
+    <div class="left-col">
+      <div class="panel">
+        <label class="field-label" for="labelInput">Zone / battle (e.g. "kingside majority")</label>
+        <input type="text" id="labelInput" placeholder="queenside pawns">
+
+        <label class="field-label" for="typeSelect">Combinatorial value of this zone</label>
+        <select id="typeSelect">
+          <option value="number">Number — a clean, settled tempo/material count</option>
+          <option value="star">* (star) — mutual zugzwang, first to move here wins it</option>
+          <option value="up">↑ (up) — infinitesimally good for White, regardless of the move</option>
+          <option value="upstar">↑* (up-star) — like ↑, tangled with a follow-up *</option>
+          <option value="doubleup">⇑ (double-up) — two ups; safely positive on its own</option>
+          <option value="down">↓ (down) — infinitesimally good for Black</option>
+          <option value="downstar">↓* (down-star)</option>
+          <option value="doubledown">⇓ (double-down) — safely negative on its own</option>
+          <option value="customup">custom n·↑ (± *)</option>
+        </select>
+
+        <div id="numberField">
+          <label class="field-label" for="numberInput">Value (integer or a/b, White-positive)</label>
+          <input type="text" id="numberInput" placeholder="e.g. 2  or  1/2  or  -3">
+        </div>
+
+        <div id="customField" style="display:none;">
+          <div class="row2">
+            <div>
+              <label class="field-label" for="customN">n (ups; negative = downs)</label>
+              <input type="text" id="customN" placeholder="e.g. 3 or -2">
+            </div>
+            <div class="star-toggle" style="margin-top:26px;">
+              <input type="checkbox" id="customStar"> <label for="customStar">plus a trailing *</label>
+            </div>
+          </div>
+        </div>
+
+        <button class="add-btn" id="addBtn">Add zone</button>
+        <div class="hint">Positive values favour White; negative favour Black. This is exactly the sign convention Elkies uses for Left/White in his endgame analysis.</div>
+      </div>
+    </div>
+
+    <div class="right-col">
+      <div class="panel">
+        <table>
+          <thead><tr><th>Zone</th><th>Value</th><th></th></tr></thead>
+          <tbody id="rowsBody">
+            <tr class="empty-row"><td colspan="3">No zones added yet — add each independent battle on the board.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="total-block">
+          <div class="total-label">SUM OF ALL ZONES</div>
+          <div class="total-value zero" id="totalValue">0</div>
+          <div class="verdict" id="verdictText">Add at least one zone to see who's winning.</div>
+
+          <div class="mover-select" id="moverSelect">
+            <label class="field-label">This sum is confused with zero — the result depends on who moves first (in this exchange):</label>
+            <select id="moverPick">
+              <option value="white">White moves first</option>
+              <option value="black">Black moves first</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="total-label" style="margin-bottom:10px;">VALUE KEY</div>
+        <div class="key-grid">
+          <div class="key-item"><b>n</b>White is up exactly n tempi/units of material here — settled, no infinitesimals involved.</div>
+          <div class="key-item"><b>*</b>Mutual zugzwang: whoever moves in this zone first wins it, but it's worth nothing extra.</div>
+          <div class="key-item"><b>↑ / ⇑</b>Infinitesimally good for White — White wins this zone no matter who moves, but by less than any fixed number.</div>
+          <div class="key-item"><b>↓ / ⇓</b>The mirror image, favouring Black.</div>
+          <div class="key-item"><b>↑* / ↓*</b>An up (or down) with a star riding on it — same sign, with an extra zugzwang wrinkle.</div>
+          <div class="key-item"><b>0</b>The zone cancels out exactly: a true reserve-tempo standoff.</div>
+        </div>
+      </div>
+
+      <details>
+        <summary>Where this comes from</summary>
+        <div class="explain">
+          <h3>The publication</h3>
+          <p>Noam D. Elkies, <em>"On Numbers and Endgames: Combinatorial Game Theory in Chess Endgames,"</em> in <em>Games of No Chance</em> (R. J. Nowakowski, ed.), MSRI Publications vol. 29, Cambridge University Press, 1996, pp. 135–150 — also on arXiv as math/9905198. Elkies takes John Conway's theory of games and surreal numbers, built for things like Go and Nim, and applies it to king-and-pawn endgames where the board splits into pieces the kings can't reach each other across in time.</p>
+          <h3>Why the arithmetic here is valid</h3>
+          <p>In combinatorial game theory, disjoint games add: the value of a whole position that splits into independent zones is the sum of the zones' values, and only the sign of that sum (not the internal detail of any one zone) decides who wins the sum overall. A nonzero settled number always outweighs any amount of <code>↑</code>/<code>↓</code>/<code>*</code>, because those are infinitesimal by construction — smaller in absolute terms than any positive number, however small. That's why this tool checks the plain number total first, and only falls back to the infinitesimal total, and then to the star, when the level above it is exactly zero. This resolution order is the standard "atomic weight" argument for sums of ups and stars (Berlekamp, Conway & Guy, <em>Winning Ways</em>, and Elkies' paper adapts it directly to pawn races and corresponding-square battles).</p>
+          <h3>What doesn't fit</h3>
+          <p>Elkies is explicit that this only works where the position truly decomposes — most chess positions are far too "hot" and interconnected for their zones to be scored independently; a queenside pawn race and a kingside king hunt in a middlegame don't add like this. The tool assumes you've already identified genuinely independent zones, the way Elkies does in his worked pawn-endgame examples.</p>
+        </div>
+        <div class="cite">Elkies, N. D. (1996). On Numbers and Endgames: Combinatorial Game Theory in Chess Endgames. In R. J. Nowakowski (Ed.), <em>Games of No Chance</em> (MSRI Publications, Vol. 29, pp. 135–150). Cambridge University Press. Also arXiv:math/9905198.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+const typeSelect = document.getElementById('typeSelect');
+const numberField = document.getElementById('numberField');
+const customField = document.getElementById('customField');
+const rowsBody = document.getElementById('rowsBody');
+const totalValueEl = document.getElementById('totalValue');
+const verdictEl = document.getElementById('verdictText');
+const moverSelectWrap = document.getElementById('moverSelect');
+const moverPick = document.getElementById('moverPick');
+
+typeSelect.addEventListener('change', ()=>{
+  const t = typeSelect.value;
+  numberField.style.display = (t==='number') ? 'block':'none';
+  customField.style.display = (t==='customup') ? 'block':'none';
+});
+
+let zones = []; // {label, kind, display, num:{n,d}, up:int, star:bool}
+
+function parseFraction(str){
+  str = str.trim();
+  if(str==='') return null;
+  const neg = str.startsWith('-');
+  if(neg) str = str.slice(1);
+  let n,d;
+  if(str.includes('/')){
+    const parts = str.split('/');
+    n = parseFloat(parts[0]); d = parseFloat(parts[1]);
+  } else {
+    n = parseFloat(str); d = 1;
+  }
+  if(isNaN(n)||isNaN(d)||d===0) return null;
+  const val = (neg?-1:1) * n/d;
+  return val;
+}
+
+const PRESET = {
+  star:      {up:0, star:true,  display:'*'},
+  up:        {up:1, star:false, display:'↑'},
+  upstar:    {up:1, star:true,  display:'↑*'},
+  doubleup:  {up:2, star:false, display:'⇑'},
+  down:      {up:-1,star:false, display:'↓'},
+  downstar:  {up:-1,star:true,  display:'↓*'},
+  doubledown:{up:-2,star:false, display:'⇓'},
+};
+
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const label = document.getElementById('labelInput').value.trim() || 'unnamed zone';
+  const t = typeSelect.value;
+  let zone;
+  if(t==='number'){
+    const raw = document.getElementById('numberInput').value;
+    const val = parseFraction(raw);
+    if(val===null){ alert('Enter a valid number, like 2, -1, or 1/2.'); return; }
+    zone = {label, num:val, up:0, star:false, display: (val>0?'+':'')+trimNum(val)};
+  } else if(t==='customup'){
+    const nRaw = document.getElementById('customN').value;
+    const n = parseInt(nRaw,10);
+    if(isNaN(n)){ alert('Enter an integer number of ups (negative for downs).'); return; }
+    const star = document.getElementById('customStar').checked;
+    zone = {label, num:0, up:n, star, display: upDisplay(n,star)};
+  } else {
+    const p = PRESET[t];
+    zone = {label, num:0, up:p.up, star:p.star, display:p.display};
+  }
+  zones.push(zone);
+  document.getElementById('labelInput').value='';
+  document.getElementById('numberInput').value='';
+  document.getElementById('customN').value='';
+  document.getElementById('customStar').checked=false;
+  renderZones();
+  computeTotal();
+});
+
+function trimNum(v){
+  if(Number.isInteger(v)) return String(v);
+  return (Math.round(v*1000)/1000).toString();
+}
+
+function upDisplay(n,star){
+  if(n===0) return star ? '*' : '0';
+  const arrow = n>0 ? '↑' : '↓';
+  const mag = Math.abs(n);
+  const base = (mag===1) ? arrow : (mag+'·'+arrow);
+  return base + (star?'*':'');
+}
+
+function renderZones(){
+  if(zones.length===0){
+    rowsBody.innerHTML = '<tr class="empty-row"><td colspan="3">No zones added yet — add each independent battle on the board.</td></tr>';
+    return;
+  }
+  rowsBody.innerHTML = zones.map((z,i)=>{
+    const cls = z.num>0 || z.up>0 ? 'pos' : (z.num<0||z.up<0 ? 'neg' : (z.star?'confused':'zero'));
+    return `<tr>
+      <td>${escapeHtml(z.label)}</td>
+      <td><span class="val-tag ${cls}">${z.display}</span></td>
+      <td><button class="rm-btn" data-i="${i}" title="Remove">×</button></td>
+    </tr>`;
+  }).join('');
+  rowsBody.querySelectorAll('.rm-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      zones.splice(parseInt(b.dataset.i,10),1);
+      renderZones();
+      computeTotal();
+    });
+  });
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function computeTotal(){
+  const sumNum = zones.reduce((a,z)=>a+z.num,0);
+  const sumUp = zones.reduce((a,z)=>a+z.up,0);
+  const starParity = zones.reduce((a,z)=>a !== z.star, false); // XOR fold, seeded false
+
+  let display, cls, verdict;
+  moverSelectWrap.classList.remove('show');
+
+  if(sumNum !== 0){
+    display = (sumNum>0?'+':'') + trimNum(sumNum);
+    cls = sumNum>0 ? 'pos':'neg';
+    const who = sumNum>0 ? 'White':'Black';
+    verdict = `<strong>${who}</strong> comes out ahead by this sum regardless of who moves first — a settled nonzero number always outweighs any of the infinitesimal zones.`;
+  } else if(sumUp !== 0){
+    display = upDisplay(sumUp, false);
+    cls = sumUp>0 ? 'pos':'neg';
+    const who = sumUp>0 ? 'White':'Black';
+    verdict = `<strong>${who}</strong> wins the sum regardless of who moves first — the settled numbers cancel exactly, but the leftover infinitesimal (${display}) still has a definite sign.`;
+  } else if(starParity){
+    display = '*';
+    cls = 'confused';
+    moverSelectWrap.classList.add('show');
+    const who = moverPick.value==='white' ? 'White':'Black';
+    verdict = `<strong>Confused with zero.</strong> Everything settled and every up/down has cancelled — only a lone * is left. Whoever moves first in this exchange wins it: with <strong>${who==='White'?'White':'Black'}</strong> to move, <strong>${who}</strong> takes this sum.`;
+  } else {
+    display = '0';
+    cls = 'zero';
+    verdict = `The zones cancel out exactly. This is a genuine reserve-tempo standoff: neither side gains anything from having the move here.`;
+  }
+
+  totalValueEl.textContent = display;
+  totalValueEl.className = 'total-value ' + cls;
+  verdictEl.innerHTML = zones.length===0 ? 'Add at least one zone to see who\'s winning.' : verdict;
+}
+
+moverPick.addEventListener('change', computeTotal);
+
+computeTotal();
+</script>
+</body>
+</html>
